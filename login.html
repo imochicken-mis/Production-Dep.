@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production System — Log in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-hero">
+    <h2>Manage production operations and access accurate management reports from one central platform.</h2>
+  </div>
+  <div class="login-card">
+    <img src="images/logo.png" alt="Company logo" class="company-logo2">
+    <div class="login-brand">
+      <span class="brand-name">Imo Chicken & Agro (Pvt) Ltd</span>
+    </div>
+    <h1>Log in</h1>
+    <p class="sub">Production Department</p>
+
+    <form id="loginForm">
+      <label class="field">
+        <span>Username</span>
+        <input type="text" id="username" required autofocus>
+      </label>
+      <label class="field" style="margin-top:12px">
+        <span>Password</span>
+        <input type="password" id="password" required>
+      </label>
+      <p id="loginError"></p>
+      <button class="btn btn-primary" type="submit">Log in</button>
+      <h3>© 2026 MIS Dep. All rights reserved.</h3>
+    </form>
+  </div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const errorEl = document.getElementById("loginError");
+    errorEl.textContent = "Checking…";
+    try {
+      const res = await Api.login(username, password);
+      if (res.success) {
+        sessionStorage.setItem("qa_user", JSON.stringify({
+          username: res.username,
+          role: res.role,
+          allowedTabs: res.allowedTabs || [],
+          noEditTabs: res.noEditTabs || [],
+          noDeleteTabs: res.noDeleteTabs || [],
+        }));
+        window.location.href = "index.html";
+      } else {
+        errorEl.textContent = "Wrong username or password.";
+      }
+    } catch (err) {
+      errorEl.textContent = "Couldn't reach server: " + err.message;
+    }
+  });
+</script>
+</body>
+</html>

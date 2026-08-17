@@ -1,0 +1,819 @@
+/* ===================================================================
+   DESIGN TOKENS
+   =================================================================== */
+:root{
+  --navy:        #14213D;
+  --steel:       #2D6A6A;
+  --amber:       #E3B23C;
+  --amber-dark:  #C99A28;
+  --green:       #6B9080;
+  --red:         #C0564A;
+  --bg:          #F5F7FA;
+  --card:        #FFFFFF;
+  --text:        #14213D;
+  --muted:       #6B7280;
+  --line:        #E4E8EE;
+
+  --display: 'Rajdhani', sans-serif;
+  --body: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:arial; font-weight:600; letter-spacing:.2px; margin:0;}
+button{font-family:var(--body); cursor:pointer;}
+
+/* ===================================================================
+   SHELL / LAYOUT
+   =================================================================== */
+.app-shell{
+  display:grid;
+  grid-template-columns: 240px 1fr;
+  min-height:100vh;
+}
+.sidebar{
+  background: linear-gradient(to left, #00245E, #003d9e);
+  color:#CBD4DE;
+  padding:20px 14px;
+  display:flex;
+  flex-direction:column;
+  position:sticky; top:0; left:0; height:100vh;
+}
+.brand{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px 22px;}
+.brand-mark{color:var(--amber); font-size:22px;}
+.brand-name{font-family:calibri; font-size:16px; color:#fff; letter-spacing:.3px; text-align:center; font-weight: 400;}
+.brand-subtitle{display:block; font-size:12px; color:#8A94A3; margin-top:2px; text-align:center; font-weight: 600;}
+
+.nav{
+  display:flex; flex-direction:column; gap:2px; flex:1;
+  min-height:0;   /* scroll removed from here — KPI Dashboard stays fixed */
+}
+
+.nav-scroll{
+  display:flex; flex-direction:column; gap:2px;
+  overflow-y:auto; min-height:0; flex:1;
+}
+.nav-scroll::-webkit-scrollbar{ width:5px; }
+.nav-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:10px; }
+.nav-section-label{
+  font-size:12px; text-transform:uppercase; letter-spacing:.8px;
+  color:#00afef; padding:16px 12px 6px; font-weight:600;
+}
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  background:transparent; border:none; color:#AEB9C6;
+  padding:10px 2px; border-radius:15px; font-size:12px; text-align:left;
+  transition:.15s;
+}
+.nav-item .ico{width:-5px; text-align:center; opacity:.9;}
+.nav-item:hover{background:rgba(255,255,255,.06); color:#fff;}
+.nav-item.active{background: rgb(138, 144, 146); color:#fff;}
+
+.sidebar-foot{font-size:12px; color:#7C8896; padding:10px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:10px;}
+.dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px;}
+.dot-live{background:var(--green); box-shadow:0 0 0 0 rgba(107,144,128,.6); animation:pulse 2s infinite;}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(107,144,128,.5);}
+  70%{box-shadow:0 0 0 6px rgba(107,144,128,0);}
+  100%{box-shadow:0 0 0 0 rgba(107,144,128,0);}
+}
+.foot-status{font-family:var(--mono); color:#9AA6B2; margin-top:3px;}
+.foot-user{color:#CBD4DE; margin-top:8px; font-size:12.5px;}
+.logout-btn{
+  background:none; border:1px solid rgba(255,255,255,.15); color:#CBD4DE;
+  font-size:11.5px; padding:5px 10px; border-radius:6px; margin-top:6px;
+}
+.logout-btn:hover{background:rgba(255,255,255,.08); color:#fff;}
+
+.topbar{display:none; align-items:center; gap:12px; background:var(--navy); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:20;}
+.hamburger{background:none;border:none;color:#fff;font-size:20px;}
+.topbar-title{font-family:var(--display); font-size:17px;}
+
+.content{padding:28px 32px 60px; background: rgb(224, 224, 224); min-width:0; overflow-x:hidden;}
+.view{display:none;}
+.view.active{display:block;}
+.view-head{margin-bottom:22px;}
+.view-head h1{font-size:28px;}
+.view-head .sub{color:var(--muted); margin:4px 0 0; font-size:14px;}
+
+/* ===== Panels ===== */
+.panel{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; max-width:100%;}
+.panel-body{padding:14px 18px; overflow-x:auto; max-width:100%;}
+.hint{font-size:12.5px; color:var(--muted); margin:8px 0 0;}
+.hint.error {color: #b23b3b;}
+
+/* ===== Responsive ===== */
+@media (max-width: 760px){
+  .app-shell{grid-template-columns:1fr;}
+  .sidebar{
+    position:fixed; left:-260px; top:0; width:230px; height:100vh; z-index:30;
+    transition:left .2s ease; box-shadow:2px 0 18px rgba(0,0,0,.25);
+  }
+  .sidebar.open{left:0;}
+  .topbar{display:flex;}
+  .content{padding:18px;}
+}
+
+/* ===================================================================
+   LOGIN PAGE
+   =================================================================== */
+.login-body{background: linear-gradient(to right, #00245E, #3B82F6); display:flex; align-items:center; justify-content:right; min-height:100vh; padding-right: 200px;}
+.login-card{background:rgba(255,255,255,0.5); width:100%; max-width:360px; border-radius:16px; padding:32px 28px ; box-shadow:0 20px 50px rgba(0,0,0,.35);}
+.login-brand{display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:22px;}
+.login-brand .brand-name{font-family:arial; font-size:20px; color:var(--navy); font-weight: bold;}
+.login-card h1{font-size:18px; margin-bottom:4px; font-family: Arial, Helvetica, sans-serif;}
+.login-card h3{font-size: 8px; font-family: arial; margin-top: 20px; margin-left: 160px;}
+.login-card p.sub{color:blue; font-size:15px; margin:0 0 20px; font-weight: bold;}
+#loginError{color:var(--red); font-size:13px; min-height:18px; margin-top:6px;}
+.login-card .btn{width:100%; margin-top:-10px; background: #00245E; padding:9px 11px; border:1px solid var(--line); border-radius:8px; font-size:14px; color: white; font-weight: bold; font-family:var(--body);}
+.company-logo2{width: 100%;max-height: 48px;object-fit: contain;margin-bottom: 10px;display: block;}
+
+.field{display:flex; flex-direction:column; gap:5px; font-size:13.5px; color:var(--muted);}
+.field input, .field select{padding:9px 11px; border:1px solid var(--line); border-radius:8px; font-size:14px; color:var(--text); font-family:var(--body);}
+.field input:focus{outline:none; border-color:var(--steel); box-shadow:0 0 0 3px rgba(45,106,106,.15);}
+
+.login-hero{
+  position:relative; z-index:1;
+  max-width:750px;
+  margin-right:60px;
+  opacity:0;
+  transform:translateX(-60px);
+  animation: heroSlideIn .7s cubic-bezier(.2,.7,.3,1) .1s forwards;
+}
+@keyframes heroSlideIn{
+  to{ opacity:1; transform:translateX(0); }
+}
+.login-hero h2{
+  color:#fff;
+  font-family: arial;
+  font-size:50px;
+  font-weight:600;
+  line-height:1.35;
+  opacity:0.95;
+}
+@media (max-width: 900px){
+  body{ justify-content:center !important; padding-right:0 !important; }
+  .login-hero{ display:none; }
+}
+
+/* ===================================================================
+   SHARED REPORT COMPONENTS
+   (used by every report view — toolbar, base table, actions, print)
+   =================================================================== */
+
+.report-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.report-toolbar label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-secondary, #333);
+}
+.report-toolbar input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  background: #fff;
+}
+.batch-display {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  background: #eef1f7;
+  border-radius: 6px;
+  color: var(--brand-color, #2c4a7c);
+}
+
+.report-subhead {
+  font-family: arial;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  margin: 18px 0 8px;
+}
+.report-subhead:first-child { margin-top: 0; }
+
+/* ---- Base report table (default look for every report) ---- */
+.report-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: 'Inter', calibri;
+  font-size: 12px;
+  border: 2px solid #2c4a7c;
+  min-width: 1000px;
+}
+.report-table thead th {
+  background: #9a9a9a;
+  color: #1a1a1a;
+  font-weight: bold;
+  padding: 4px 3px;
+  text-align: center;
+  border: 1px solid #7a7a7a;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1;
+  font-size: 12px;
+}
+.report-table thead th.row-label {
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #7a7a7a;
+  width: 120px;
+}
+.report-table thead th.total-col {
+  background: #7a7a7a;
+  color: #fff;
+  width: 60px;
+}
+.report-table tbody tr:nth-child(even) { background: #ececec; }
+.report-table tbody tr:nth-child(odd)  { background: #f8f8f8; }
+.report-table td {
+  padding: 5px 8px;
+  border: 1px solid #d0d0d0;
+  text-align: center;
+  font-family: calibri;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.report-table td.row-label {
+  text-align: left;
+  font-family: calibri;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a3a5c;
+  white-space: nowrap;
+}
+.report-table tr.bold-row td { font-weight: 700; }
+.report-table td.total-cell {
+  font-weight: 700;
+  background: #e4e8f0;
+  color: #1a3a5c;
+}
+
+/* ---- Report action buttons (CSV / PDF) ---- */
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.btn-report-action {
+  border: 1px solid #2c4a7c;
+  background: #fff;
+  color: #2c4a7c;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: .15s;
+  margin-bottom: 15px;
+}
+.btn-report-action:hover {
+  background: #2c4a7c;
+  color: #fff;
+}
+
+/* ---- Print-only header (hidden on screen, shown when printing) ---- */
+.print-header { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  .panel, .panel *,
+  .print-header, .print-header * { visibility: visible; }
+
+  .print-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: absolute;
+    top: 0; left: 0; width: 100%;
+    background: #2c4a7c;
+    color: #fff;
+    padding: 14px 20px;
+    box-sizing: border-box;
+    border-bottom: 4px solid #E3B23C;
+  }
+  .print-logo {
+    height: 40px; width: auto;
+  }
+  .print-header-text { flex: 1; }
+  .print-company { font-size: 12px; font-weight: 700; color: #E3B23C; }
+  .print-report-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .print-meta { font-size: 11px; text-align: right; line-height: 1.6; }
+  .print-meta span:first-child { font-weight: 600; margin-right: 4px; }
+
+  .panel {
+    position: absolute; top: 80px; left: 0; width: 100%;
+    border: none; border-radius: 0;
+  }
+  .panel-body { padding: 0; }
+  .report-table { min-width: 0; border-radius: 0; }
+
+  /* Force portrait orientation */
+  @page {
+    margin: 10mm;
+  }
+
+  /* LB Target vs Actual — shrink to fit one portrait page */
+  #view-lbtarget-vs-actual .lta-table {
+    min-width: 0;
+    width: 100%;
+    font-size: 8px;
+  }
+  #view-lbtarget-vs-actual .lta-table th,
+  #view-lbtarget-vs-actual .lta-table td {
+    padding: 2px 3px;
+    line-height: 1;
+  }
+}
+
+
+
+/* ---- Shared "item list + summary" component ----
+   Used by: Chill Weight Report, Dress Weight Report (Table 2),
+   Production Report (Table 2). Same visual component, reused. */
+.chill-weight-table th:nth-child(2), .chill-weight-table td:nth-child(2),
+.chill-weight-table th:nth-child(5), .chill-weight-table td:nth-child(5) {
+  text-align: left;
+}
+.item-name.highlight { color: #c0564a; font-weight: 600; }
+
+.chill-summary {
+  margin-top: 12px;
+  border: 1px solid #d0d0d0;
+  border-top: none;
+}
+.cw-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 14px; border-top: 1px solid #e0e0e0;
+  font-size: 13.5px;
+}
+.cw-total {
+  font-weight: 700; background: #eef1f7;
+  border-top: 2px solid #2c4a7c;
+}
+
+/* ===================================================================
+   REPORT: Daily LB Input  (#view-daily-lb-input)
+   Uses the shared base .report-table as-is — no report-specific
+   overrides needed.
+   =================================================================== */
+
+
+/* ===================================================================
+   REPORT: Total LB Report  (#view-total-lb)
+   =================================================================== */
+
+#view-total-lb .total-lb-table {
+  table-layout: fixed;
+  min-width: 920px;   /* overrides the base 1000px so column widths are respected exactly */
+}
+
+/* ===== DATE COLUMN ===== */
+#view-total-lb .total-lb-table th.row-label,
+#view-total-lb .total-lb-table td.row-label {
+  width: 20px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ===== Row padding / compact rows (31 days per table) ===== */
+#view-total-lb .total-lb-table td {
+  padding: 3px 6px;
+  line-height: 0.7;
+}
+#view-total-lb .total-lb-table thead th {
+  padding: 6px 6px;
+}
+#view-total-lb .total-lb-table tfoot td {
+  background: #dcdcdc;
+  font-weight: 700;
+}
+
+/* ===================================================================
+   REPORT: Chill Weight Report  (#view-chill-weight)
+   Uses the shared "item list + summary" component at full width
+   (base .report-table sizing) — no extra overrides needed.
+   =================================================================== */
+
+
+/* ===================================================================
+   REPORT: Dress Weight  (#view-dress-weight)
+   REPORT: Production Report  (#view-production-weight)
+   These two share the exact same Table 1 + Table 2 markup
+   (renderDressWeightTables_ is reused by both), so their layout
+   rules are combined here.
+   =================================================================== */
+
+#view-dress-weight .dress-farm-table,
+#view-production-weight .dress-farm-table {
+  table-layout: fixed;
+}
+#view-dress-weight .dress-farm-table th:nth-child(1),
+#view-dress-weight .dress-farm-table td:nth-child(1),
+#view-production-weight .dress-farm-table th:nth-child(1),
+#view-production-weight .dress-farm-table td:nth-child(1) {
+  width: 50px;   /* S/No */
+}
+#view-dress-weight .dress-farm-table th:nth-child(2),
+#view-dress-weight .dress-farm-table td:nth-child(2),
+#view-production-weight .dress-farm-table th:nth-child(2),
+#view-production-weight .dress-farm-table td:nth-child(2) {
+  width: 220px;   /* Farm Name */
+  text-align: left;
+}
+#view-dress-weight .dress-farm-table th:nth-child(3),
+#view-dress-weight .dress-farm-table td:nth-child(3),
+#view-production-weight .dress-farm-table th:nth-child(3),
+#view-production-weight .dress-farm-table td:nth-child(3) {
+  width: 80px;   /* No of Birds */
+}
+
+#view-dress-weight .chill-weight-table,
+#view-production-weight .chill-weight-table {
+  table-layout: fixed;
+}
+#view-dress-weight .chill-weight-table th:nth-child(1),
+#view-dress-weight .chill-weight-table td:nth-child(1),
+#view-dress-weight .chill-weight-table th:nth-child(4),
+#view-dress-weight .chill-weight-table td:nth-child(4),
+#view-production-weight .chill-weight-table th:nth-child(1),
+#view-production-weight .chill-weight-table td:nth-child(1),
+#view-production-weight .chill-weight-table th:nth-child(4),
+#view-production-weight .chill-weight-table td:nth-child(4) {
+  width: 70px;   /* Item Code (both columns) */
+}
+#view-dress-weight .chill-weight-table th:nth-child(2),
+#view-dress-weight .chill-weight-table td:nth-child(2),
+#view-dress-weight .chill-weight-table th:nth-child(5),
+#view-dress-weight .chill-weight-table td:nth-child(5),
+#view-production-weight .chill-weight-table th:nth-child(2),
+#view-production-weight .chill-weight-table td:nth-child(2),
+#view-production-weight .chill-weight-table th:nth-child(5),
+#view-production-weight .chill-weight-table td:nth-child(5) {
+  width: 150px;   /* Item Name (both columns) */
+  text-align: left;
+}
+#view-dress-weight .chill-weight-table th:nth-child(3),
+#view-dress-weight .chill-weight-table td:nth-child(3),
+#view-dress-weight .chill-weight-table th:nth-child(6),
+#view-dress-weight .chill-weight-table td:nth-child(6),
+#view-production-weight .chill-weight-table th:nth-child(3),
+#view-production-weight .chill-weight-table td:nth-child(3),
+#view-production-weight .chill-weight-table th:nth-child(6),
+#view-production-weight .chill-weight-table td:nth-child(6) {
+  width: 90px;   /* Quantity (Kg) (both columns) */
+}
+#view-dress-weight .chill-weight-table td,
+#view-production-weight .chill-weight-table td {
+  line-height: 0.7;
+}
+
+/* Compact rows so Table 1 + Table 2 fit one printed page */
+#view-dress-weight .report-table th,
+#view-dress-weight .report-table td,
+#view-production-weight .report-table th,
+#view-production-weight .report-table td {
+  padding: 3px 6px;
+  line-height: 0.8;
+  font-size: 11.5px;
+}
+#view-dress-weight .report-subhead,
+#view-production-weight .report-subhead {
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+#view-dress-weight .chill-summary .cw-row,
+#view-production-weight .chill-summary .cw-row {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+/* ===================================================================
+   REPORT: Production Report — extra section  (#view-production-weight)
+   Daily Easy Production Summary (Table 3 — unique to this report)
+   =================================================================== */
+
+#view-production-weight .easy-subsection { margin-top: 10px; }
+#view-production-weight .easy-subhead {
+  font-weight: 700; font-size: 13px; margin: 6px 0 4px 6px;
+}
+#view-production-weight .easy-net-weight-row {
+  display: flex; justify-content: space-between;
+  padding: 6px 30px; font-size: 13.5px;
+}
+#view-production-weight .easy-net-weight-row span:last-child { font-weight: 700; }
+
+#view-production-weight .easy-product-table { table-layout: fixed; }
+#view-production-weight .easy-product-table th:nth-child(1),
+#view-production-weight .easy-product-table td:nth-child(1) { width: 100px; }
+#view-production-weight .easy-product-table th:nth-child(2),
+#view-production-weight .easy-product-table td:nth-child(2) { width: 250px; text-align: left; }
+#view-production-weight .easy-product-table th:nth-child(3),
+#view-production-weight .easy-product-table td:nth-child(3) { width: 100px; }
+#view-production-weight .easy-product-table tfoot td {
+  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
+}
+
+/* ===================================================================
+   REPORT: Chill Weight vs Dress Weight  (#view-chil-vs-dress)
+   =================================================================== */
+
+#view-chil-vs-dress .chill-vs-dress-table { table-layout: fixed; }
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(1),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(1) { width: 90px; }
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(2),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(2) { width: 200px; text-align: left; }
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(3),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(3),
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(4),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(4),
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(5),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(5) { width: 110px; }
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(6),
+#view-chil-vs-dress .chill-vs-dress-table td:nth-child(6) { width: 90px; }
+
+#view-chil-vs-dress .diff-negative{color: #c0564a;}
+#view-chil-vs-dress .diff-positive{color: #2d6a6a;} 
+#view-chil-vs-dress .chill-vs-dress-table th:nth-child(2),
+#view-chil-vs-dress .chill-vs-dress-table td {line-height: 0.7;}
+
+/* ===================================================================
+   REPORT: Total Production Summary  (#view-total-production-summary)
+   =================================================================== */
+
+#view-total-production-summary .total-production-table {
+  table-layout: fixed;
+  min-width: 1600px;   /* wide table, horizontal scroll expected */
+  position: relative;
+}
+#view-total-production-summary .total-production-table th:nth-child(1),
+#view-total-production-summary .total-production-table td:nth-child(1) {
+  width: 70px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: inherit;
+}
+#view-total-production-summary .total-production-table th:nth-child(2),
+#view-total-production-summary .total-production-table td:nth-child(2) {
+  width: 240px;
+  text-align: left;
+  position: sticky;
+  left: 70px;   /* matches the width of column 1 (Item Code) */
+  z-index: 2;
+  background: inherit;
+}
+#view-total-production-summary .total-production-table th:not(:nth-child(1)):not(:nth-child(2)):not(:last-child),
+#view-total-production-summary .total-production-table td:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) {
+  width: 55px;
+}
+#view-total-production-summary .total-production-table th:last-child,
+#view-total-production-summary .total-production-table td:last-child {
+  width: 75px;
+}
+#view-total-production-summary .total-production-table tfoot td {
+  background: #dcdcdc;
+  font-weight: 700;
+  border-top: 2px solid #2c4a7c;
+}
+#view-total-production-summary .total-production-table thead th:nth-child(1),
+#view-total-production-summary .total-production-table thead th:nth-child(2) {
+  z-index: 3;   /* header row sits above body sticky cells when scrolling */
+  background: #9a9a9a;
+}
+
+/* ===================================================================
+   REPORT: Sales Forecast vs Production  (#view-salesforecast-vs-production)
+   =================================================================== */
+
+#view-salesforecast-vs-production .sfp-table { table-layout: fixed; }
+#view-salesforecast-vs-production .sfp-table th:nth-child(1),
+#view-salesforecast-vs-production .sfp-table td:nth-child(1) { width: 80px; }
+#view-salesforecast-vs-production .sfp-table th:nth-child(2),
+#view-salesforecast-vs-production .sfp-table td:nth-child(2) { width: 250px; text-align: left; }
+#view-salesforecast-vs-production .sfp-table th:nth-child(3),
+#view-salesforecast-vs-production .sfp-table td:nth-child(3),
+#view-salesforecast-vs-production .sfp-table th:nth-child(4),
+#view-salesforecast-vs-production .sfp-table td:nth-child(4) { width: 100px; }
+#view-salesforecast-vs-production .sfp-table th:nth-child(5),
+#view-salesforecast-vs-production .sfp-table td:nth-child(5) { width: 100px; }
+#view-salesforecast-vs-production .sfp-table th:nth-child(6),
+#view-salesforecast-vs-production .sfp-table td:nth-child(6) { width: 220px; text-align: left; }
+
+#view-salesforecast-vs-production .diff-positive { color: #2d6a6a; font-weight: 600; }
+#view-salesforecast-vs-production .diff-negative { color: #c0564a; font-weight: 600; }
+
+/* ===================================================================
+   REPORT: LB Target vs Actual  (#view-lbtarget-vs-actual)
+   =================================================================== */
+
+#view-lbtarget-vs-actual .lta-table {
+  table-layout: fixed;
+}
+#view-lbtarget-vs-actual .lta-table th.row-label,
+#view-lbtarget-vs-actual .lta-table td.row-label {
+  width: 80px;
+  text-align: center;
+}
+#view-lbtarget-vs-actual .lta-table th:not(.row-label):not(:last-child),
+#view-lbtarget-vs-actual .lta-table td:not(.row-label):not(:last-child) {
+  width: 90px;
+}
+#view-lbtarget-vs-actual .lta-table th:last-child,
+#view-lbtarget-vs-actual .lta-table td:last-child {
+  width: 90px;
+}
+#view-lbtarget-vs-actual .lta-table tfoot td {
+  background: #dcdcdc;
+  font-weight: 700;
+  border-top: 2px solid #2c4a7c;
+}
+
+/* ===================================================================
+   SIDEBAR — Collapsible KPI's / Reports sections (accordion)
+   =================================================================== */
+
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #00afef;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  padding: 16px 12px 6px;
+  cursor: pointer;
+}
+.toggle-arrow {
+  transition: transform .2s ease;
+  font-size: 10px;
+}
+.nav-section-toggle.active .toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.nav-collapse {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .25s ease;
+}
+.nav-collapse.open {
+  max-height: 2000px;   /* large enough to fit all items */
+}
+
+/* Reports section keeps its own internal scrollbar when open */
+#reportsCollapse.open {
+  overflow-y: auto;
+  max-height: 500px;   /* adjust to taste — how tall the Reports list can grow before scrolling */
+}
+
+/* ===================================================================
+   REPORT: Production Target vs Actual  (#view-productiontarget-vs-actual)
+   =================================================================== */
+
+#view-productiontarget-vs-actual .pta-table {
+  table-layout: fixed;
+  min-width: 1800px;
+  position: relative;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+#view-productiontarget-vs-actual .pta-table th,
+#view-productiontarget-vs-actual .pta-table td {
+  border-right: none;
+  border-bottom: none;
+}
+#view-productiontarget-vs-actual .pta-table th:last-child,
+#view-productiontarget-vs-actual .pta-table td:last-child {
+  border-right: 1px solid #d0d0d0;
+}
+
+#view-productiontarget-vs-actual .pta-table th:last-child(2) 
+
+#view-productiontarget-vs-actual .pta-table tbody tr:last-child td,
+#view-productiontarget-vs-actual .pta-table tfoot td {
+  border-bottom: 1px solid #d0d0d0;
+}
+#view-productiontarget-vs-actual .pta-table tfoot td {
+  background: #dcdcdc;
+  font-weight: 700;
+  border-top: 2px solid #2c4a7c;
+}
+#view-productiontarget-vs-actual .day-header-num {
+  font-weight: 700;
+  font-size: 12px;
+}
+#view-productiontarget-vs-actual .day-header-batch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  color: #444;
+  margin-top: 1px;
+}
+
+/* Sticky Item Code + Item Name columns while horizontal-scrolling */
+#view-productiontarget-vs-actual .pta-table th:nth-child(1),
+#view-productiontarget-vs-actual .pta-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: inherit;
+}
+#view-productiontarget-vs-actual .pta-table th:nth-child(2),
+#view-productiontarget-vs-actual .pta-table td:nth-child(2) {
+  position: sticky;
+  left: 70px;
+  z-index: 2;
+  background: inherit;
+  text-align: left;
+}
+#view-productiontarget-vs-actual .pta-table thead th:nth-child(1),
+#view-productiontarget-vs-actual .pta-table thead th:nth-child(2) {
+  z-index: 3;
+  background: #9a9a9a;
+}
+
+/* Constrain panel width so the scrollbar stays inside the panel, not the whole page */
+#view-productiontarget-vs-actual .panel,
+#view-total-production-summary .panel {
+  max-width: 100%;
+  overflow: hidden;
+}
+#view-productiontarget-vs-actual .panel-body,
+#view-total-production-summary .panel-body {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* ===================================================================
+   REPORT: Easy & Giblet Stock  (#view-easy-&-giblet-stock)
+   =================================================================== */
+
+.egs-tables-wrap {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.egs-table-block {
+  flex: 1;
+  min-width: 320px;
+}
+.egs-table {
+  width: 100%;
+  min-width: 0;
+}
+.egs-table .egs-title {
+  background: #2c4a7c;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+.egs-table td, .egs-table th {
+  text-align: center;
+}
+
+@media print {
+  .egs-tables-wrap {
+    display: flex;
+    gap: 12px;
+  }
+}
+
+/* ===================================================================
+   REPORT: Yield Report  (#view-yield-report)
+   =================================================================== */
+#view-yield-report .yield-table { table-layout: fixed; min-width: 0; width: 100%; }
+#view-yield-report .yield-table th.row-label,
+#view-yield-report .yield-table td.row-label { width: 80px; text-align: center; white-space: nowrap; }
+#view-yield-report .yield-table th:not(.row-label),
+#view-yield-report .yield-table td:not(.row-label) { width: 50px; }
+#view-yield-report .yield-table th,
+#view-yield-report .yield-table td { padding: 3px 4px; line-height: 0.9; font-size: 10.5px; }
+#view-yield-report .yield-table tfoot td { background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c; }

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production System — Production Department</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<script>
+  // Auth guard: no session -> back to login
+  if (!sessionStorage.getItem("qa_user")) {
+    window.location.href = "login.html";
+  }
+</script>
+
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <img src="images/logo.png" alt="Company logo" class="company-logo2">
+    <div class="brand">
+      <span class="brand-name">Imo Chicken & Agro (Pvt) Ltd</span>
+      <span class="brand-subtitle">Production Department</span>
+    </div>
+    <nav class="nav">
+
+  <!-- KPI's collapsible section -->
+  <button class="nav-section-toggle active" id="kpiToggle">
+    <span class="section-label-text">KPI's</span>
+    <span class="toggle-arrow">▾</span>
+  </button>
+  <div class="nav-collapse open" id="kpiCollapse">
+    <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span>KPI Dashboard</button>
+    <button class="nav-item" data-view="kpi-01"><span class="ico"></span>KPI 01</button>
+    <button class="nav-item" data-view="kpi-02"><span class="ico"></span>KPI 02</button>
+    <button class="nav-item" data-view="kpi-03"><span class="ico"></span>KPI 03</button>
+  </div>
+
+  <!-- Reports collapsible section -->
+  <button class="nav-section-toggle" id="reportsToggle">
+    <span class="section-label-text">Reports</span>
+    <span class="toggle-arrow">▾</span>
+  </button>
+  <div class="nav-collapse nav-scroll" id="reportsCollapse">
+    <button class="nav-item" data-view="daily-lb-input"><span class="ico"></span>01. Daily LB Input Report</button>
+    <button class="nav-item" data-view="total-lb"><span class="ico"></span>02. Total LB Report</button>
+    <button class="nav-item" data-view="chill-weight"><span class="ico"></span>03. Chill Weight Report</button>
+    <button class="nav-item" data-view="dress-weight"><span class="ico"></span>04. Dress Weight Report</button>
+    <button class="nav-item" data-view="production-weight"><span class="ico"></span>05. Production Report</button>
+    <button class="nav-item" data-view="chil-vs-dress"><span class="ico"></span>06. Chill Weight vs Dress Weight</button>
+    <button class="nav-item" data-view="total-production-summary"><span class="ico"></span>07. Ttl Production Summary</button>
+    <button class="nav-item" data-view="salesforecast-vs-production"><span class="ico"></span>08. Sales Forecast vs Production</button>
+    <button class="nav-item" data-view="lbtarget-vs-actual"><span class="ico"></span>09. LB Target vs Actual</button>
+    <button class="nav-item" data-view="productiontarget-vs-actual"><span class="ico"></span>10. Production Target vs Actual</button>
+    <button class="nav-item" data-view="easy-&-giblet-stock"><span class="ico"></span>11. Easy & Giblet Stock</button>
+    <button class="nav-item" data-view="Stock-Available"><span class="ico"></span>12. Day of Stock Available</button>
+    <button class="nav-item" data-view="yield-report"><span class="ico"></span>13. Yield Report</button> 
+    <button class="nav-item" data-view="Division-Consumable"><span class="ico"></span>14. All Division Consumable Reports</button>
+  </div>
+
+</nav>
+    <div class="sidebar-foot">
+      <span class="dot dot-live"></span> Apps Script API
+      <div class="foot-status" id="apiStatus">checking…</div>
+      <div class="foot-user" id="footUser"></div>
+      <button class="logout-btn" id="logoutBtn">Log out</button>
+    </div>
+  </aside>
+
+  <!-- Topbar (mobile) -->
+  <header class="topbar">
+    <button class="hamburger" id="hamburgerBtn">☰</button>
+    <span class="topbar-title" id="viewTitle">Dashboard</span>
+  </header>
+
+  <!-- Main content -->
+  <main class="content">
+
+    <!-- DASHBOARD (placeholder — charts/summaries added in later steps) -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-head">
+        <h1>Production Overview</h1>
+        <p class="sub">Production summary — modules and charts will appear here as they're added.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <p class="hint">Login and base shell are working. Next step: add the first data-entry module (e.g. Inspections or Non-conformance).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DAILY LB INPUT REPORT -->
+  <section class="view" id="view-daily-lb-input">
+  <div class="view-head">
+    <h1>Daily LB Input Report</h1>
+    <p class="sub">Daily live bird input records — filter by date to view.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="lbDateFilter">Date:</label>
+    <input type="date" id="lbDateFilter">
+    <span class="batch-display" id="lbBatchDisplay"></span>
+  </div>
+
+  <!-- Print-only header — hidden on screen, shown only when printing -->
+<div class="print-header" id="printHeader">
+  <img src="images/logo.png" alt="Company logo" class="print-logo">
+  <div class="print-header-text">
+    <div class="print-report-title">Daily Live Bird Input Report</div>
+    <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+  </div>
+  <div class="print-meta">
+    <div><span>Date:</span> <span id="printDate"></span></div>
+    <div><span>Batch No:</span> <span id="printBatch"></span></div>
+  </div>
+</div>
+
+  <div class="panel">
+    <div class="panel-body" id="lbInputPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="lbCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="lbPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- TOTAL LB REPORT -->
+<section class="view" id="view-total-lb">
+  <div class="view-head">
+    <h1>Total LB Report</h1>
+    <p class="sub">Monthly live bird summary — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="totalLbMonth">Month:</label>
+    <select id="totalLbMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="totalLbYear">Year:</label>
+    <select id="totalLbYear"></select>
+  </div>
+
+  <div class="print-header" id="totalLbPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Total LB Report</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="totalLbPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="totalLbPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="totalLbCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="totalLbPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- CHILL WEIGHT REPORT -->
+<section class="view" id="view-chill-weight">
+  <div class="view-head">
+    <h1>Chill Weight Report</h1>
+    <p class="sub">Daily finished goods chill weight — filter by date.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="cwDateFilter">Date:</label>
+    <input type="date" id="cwDateFilter">
+  </div>
+
+  <div class="print-header" id="cwPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Chill Weight Report</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Date:</span> <span id="cwPrintDate"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="cwPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="cwCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="cwPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- DRESS WEIGHT REPORT -->
+<section class="view" id="view-dress-weight">
+  <div class="view-head">
+    <h1>Dress Weight Report</h1>
+    <p class="sub">Live bird input summary + production summary — filter by date.</p>
+  </div>
+
+  <div class="report-toolbar">
+  <label for="dwDateFilter">Date:</label>
+  <input type="date" id="dwDateFilter">
+  <span class="batch-display" id="dwBatchDisplay"></span>
+</div>
+
+  <div class="print-header" id="dwPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Dress Weight Report</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Date:</span> <span id="dwPrintDate"></span></div>
+      <div><span>Batch No:</span> <span id="dwPrintBatch"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="dwPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+
+<div class="report-actions">
+    <button class="btn-report-action" id="dwCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="dwPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- PRODUCTION REPORT -->
+<section class="view" id="view-production-weight">
+  <div class="view-head">
+    <h1>Production Report</h1>
+    <p class="sub">Live bird input + production summary + Easy production — filter by date.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="pwDateFilter">Date:</label>
+    <input type="date" id="pwDateFilter">
+    <span class="batch-display" id="pwBatchDisplay"></span>
+  </div>
+
+  <div class="print-header" id="pwPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Production Report</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Date:</span> <span id="pwPrintDate"></span></div>
+      <div><span>Batch No:</span> <span id="pwPrintBatch"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="pwPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="pwCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="pwPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- CHILL WEIGHT vs DRESS WEIGHT REPORT -->
+<section class="view" id="view-chil-vs-dress">
+  <div class="view-head">
+    <h1>Chill Weight vs Dress Weight</h1>
+    <p class="sub">Item-wise comparison — filter by date.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="cvdDateFilter">Date:</label>
+    <input type="date" id="cvdDateFilter">
+    <span class="batch-display" id="cvdBatchDisplay"></span>
+  </div>
+
+  <div class="print-header" id="cvdPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Chill Weight vs Dress Weight</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Date:</span> <span id="cvdPrintDate"></span></div>
+      <div><span>Batch No:</span> <span id="cvdPrintBatch"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="cvdPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="cvdCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="cvdPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- TOTAL PRODUCTION SUMMARY -->
+<section class="view" id="view-total-production-summary">
+  <div class="view-head">
+    <h1>Total Production Summary</h1>
+    <p class="sub">Item-wise daily production — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="tpsMonth">Month:</label>
+    <select id="tpsMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="tpsYear">Year:</label>
+    <select id="tpsYear"></select>
+  </div>
+
+  <div class="print-header" id="tpsPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Total Production Summary</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="tpsPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="tpsPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="tpsCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="tpsPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- SALES FORECAST vs PRODUCTION -->
+<section class="view" id="view-salesforecast-vs-production">
+  <div class="view-head">
+    <h1>Sales Forecast vs Production</h1>
+    <p class="sub">Item-wise comparison — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="sfpMonth">Month:</label>
+    <select id="sfpMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="sfpYear">Year:</label>
+    <select id="sfpYear"></select>
+  </div>
+
+  <div class="print-header" id="sfpPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Sales Forecast vs Production</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="sfpPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="sfpPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="sfpCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="sfpPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- LB TARGET vs ACTUAL -->
+<section class="view" id="view-lbtarget-vs-actual">
+  <div class="view-head">
+    <h1>LB Target vs Actual</h1>
+    <p class="sub">Daily bird target vs actual by weight range — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="ltaMonth">Month:</label>
+    <select id="ltaMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="ltaYear">Year:</label>
+    <select id="ltaYear"></select>
+  </div>
+
+  <div class="print-header" id="ltaPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">LB Target vs Actual</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="ltaPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="ltaPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="ltaCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="ltaPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- PRODUCTION TARGET vs ACTUAL -->
+<section class="view" id="view-productiontarget-vs-actual">
+  <div class="view-head">
+    <h1>Production Target vs Actual</h1>
+    <p class="sub">Item-wise daily target vs actual — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="ptaMonth">Month:</label>
+    <select id="ptaMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="ptaYear">Year:</label>
+    <select id="ptaYear"></select>
+  </div>
+
+  <div class="print-header" id="ptaPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Production Target vs Actual</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="ptaPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="ptaPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="ptaCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="ptaPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- EASY & GIBLET STOCK -->
+<section class="view" id="view-easy-&-giblet-stock">
+  <div class="view-head">
+    <h1>Easy & Giblet Stock</h1>
+    <p class="sub">Running stock balance — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="egsMonth">Month:</label>
+    <select id="egsMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="egsYear">Year:</label>
+    <select id="egsYear"></select>
+  </div>
+
+  <div class="print-header" id="egsPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Easy & Giblet Stock</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="egsPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="egsPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="egsCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="egsPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<section class="view" id="view-yield-report">
+  <div class="view-head">
+    <h1>Yield Report</h1>
+    <p class="sub">Monthly yield summary — filter by year and month.</p>
+  </div>
+
+  <div class="report-toolbar">
+    <label for="yieldMonth">Month:</label>
+    <select id="yieldMonth">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <label for="yieldYear">Year:</label>
+    <select id="yieldYear"></select>
+  </div>
+
+  <div class="print-header" id="yieldPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+      <div class="print-report-title">Yield Report</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="yieldPrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="yieldPanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="yieldCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="yieldPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
