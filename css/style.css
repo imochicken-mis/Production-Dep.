@@ -96,7 +96,7 @@ button{font-family:var(--body); cursor:pointer;}
 .hamburger{background:none;border:none;color:#fff;font-size:20px;}
 .topbar-title{font-family:var(--display); font-size:17px;}
 
-.content{padding:28px 32px 60px; background: rgb(224, 224, 224); min-width:0; overflow-x:hidden;}
+.content{padding:0 32px 60px; background: rgb(224, 224, 224); height: 100vh; overflow-y: auto;}
 .view{display:none;}
 .view.active{display:block;}
 .view-head{margin-bottom:22px;}
@@ -104,9 +104,9 @@ button{font-family:var(--body); cursor:pointer;}
 .view-head .sub{color:var(--muted); margin:4px 0 0; font-size:14px;}
 
 /* ===== Panels ===== */
-.panel{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; max-width:100%;}
+.panel{background:rgb(224, 224, 224); border-radius:14px; overflow:hidden; max-width:100%;}
 .panel-body{padding:14px 18px; overflow-x:auto; max-width:100%;}
-.hint{font-size:12.5px; color:var(--muted); margin:8px 0 0;}
+.hint{font-size:12.5px; color:var(--muted); margin:8px 0 0; font-weight: bold;}
 .hint.error {color: #b23b3b;}
 
 /* ===== Responsive ===== */
@@ -168,13 +168,29 @@ button{font-family:var(--body); cursor:pointer;}
    (used by every report view — toolbar, base table, actions, print)
    =================================================================== */
 
+.sticky-report-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgb(224, 224, 224);
+  padding-top: 28px;   /* moved here from .content, so nothing can peek above it */
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+.view-head {
+  margin-bottom: 12px;
+}
+
 .report-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+  padding-bottom: 12px;
 }
+
 .report-toolbar label {
   font-weight: 600;
   font-size: 14px;
@@ -183,11 +199,23 @@ button{font-family:var(--body); cursor:pointer;}
 .report-toolbar input[type="date"] {
   padding: 8px 12px;
   border: 1px solid var(--border-color, #ccc);
-  border-radius: 6px;
-  font-family: 'Inter', sans-serif;
+  border-radius: 15px;
+  font-family: calibri;
   font-size: 14px;
   background: #fff;
 }
+
+.report-toolbar select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 15px;
+  font-family: calibri;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text, #14213D);
+  cursor: pointer;
+}
+
 .batch-display {
   margin-left: auto;
   font-family: 'JetBrains Mono', monospace;
@@ -219,8 +247,8 @@ button{font-family:var(--body); cursor:pointer;}
   min-width: 1000px;
 }
 .report-table thead th {
-  background: #9a9a9a;
-  color: #1a1a1a;
+  background: #00245E;
+  color: white;
   font-weight: bold;
   padding: 4px 3px;
   text-align: center;
@@ -233,7 +261,7 @@ button{font-family:var(--body); cursor:pointer;}
 }
 .report-table thead th.row-label {
   text-align: left;
-  background: #ffffff;
+  background: #00245E;
   border: 1px solid #7a7a7a;
   width: 120px;
 }
@@ -374,9 +402,13 @@ button{font-family:var(--body); cursor:pointer;}
 
 /* ===================================================================
    REPORT: Daily LB Input  (#view-daily-lb-input)
-   Uses the shared base .report-table as-is — no report-specific
-   overrides needed.
    =================================================================== */
+
+#view-daily-lb-input .report-table th,
+#view-daily-lb-input .report-table td {
+  padding: 3px 8px;   /* was 4px 3px (th) / 5px 8px (td) base default — adjust to taste */
+  line-height: 1.2;
+}
 
 
 /* ===================================================================
@@ -414,7 +446,34 @@ button{font-family:var(--body); cursor:pointer;}
    Uses the shared "item list + summary" component at full width
    (base .report-table sizing) — no extra overrides needed.
    =================================================================== */
+#view-chill-weight .chill-weight-table {
+  table-layout: auto;
+}
+#view-chill-weight .chill-weight-table th:nth-child(1),
+#view-chill-weight .chill-weight-table td:nth-child(1),
+#view-chill-weight .chill-weight-table th:nth-child(4),
+#view-chill-weight .chill-weight-table td:nth-child(4) {
+  width: 65px;   /* Item Code (both columns) — narrowed */
+}
+#view-chill-weight .chill-weight-table th:nth-child(2),
+#view-chill-weight .chill-weight-table td:nth-child(2),
+#view-chill-weight .chill-weight-table th:nth-child(5),
+#view-chill-weight .chill-weight-table td:nth-child(5) {
+  width: 260px;   /* Item Name (both columns) — widened */
+}
+#view-chill-weight .chill-weight-table th:nth-child(3),
+#view-chill-weight .chill-weight-table td:nth-child(3),
+#view-chill-weight .chill-weight-table th:nth-child(6),
+#view-chill-weight .chill-weight-table td:nth-child(6) {
+  width: 80px;   /* Quantity (Kg) (both columns) — narrowed */
+}
 
+/* Compact row height */
+#view-chill-weight .chill-weight-table th,
+#view-chill-weight .chill-weight-table td {
+  padding: 3px 6px;
+  line-height: 0.9;
+}
 
 /* ===================================================================
    REPORT: Dress Weight  (#view-dress-weight)
@@ -483,6 +542,7 @@ button{font-family:var(--body); cursor:pointer;}
 #view-production-weight .chill-weight-table td:nth-child(6) {
   width: 90px;   /* Quantity (Kg) (both columns) */
 }
+#view-chill-weighht .chill-weight-table td,
 #view-dress-weight .chill-weight-table td,
 #view-production-weight .chill-weight-table td {
   line-height: 0.7;
@@ -600,6 +660,19 @@ button{font-family:var(--body); cursor:pointer;}
 #view-total-production-summary .total-production-table thead th:nth-child(2) {
   z-index: 3;   /* header row sits above body sticky cells when scrolling */
   background: #9a9a9a;
+}
+
+#view-total-production-summary .total-production-table tbody tr:nth-child(odd) th:nth-child(1),
+#view-total-production-summary .total-production-table tbody tr:nth-child(odd) td:nth-child(1),
+#view-total-production-summary .total-production-table tbody tr:nth-child(odd) th:nth-child(2),
+#view-total-production-summary .total-production-table tbody tr:nth-child(odd) td:nth-child(2) {
+  background: #f8f8f8;   /* matches .report-table tbody tr:nth-child(odd) */
+}
+#view-total-production-summary .total-production-table tbody tr:nth-child(even) th:nth-child(1),
+#view-total-production-summary .total-production-table tbody tr:nth-child(even) td:nth-child(1),
+#view-total-production-summary .total-production-table tbody tr:nth-child(even) th:nth-child(2),
+#view-total-production-summary .total-production-table tbody tr:nth-child(even) td:nth-child(2) {
+  background: #ececec;   /* matches .report-table tbody tr:nth-child(even) */
 }
 
 /* ===================================================================
@@ -817,3 +890,24 @@ button{font-family:var(--body); cursor:pointer;}
 #view-yield-report .yield-table th,
 #view-yield-report .yield-table td { padding: 3px 4px; line-height: 0.9; font-size: 10.5px; }
 #view-yield-report .yield-table tfoot td { background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c; }
+
+
+/* ===================================================================
+   MONTHLY REPORTS — Sunday (red) / Saturday (gray) highlighting
+   =================================================================== */
+
+/* Row-based (Total LB, Easy & Giblet Stock) */
+tr.dow-sunday td {
+  background: #fbdcdc !important;
+}
+tr.dow-saturday td {
+  background: #e2e2e2 !important;
+}
+
+/* Column-based (Total Production Summary, Production Target vs Actual) */
+td.dow-sunday, th.dow-sunday {
+  background: #fbdcdc !important;
+}
+td.dow-saturday, th.dow-saturday {
+  background: #e2e2e2 !important;
+}

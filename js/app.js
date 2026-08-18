@@ -242,10 +242,11 @@ function renderTotalLbTable_(report) {
   const colHeaders = cols.map((c) => `<th>${c.label}</th>`).join("");
 
   const bodyRows = report.dateRows.map((r) => {
-    const cells = cols.map((c) => `<td>${r.hasData ? formatNum_(r.metrics[c.key], 0) : ""}</td>`).join("");
-    const pctCell = r.hasData && r.percentage !== null ? formatPct_(r.percentage) : "";
-    return `<tr><td class="row-label">${formatDateDMY_(r.date)}</td>${cells}<td>${pctCell}</td></tr>`;
-  }).join("");
+  const cells = cols.map((c) => `<td>${r.hasData ? formatNum_(r.metrics[c.key], 0) : ""}</td>`).join("");
+  const pctCell = r.hasData && r.percentage !== null ? formatPct_(r.percentage) : "";
+  const dowClass = getDayOfWeekClass_(r.date);
+  return `<tr class="${dowClass}"><td class="row-label">${formatDateDMY_(r.date)}</td>${cells}<td>${pctCell}</td></tr>`;
+}).join("");
 
   const totalCells = cols.map((c) => `<td>${formatNum_(report.totals[c.key], 0)}</td>`).join("");
   const totalPct = report.totalPercentage !== null ? formatPct_(report.totalPercentage) : "";
@@ -815,12 +816,18 @@ async function renderTotalProductionSummary() {
 }
 
 function renderTpsTable_(report) {
-  const dayHeaders = Array.from({ length: report.daysInMonth }, (_, i) =>
-    `<th>${String(i + 1).padStart(2, "0")}</th>`
-  ).join("");
+  const dayHeaders = Array.from({ length: report.daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return `<th class="${getDayOfWeekClass_(dateStr)}">${String(day).padStart(2, "0")}</th>`;
+  }).join("");
 
   const rows = report.items.map((item) => {
-    const cells = item.values.map((v) => `<td>${formatNum_(v, "auto")}</td>`).join("");
+    const cells = item.values.map((v, i) => {
+      const day = i + 1;
+      const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      return `<td class="${getDayOfWeekClass_(dateStr)}">${formatNum_(v, "auto")}</td>`;
+    }).join("");
     return `<tr>
       <td>${item.code}</td>
       <td class="item-name ${item.highlight ? "highlight" : ""}">${item.name}</td>
@@ -1020,19 +1027,21 @@ async function renderLbTargetVsActual() {
 }
 
 function renderLtaTable_(report) {
-  const rows = report.dateRows.map((r) => `
-    <tr>
-      <td class="row-label">${formatDateDMY_(r.date)}</td>
-      <td>${r.hasData ? formatNum_(r.totalTargetBirds, 0) : ""}</td>
-      <td>${r.hasData ? formatNum_(r.totalActualBirds, 0) : ""}</td>
-      <td>${r.target125 ? formatNum_(r.target125, 0) : ""}</td>
-      <td>${r.actual125 ? formatNum_(r.actual125, 0) : ""}</td>
-      <td>${r.target168 ? formatNum_(r.target168, 0) : ""}</td>
-      <td>${r.actual168 ? formatNum_(r.actual168, 0) : ""}</td>
-      <td>${r.target19 ? formatNum_(r.target19, 0) : ""}</td>
-      <td>${r.actual19 ? formatNum_(r.actual19, 0) : ""}</td>
-      <td>${r.hasData ? formatPct_(r.achievementPct) : "0.00%"}</td>
-    </tr>`).join("");
+  const rows = report.dateRows.map((r) => {
+  const dowClass = getDayOfWeekClass_(r.date);
+  return `<tr class="${dowClass}">
+    <td class="row-label">${formatDateDMY_(r.date)}</td>
+    <td>${r.hasData ? formatNum_(r.totalTargetBirds, 0) : ""}</td>
+    <td>${r.hasData ? formatNum_(r.totalActualBirds, 0) : ""}</td>
+    <td>${r.target125 ? formatNum_(r.target125, 0) : ""}</td>
+    <td>${r.actual125 ? formatNum_(r.actual125, 0) : ""}</td>
+    <td>${r.target168 ? formatNum_(r.target168, 0) : ""}</td>
+    <td>${r.actual168 ? formatNum_(r.actual168, 0) : ""}</td>
+    <td>${r.target19 ? formatNum_(r.target19, 0) : ""}</td>
+    <td>${r.actual19 ? formatNum_(r.actual19, 0) : ""}</td>
+    <td>${r.hasData ? formatPct_(r.achievementPct) : "0.00%"}</td>
+  </tr>`;
+}).join("");
 
   return `
     <table class="report-table lta-table">
@@ -1155,28 +1164,32 @@ function renderPtaTable_(report) {
   }
 
   const dayGroupHeaders = Array.from({ length: report.daysInMonth }, (_, i) => {
-    const day = i + 1;
-    const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const batchNo = getBatchNo_(dateStr);
-    return `<th colspan="2"><div class="day-header-num">${String(day).padStart(2, "0")}</div><div class="day-header-batch">${batchNo}</div></th>`;
-  }).join("");
+  const day = i + 1;
+  const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const batchNo = getBatchNo_(dateStr);
+  const dowClass = getDayOfWeekClass_(dateStr);
+  return `<th colspan="2" class="${dowClass}"><div class="day-header-num">${String(day).padStart(2, "0")}</div><div class="day-header-batch">${batchNo}</div></th>`;
+}).join("");
 
   const dayTargetActualHeaders = Array.from({ length: report.daysInMonth }, () =>
     `<th>Target</th><th>Actual</th>`
   ).join("");
 
   const rows = report.items.map((item) => {
-    const dayCells = item.targets.map((t, i) =>
-      `<td>${formatNum_(t, "auto")}</td><td>${formatNum_(item.actuals[i], "auto")}</td>`
-    ).join("");
-    return `<tr>
-      <td>${item.code}</td>
-      <td class="item-name">${item.name}</td>
-      <td>${formatNum_(item.totalTarget, "auto")}</td>
-      <td>${formatNum_(item.totalActual, "auto")}</td>
-      ${dayCells}
-    </tr>`;
+  const dayCells = item.targets.map((t, i) => {
+    const day = i + 1;
+    const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dowClass = getDayOfWeekClass_(dateStr);
+    return `<td class="${dowClass}">${formatNum_(t, "auto")}</td><td class="${dowClass}">${formatNum_(item.actuals[i], "auto")}</td>`;
   }).join("");
+  return `<tr>
+    <td>${item.code}</td>
+    <td class="item-name">${item.name}</td>
+    <td>${formatNum_(item.totalTarget, "auto")}</td>
+    <td>${formatNum_(item.totalActual, "auto")}</td>
+    ${dayCells}
+  </tr>`;
+}).join("");
 
   const dayTotalCells = report.dayTargetTotals.map((t, i) =>
     `<td>${formatNum_(t, "auto")}</td><td>${formatNum_(report.dayActualTotals[i], "auto")}</td>`
@@ -1286,13 +1299,15 @@ async function renderEasyGibletStock() {
 }
 
 function renderStockLedgerTable_(ledger) {
-  const rows = ledger.dateRows.map((r) => `
-    <tr>
-      <td>${formatDateDMY_(r.date)}</td>
-      <td>${formatNum_(r.in, "auto")}</td>
-      <td>${formatNum_(r.out, "auto")}</td>
-      <td>${formatNum_(r.balance, "auto")}</td>
-    </tr>`).join("");
+  const rows = ledger.dateRows.map((r) => {
+  const dowClass = getDayOfWeekClass_(r.date);
+  return `<tr class="${dowClass}">
+    <td>${formatDateDMY_(r.date)}</td>
+    <td>${formatNum_(r.in, "auto")}</td>
+    <td>${formatNum_(r.out, "auto")}</td>
+    <td>${formatNum_(r.balance, "auto")}</td>
+  </tr>`;
+}).join("");
 
   return `
     <div class="egs-table-block">
@@ -1425,12 +1440,13 @@ function renderYieldTable_(report) {
   const colHeaders = cols.map((c) => `<th>${c.label}</th>`).join("");
 
   const bodyRows = report.dateRows.map((r) => {
-    const cells = cols.map((c) => {
-      const cls = c.highlight ? ' class="total-cell"' : "";
-      return `<td${cls}>${r.hasData ? pctOrNum_(r.metrics[c.key], c) : ""}</td>`;
-    }).join("");
-    return `<tr><td class="row-label">${formatDateDMY_(r.date)}</td>${cells}</tr>`;
+  const cells = cols.map((c) => {
+    const cls = c.highlight ? ' class="total-cell"' : "";
+    return `<td${cls}>${r.hasData ? pctOrNum_(r.metrics[c.key], c) : ""}</td>`;
   }).join("");
+  const dowClass = getDayOfWeekClass_(r.date);
+  return `<tr class="${dowClass}"><td class="row-label">${formatDateDMY_(r.date)}</td>${cells}</tr>`;
+}).join("");
 
   const totalCells = cols.map((c) => {
     const cls = c.highlight ? ' class="total-cell"' : "";

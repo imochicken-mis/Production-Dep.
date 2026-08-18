@@ -891,7 +891,7 @@ async function buildYieldReport(year, month) {
     const yieldBF = liveWeightToPlant > 0 ? (liveWeightToPlant - totalFFO) / liveWeightToPlant : 0;
 
     const chillWeight = sumField(chillForDate, "Weight");
-    const fgWeight = sumField(fgForDate, "Quantity_Kg"); // ⚠️ confirm exact column name in DataFBPProduction
+    const fgWeight = sumField(fgForDate, "Weight"); // ⚠️ confirm exact column name in DataFBPProduction
 
     const finalYield = liveWeightToPlant > 0 ? fgWeight / liveWeightToPlant : 0;
     const chillLoss = fgWeight > 0 ? chillWeight / fgWeight : 0;
@@ -953,4 +953,17 @@ async function buildYieldReport(year, month) {
   };
 
   return { year, month, dateRows, totals };
+}
+
+
+
+// ===================================================================
+// DAY-OF-WEEK HELPER — used by monthly reports to highlight
+// Sunday (red) and Saturday (gray) rows/columns
+// ===================================================================
+function getDayOfWeekClass_(dateStr) {
+  const day = new Date(dateStr + "T00:00:00").getDay();   // 0=Sun, 6=Sat
+  if (day === 0) return "dow-sunday";
+  if (day === 6) return "dow-saturday";
+  return "";
 }

@@ -85,19 +85,21 @@
     <section class="view active" id="view-dashboard">
       <div class="view-head">
         <h1>Production Overview</h1>
-        <p class="sub">Production summary — modules and charts will appear here as they're added.</p>
+        <p class="sub">Production summary </p>
       </div>
       <div class="panel">
         <div class="panel-body">
-          <p class="hint">Login and base shell are working. Next step: add the first data-entry module (e.g. Inspections or Non-conformance).</p>
+          <p class="hint">Comming Soon...</p>
         </div>
       </div>
     </section>
 
     <!-- DAILY LB INPUT REPORT -->
   <section class="view" id="view-daily-lb-input">
+    <div class="sticky-report-header">
   <div class="view-head">
     <h1>Daily LB Input Report</h1>
+    </div>
     <p class="sub">Daily live bird input records — filter by date to view.</p>
   </div>
 
@@ -134,10 +136,11 @@
 
 <!-- TOTAL LB REPORT -->
 <section class="view" id="view-total-lb">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Total LB Report</h1>
+    </div>
     <p class="sub">Monthly live bird summary — filter by year and month.</p>
-  </div>
 
   <div class="report-toolbar">
     <label for="totalLbMonth">Month:</label>
@@ -151,6 +154,7 @@
     </select>
     <label for="totalLbYear">Year:</label>
     <select id="totalLbYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="totalLbPrintHeader">
@@ -178,6 +182,7 @@
 
 <!-- CHILL WEIGHT REPORT -->
 <section class="view" id="view-chill-weight">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Chill Weight Report</h1>
     <p class="sub">Daily finished goods chill weight — filter by date.</p>
@@ -186,6 +191,7 @@
   <div class="report-toolbar">
     <label for="cwDateFilter">Date:</label>
     <input type="date" id="cwDateFilter">
+  </div>
   </div>
 
   <div class="print-header" id="cwPrintHeader">
@@ -213,6 +219,7 @@
 
 <!-- DRESS WEIGHT REPORT -->
 <section class="view" id="view-dress-weight">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Dress Weight Report</h1>
     <p class="sub">Live bird input summary + production summary — filter by date.</p>
@@ -222,6 +229,7 @@
   <label for="dwDateFilter">Date:</label>
   <input type="date" id="dwDateFilter">
   <span class="batch-display" id="dwBatchDisplay"></span>
+</div>
 </div>
 
   <div class="print-header" id="dwPrintHeader">
@@ -250,6 +258,7 @@
 
 <!-- PRODUCTION REPORT -->
 <section class="view" id="view-production-weight">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Production Report</h1>
     <p class="sub">Live bird input + production summary + Easy production — filter by date.</p>
@@ -259,6 +268,7 @@
     <label for="pwDateFilter">Date:</label>
     <input type="date" id="pwDateFilter">
     <span class="batch-display" id="pwBatchDisplay"></span>
+  </div>
   </div>
 
   <div class="print-header" id="pwPrintHeader">
@@ -287,6 +297,7 @@
 
 <!-- CHILL WEIGHT vs DRESS WEIGHT REPORT -->
 <section class="view" id="view-chil-vs-dress">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Chill Weight vs Dress Weight</h1>
     <p class="sub">Item-wise comparison — filter by date.</p>
@@ -296,6 +307,7 @@
     <label for="cvdDateFilter">Date:</label>
     <input type="date" id="cvdDateFilter">
     <span class="batch-display" id="cvdBatchDisplay"></span>
+  </div>
   </div>
 
   <div class="print-header" id="cvdPrintHeader">
@@ -324,6 +336,7 @@
 
 <!-- TOTAL PRODUCTION SUMMARY -->
 <section class="view" id="view-total-production-summary">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Total Production Summary</h1>
     <p class="sub">Item-wise daily production — filter by year and month.</p>
@@ -341,6 +354,7 @@
     </select>
     <label for="tpsYear">Year:</label>
     <select id="tpsYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="tpsPrintHeader">
@@ -368,6 +382,7 @@
 
 <!-- SALES FORECAST vs PRODUCTION -->
 <section class="view" id="view-salesforecast-vs-production">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Sales Forecast vs Production</h1>
     <p class="sub">Item-wise comparison — filter by year and month.</p>
@@ -385,6 +400,7 @@
     </select>
     <label for="sfpYear">Year:</label>
     <select id="sfpYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="sfpPrintHeader">
@@ -412,6 +428,7 @@
 
 <!-- LB TARGET vs ACTUAL -->
 <section class="view" id="view-lbtarget-vs-actual">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>LB Target vs Actual</h1>
     <p class="sub">Daily bird target vs actual by weight range — filter by year and month.</p>
@@ -429,6 +446,7 @@
     </select>
     <label for="ltaYear">Year:</label>
     <select id="ltaYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="ltaPrintHeader">
@@ -456,6 +474,7 @@
 
 <!-- PRODUCTION TARGET vs ACTUAL -->
 <section class="view" id="view-productiontarget-vs-actual">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Production Target vs Actual</h1>
     <p class="sub">Item-wise daily target vs actual — filter by year and month.</p>
@@ -473,6 +492,7 @@
     </select>
     <label for="ptaYear">Year:</label>
     <select id="ptaYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="ptaPrintHeader">
@@ -500,6 +520,7 @@
 
 <!-- EASY & GIBLET STOCK -->
 <section class="view" id="view-easy-&-giblet-stock">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Easy & Giblet Stock</h1>
     <p class="sub">Running stock balance — filter by year and month.</p>
@@ -517,6 +538,7 @@
     </select>
     <label for="egsYear">Year:</label>
     <select id="egsYear"></select>
+  </div>
   </div>
 
   <div class="print-header" id="egsPrintHeader">
@@ -543,6 +565,7 @@
 </section>
 
 <section class="view" id="view-yield-report">
+  <div class="sticky-report-header">
   <div class="view-head">
     <h1>Yield Report</h1>
     <p class="sub">Monthly yield summary — filter by year and month.</p>
@@ -561,12 +584,13 @@
     <label for="yieldYear">Year:</label>
     <select id="yieldYear"></select>
   </div>
+  </div>
 
   <div class="print-header" id="yieldPrintHeader">
     <img src="images/logo.png" alt="Company logo" class="print-logo">
     <div class="print-header-text">
-      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
       <div class="print-report-title">Yield Report</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
     </div>
     <div class="print-meta">
       <div><span>Month:</span> <span id="yieldPrintMonth"></span></div>
