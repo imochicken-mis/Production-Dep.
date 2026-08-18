@@ -96,7 +96,7 @@ button{font-family:var(--body); cursor:pointer;}
 .hamburger{background:none;border:none;color:#fff;font-size:20px;}
 .topbar-title{font-family:var(--display); font-size:17px;}
 
-.content{padding:0 32px 60px; background: rgb(224, 224, 224); height: 100vh; overflow-y: auto;}
+.content{padding:0 32px 60px; background: rgb(255, 255, 255); height: 100vh; overflow-y: auto;}
 .view{display:none;}
 .view.active{display:block;}
 .view-head{margin-bottom:22px;}
@@ -104,7 +104,7 @@ button{font-family:var(--body); cursor:pointer;}
 .view-head .sub{color:var(--muted); margin:4px 0 0; font-size:14px;}
 
 /* ===== Panels ===== */
-.panel{background:rgb(224, 224, 224); border-radius:14px; overflow:hidden; max-width:100%;}
+.panel{background:rgb(255, 255, 255); border-radius:14px; overflow:hidden; max-width:100%;}
 .panel-body{padding:14px 18px; overflow-x:auto; max-width:100%;}
 .hint{font-size:12.5px; color:var(--muted); margin:8px 0 0; font-weight: bold;}
 .hint.error {color: #b23b3b;}
@@ -172,7 +172,7 @@ button{font-family:var(--body); cursor:pointer;}
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgb(224, 224, 224);
+  background: rgb(255, 255, 255);
   padding-top: 28px;   /* moved here from .content, so nothing can peek above it */
   isolation: isolate;
   transform: translateZ(0);
