@@ -1529,6 +1529,7 @@ async function renderBayMortalityKpi() {
     const report = await buildBayMortalityKpi(year, month);
     panel.innerHTML = renderBayMortalityTable_(report) + renderBayMortalitySummaryCards_(report.summary);
     renderBayMortalityChart_(report);
+    syncChartWidthToTable_();
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
   }
@@ -1626,16 +1627,16 @@ function renderBayMortalityChart_(report) {
           data: actualValues,
           borderColor: "#5892f8",
           backgroundColor: "transparent",
-          borderWidth: 2.5,
+          borderWidth: 1.5,
           tension: 0.35,
           fill: false,
-          pointRadius: 3,
+          pointRadius: 1.5,
           pointBackgroundColor: "#2c4a7c",
         },
         {
           label: "Standard (0.05%)",
           data: standardValues,
-          borderColor: "#4bcb32",
+          borderColor: "#0bb922",
           borderWidth: 2,
           borderDash: [6, 4],
           tension: 0,
@@ -1646,35 +1647,64 @@ function renderBayMortalityChart_(report) {
     },
     plugins: [bayMortalityBandFill_],
     options: {
-      responsive: true,
-      animation: {
-        duration: 1200,
-        easing: "easeOutQuart",
-        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
-          if (ctx.type !== "data" || ctx.xStarted) return 0;
-          ctx.xStarted = true;
-          return ctx.index * 40;
-        }},
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: "Bay Mortality %" },
-        },
-        x: {
-          title: { display: true, text: "Date" },
-        },
-      },
-      plugins: {
-  title: {
-    display: true,
-    text: "Bay Mortality % Trend",
-    font: { size: 16, weight: "bold" },
-    color: "#14213D",
-    padding: { top: 4, bottom: 12 },
+  responsive: true,
+  interaction: {
+    mode: "index",
+    intersect: false,
   },
-  legend: { position: "top" },
-},
+  animation: {
+    duration: 1200,
+    easing: "easeOutQuart",
+    x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+      if (ctx.type !== "data" || ctx.xStarted) return 0;
+      ctx.xStarted = true;
+      return ctx.index * 40;
+    }},
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: { display: true, text: "Bay Mortality %" },
     },
+    x: {
+      title: { display: true, text: "Date" },
+    },
+  },
+  plugins: {
+    title: {
+      display: true,
+      text: "Bay Mortality % Trend",
+      font: { size: 16, weight: "bold" },
+      color: "#14213D",
+      padding: { top: 4, bottom: 12 },
+    },
+    legend: { position: "top" },
+    tooltip: {
+  mode: "index",
+  intersect: false,
+  callbacks: {
+    afterBody(tooltipItems) {
+      const actual = tooltipItems.find((t) => t.dataset.label === "Actual Bay Mortality %");
+      const standard = tooltipItems.find((t) => t.dataset.label === "Standard (0.05%)");
+      if (!actual || !standard) return "";
+      const gap = actual.parsed.y - standard.parsed.y;
+      const sign = gap >= 0 ? "+" : "";
+      return `Gap: ${sign}${gap.toFixed(2)}%`;
+    },
+  },
+},
+  },
+},
+  });
+}
+function syncChartWidthToTable_() {
+  const table = document.querySelector("#view-kpi-01 .kpi-bay-mortality-table");
+  const chartPanel = document.querySelector("#view-kpi-01 .kpi-chart-panel");
+  if (!table || !chartPanel) return;
+
+  // Wait one frame so the table has finished laying out before measuring it
+  requestAnimationFrame(() => {
+    const tableWidth = table.getBoundingClientRect().width;
+    chartPanel.style.maxWidth = `${tableWidth}px`;
   });
 }

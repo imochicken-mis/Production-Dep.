@@ -1021,10 +1021,10 @@ td.dow-saturday, th.dow-saturday {
 }
 
 /* Color bands based on deviation from the 0.05% standard */
-#view-kpi-01 .kpi-green  { background: #c6efce; color: #1b5e20; font-weight: 600; }
-#view-kpi-01 .kpi-yellow { background: #fff2b2; color: #7a5c00; font-weight: 600; }
-#view-kpi-01 .kpi-orange { background: #fbc680; color: #8a4b00; font-weight: 600; }
-#view-kpi-01 .kpi-red    { background: #f4b6b6; color: #7a1414; font-weight: 600; }
+#view-kpi-01 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
+#view-kpi-01 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
+#view-kpi-01 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
+#view-kpi-01 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
 
 /* Date row — navy background, bold larger text */
 #view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td {
@@ -1058,12 +1058,14 @@ td.dow-saturday, th.dow-saturday {
 .kpi-card-pct { font-size: 15px; font-weight: 600; margin-top: 2px; }
 .kpi-card-range { font-size: 12px; opacity: 0.85; margin-top: 6px; }
 
-.kpi-card-green  { background: #c6efce; }
+.kpi-card-green  { background: #66f182; }
 .kpi-card-yellow { background: #fff2b2; }
-.kpi-card-orange { background: #fbc680; }
-.kpi-card-red    { background: #f4b6b6; }
+.kpi-card-orange { background: #fbb65c; }
+.kpi-card-red    { background: #f48080; }
 
 .kpi-chart-panel {
   margin-top: -25px;
   padding: 12px 8px;
+  background: #f0f0f0;
+  overflow-x: auto;
 }
