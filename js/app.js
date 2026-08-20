@@ -81,6 +81,7 @@ function showView(key) {
   if (key === "productiontarget-vs-actual") initProductionTargetVsActual();
   if (key === "easy-&-giblet-stock") initEasyGibletStock();
   if (key === "yield-report") initYieldReport();
+  if (key === "kpi-01") initBayMortalityKpi();
 }
 
 // ===================================================================
@@ -1033,12 +1034,14 @@ function renderLtaTable_(report) {
     <td class="row-label">${formatDateDMY_(r.date)}</td>
     <td>${r.hasData ? formatNum_(r.totalTargetBirds, 0) : ""}</td>
     <td>${r.hasData ? formatNum_(r.totalActualBirds, 0) : ""}</td>
-    <td>${r.target125 ? formatNum_(r.target125, 0) : ""}</td>
-    <td>${r.actual125 ? formatNum_(r.actual125, 0) : ""}</td>
-    <td>${r.target168 ? formatNum_(r.target168, 0) : ""}</td>
-    <td>${r.actual168 ? formatNum_(r.actual168, 0) : ""}</td>
-    <td>${r.target19 ? formatNum_(r.target19, 0) : ""}</td>
-    <td>${r.actual19 ? formatNum_(r.actual19, 0) : ""}</td>
+    <td>${r.target14 ? formatNum_(r.target14, 0) : ""}</td>
+    <td>${r.actual14 ? formatNum_(r.actual14, 0) : ""}</td>
+    <td>${r.target18 ? formatNum_(r.target18, 0) : ""}</td>
+    <td>${r.actual18 ? formatNum_(r.actual18, 0) : ""}</td>
+    <td>${r.target22 ? formatNum_(r.target22, 0) : ""}</td>
+    <td>${r.actual22 ? formatNum_(r.actual22, 0) : ""}</td>
+    <td>${r.target23 ? formatNum_(r.target23, 0) : ""}</td>
+    <td>${r.actual23 ? formatNum_(r.actual23, 0) : ""}</td>
     <td>${r.hasData ? formatPct_(r.achievementPct) : "0.00%"}</td>
   </tr>`;
 }).join("");
@@ -1046,24 +1049,27 @@ function renderLtaTable_(report) {
   return `
     <table class="report-table lta-table">
       <colgroup>
-        <col style="width:10%">
-        <col style="width:9%"><col style="width:9%">
-        <col style="width:9%"><col style="width:9%">
-        <col style="width:9%"><col style="width:9%">
-        <col style="width:9%"><col style="width:9%">
-        <col style="width:18%">
+        <col style="width:9%">
+        <col style="width:8%"><col style="width:8%">
+        <col style="width:7%"><col style="width:7%">
+        <col style="width:7%"><col style="width:7%">
+        <col style="width:7%"><col style="width:7%">
+        <col style="width:7%"><col style="width:7%">
+        <col style="width:15%">
       </colgroup>
       <thead>
         <tr>
           <th class="row-label" rowspan="2">Date</th>
           <th rowspan="2">Total Target Birds</th>
           <th rowspan="2">Total Actual Birds</th>
-          <th colspan="2">1.2 - 1.5</th>
-          <th colspan="2">1.6-1.8</th>
-          <th colspan="2">1.9 & Above</th>
+          <th colspan="2">1.2 - 1.4</th>
+          <th colspan="2">1.5 - 1.8</th>
+          <th colspan="2">1.9 - 2.2</th>
+          <th colspan="2">2.3 & Above</th>
           <th rowspan="2">Achievement %</th>
         </tr>
         <tr>
+          <th>Target</th><th>Actual</th>
           <th>Target</th><th>Actual</th>
           <th>Target</th><th>Actual</th>
           <th>Target</th><th>Actual</th>
@@ -1075,12 +1081,14 @@ function renderLtaTable_(report) {
           <td class="row-label">Total &gt;&gt;&gt;</td>
           <td>${formatNum_(report.totals.totalTargetBirds, 0)}</td>
           <td>${formatNum_(report.totals.totalActualBirds, 0)}</td>
-          <td>${formatNum_(report.totals.target125, 0)}</td>
-          <td>${formatNum_(report.totals.actual125, 0)}</td>
-          <td>${formatNum_(report.totals.target168, 0)}</td>
-          <td>${formatNum_(report.totals.actual168, 0)}</td>
-          <td>${formatNum_(report.totals.target19, 0)}</td>
-          <td>${formatNum_(report.totals.actual19, 0)}</td>
+          <td>${formatNum_(report.totals.target14, 0)}</td>
+          <td>${formatNum_(report.totals.actual14, 0)}</td>
+          <td>${formatNum_(report.totals.target18, 0)}</td>
+          <td>${formatNum_(report.totals.actual18, 0)}</td>
+          <td>${formatNum_(report.totals.target22, 0)}</td>
+          <td>${formatNum_(report.totals.actual22, 0)}</td>
+          <td>${formatNum_(report.totals.target23, 0)}</td>
+          <td>${formatNum_(report.totals.actual23, 0)}</td>
           <td>${formatPct_(report.totals.achievementPct)}</td>
         </tr>
       </tfoot>
@@ -1089,12 +1097,12 @@ function renderLtaTable_(report) {
 }
 
 function downloadLtaCsv_(report) {
-  let csv = "Date,Total Target Birds,Total Actual Birds,1.2-1.5 Target,1.2-1.5 Actual,1.6-1.8 Target,1.6-1.8 Actual,1.9+ Target,1.9+ Actual,Achievement %\n";
+  let csv = "Date,Total Target Birds,Total Actual Birds,1.2-1.4 Target,1.2-1.4 Actual,1.5-1.8 Target,1.5-1.8 Actual,1.9-2.2 Target,1.9-2.2 Actual,2.3+ Target,2.3+ Actual,Achievement %\n";
   report.dateRows.forEach((r) => {
-    csv += [formatDateDMY_(r.date), r.totalTargetBirds, r.totalActualBirds, r.target125, r.actual125, r.target168, r.actual168, r.target19, r.actual19, Math.round(r.achievementPct) + "%"]
+    csv += [formatDateDMY_(r.date), r.totalTargetBirds, r.totalActualBirds, r.target14, r.actual14, r.target18, r.actual18, r.target22, r.actual22, r.target23, r.actual23, Math.round(r.achievementPct) + "%"]
       .map((v) => `"${v}"`).join(",") + "\n";
   });
-  csv += ["Total", report.totals.totalTargetBirds, report.totals.totalActualBirds, report.totals.target125, report.totals.actual125, report.totals.target168, report.totals.actual168, report.totals.target19, report.totals.actual19, Math.round(report.totals.achievementPct) + "%"]
+  csv += ["Total", report.totals.totalTargetBirds, report.totals.totalActualBirds, report.totals.target14, report.totals.actual14, report.totals.target18, report.totals.actual18, report.totals.target22, report.totals.actual22, report.totals.target23, report.totals.actual23, Math.round(report.totals.achievementPct) + "%"]
     .map((v) => `"${v}"`).join(",") + "\n";
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1483,4 +1491,66 @@ function downloadYieldCsv_(report) {
   a.download = `Yield_Report_${report.year}-${String(report.month).padStart(2, "0")}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ===================================================================
+// KPI 01 — Bay Mortality Rate %
+// ===================================================================
+function initBayMortalityKpi() {
+  const monthSelect = document.getElementById("kpi01Month");
+  const yearSelect = document.getElementById("kpi01Year");
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderBayMortalityKpi);
+  yearSelect.addEventListener("change", renderBayMortalityKpi);
+
+  renderBayMortalityKpi();
+}
+
+async function renderBayMortalityKpi() {
+  const year = document.getElementById("kpi01Year").value;
+  const month = document.getElementById("kpi01Month").value;
+  const panel = document.getElementById("kpi01Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildBayMortalityKpi(year, month);
+    panel.innerHTML = renderBayMortalityTable_(report);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+function renderBayMortalityTable_(report) {
+  const dateCells = report.days.map((d) => `<td>${String(d.day).padStart(2, "0")}</td>`).join("");
+  const birdsCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.totalBirds, 0) : ""}</td>`).join("");
+  const mortalityCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.bayMortality, 0) : ""}</td>`).join("");
+  const pctCells = report.days.map((d) => {
+    if (!d.hasData) return `<td></td>`;
+    const cls = bayMortalityColorClass_(d.pct);
+    return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
+  }).join("");
+
+  return `
+    <table class="report-table kpi-bay-mortality-table">
+      <tbody>
+        <tr><td class="row-label">Date</td>${dateCells}</tr>
+        <tr><td class="row-label">Total Birds Received Alive</td>${birdsCells}</tr>
+        <tr><td class="row-label">Bay Mortality Birds</td>${mortalityCells}</tr>
+        <tr><td class="row-label">Bay Mortality %</td>${pctCells}</tr>
+      </tbody>
+    </table>
+  `;
 }

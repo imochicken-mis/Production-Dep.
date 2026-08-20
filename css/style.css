@@ -63,7 +63,7 @@ button{font-family:var(--body); cursor:pointer;}
 .nav-scroll::-webkit-scrollbar{ width:5px; }
 .nav-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:10px; }
 .nav-section-label{
-  font-size:12px; text-transform:uppercase; letter-spacing:.8px;
+  font-size:16px; text-transform:uppercase; letter-spacing:.8px;
   color:#00afef; padding:16px 12px 6px; font-weight:600;
 }
 .nav-item{
@@ -679,7 +679,7 @@ button{font-family:var(--body); cursor:pointer;}
    REPORT: Sales Forecast vs Production  (#view-salesforecast-vs-production)
    =================================================================== */
 
-#view-salesforecast-vs-production .sfp-table { table-layout: fixed; }
+#view-salesforecast-vs-production .sfp-table { table-layout: auto; }
 #view-salesforecast-vs-production .sfp-table th:nth-child(1),
 #view-salesforecast-vs-production .sfp-table td:nth-child(1) { width: 80px; }
 #view-salesforecast-vs-production .sfp-table th:nth-child(2),
@@ -701,7 +701,7 @@ button{font-family:var(--body); cursor:pointer;}
    =================================================================== */
 
 #view-lbtarget-vs-actual .lta-table {
-  table-layout: fixed;
+  table-layout: auto;
 }
 #view-lbtarget-vs-actual .lta-table th.row-label,
 #view-lbtarget-vs-actual .lta-table td.row-label {
@@ -743,7 +743,7 @@ button{font-family:var(--body); cursor:pointer;}
 }
 .toggle-arrow {
   transition: transform .2s ease;
-  font-size: 10px;
+  font-size: 20px;
 }
 .nav-section-toggle.active .toggle-arrow {
   transform: rotate(180deg);
@@ -911,3 +911,113 @@ td.dow-sunday, th.dow-sunday {
 td.dow-saturday, th.dow-saturday {
   background: #e2e2e2 !important;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===================================================================
+   KPI 01 — Bay Mortality Rate %  (#view-kpi-01)
+   =================================================================== */
+
+#view-kpi-01 .kpi-bay-mortality-table {
+  table-layout: auto;
+  min-width: 0;
+}
+#view-kpi-01 .kpi-bay-mortality-table td.row-label {
+  width: 220px;
+  background: #f0f0f0;
+  font-weight: 600;
+}
+#view-kpi-01 .kpi-bay-mortality-table td {
+  text-align: center;
+  padding: 6px 4px;
+  width: 100px;
+}
+
+/* Color bands based on deviation from the 0.05% standard */
+#view-kpi-01 .kpi-green  { background: #c6efce; color: #1b5e20; font-weight: 600; }
+#view-kpi-01 .kpi-yellow { background: #fff2b2; color: #7a5c00; font-weight: 600; }
+#view-kpi-01 .kpi-orange { background: #ffd9a8; color: #8a4b00; font-weight: 600; }
+#view-kpi-01 .kpi-red    { background: #f4b6b6; color: #7a1414; font-weight: 600; }

@@ -36,9 +36,12 @@
   </button>
   <div class="nav-collapse open" id="kpiCollapse">
     <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span>KPI Dashboard</button>
-    <button class="nav-item" data-view="kpi-01"><span class="ico"></span>KPI 01</button>
-    <button class="nav-item" data-view="kpi-02"><span class="ico"></span>KPI 02</button>
-    <button class="nav-item" data-view="kpi-03"><span class="ico"></span>KPI 03</button>
+    <button class="nav-item" data-view="kpi-01"><span class="ico"></span>01. Live Bird Bay Mortality Rate %</button>
+    <button class="nav-item" data-view="kpi-02"><span class="ico"></span>02. Birds Unloading Rate</button>
+    <button class="nav-item" data-view="kpi-03"><span class="ico"></span>03. Slaughter Line Efficiency %</button>
+    <button class="nav-item" data-view="kpi-04"><span class="ico"></span>04. Packing Line Efficiency %</button>
+    <button class="nav-item" data-view="kpi-05"><span class="ico"></span>05. Dressed Yield %</button>
+    <button class="nav-item" data-view="kpi-06"><span class="ico"></span>06. Chill Loss %</button>
   </div>
 
   <!-- Reports collapsible section -->
@@ -94,6 +97,35 @@
       </div>
     </section>
 
+    <!-- KPI 01 — BAY MORTALITY RATE % -->
+<section class="view" id="view-kpi-01">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>KPI 01 — Bay Mortality Rate %</h1>
+      <p class="sub">Daily bay mortality rate — filter by year and month.</p>
+    </div>
+    <div class="report-toolbar">
+      <label for="kpi01Year">Year:</label>
+      <select id="kpi01Year"></select>
+      <label for="kpi01Month">Month:</label>
+      <select id="kpi01Month">
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="kpi01Panel">
+      <p class="hint">Select year and month to load the KPI.</p>
+    </div>
+  </div>
+</section>
+
     <!-- DAILY LB INPUT REPORT -->
   <section class="view" id="view-daily-lb-input">
     <div class="sticky-report-header">
@@ -143,6 +175,8 @@
     <p class="sub">Monthly live bird summary — filter by year and month.</p>
 
   <div class="report-toolbar">
+    <label for="totalLbYear">Year:</label>
+    <select id="totalLbYear"></select>
     <label for="totalLbMonth">Month:</label>
     <select id="totalLbMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -152,8 +186,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="totalLbYear">Year:</label>
-    <select id="totalLbYear"></select>
   </div>
   </div>
 
@@ -343,6 +375,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="tpsYear">Year:</label>
+    <select id="tpsYear"></select>
     <label for="tpsMonth">Month:</label>
     <select id="tpsMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -352,8 +386,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="tpsYear">Year:</label>
-    <select id="tpsYear"></select>
   </div>
   </div>
 
@@ -389,6 +421,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="sfpYear">Year:</label>
+    <select id="sfpYear"></select>
     <label for="sfpMonth">Month:</label>
     <select id="sfpMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -398,8 +432,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="sfpYear">Year:</label>
-    <select id="sfpYear"></select>
   </div>
   </div>
 
@@ -435,6 +467,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="ltaYear">Year:</label>
+    <select id="ltaYear"></select>
     <label for="ltaMonth">Month:</label>
     <select id="ltaMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -444,8 +478,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="ltaYear">Year:</label>
-    <select id="ltaYear"></select>
   </div>
   </div>
 
@@ -481,6 +513,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="ptaYear">Year:</label>
+    <select id="ptaYear"></select>
     <label for="ptaMonth">Month:</label>
     <select id="ptaMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -490,8 +524,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="ptaYear">Year:</label>
-    <select id="ptaYear"></select>
   </div>
   </div>
 
@@ -527,6 +559,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="egsYear">Year:</label>
+    <select id="egsYear"></select>
     <label for="egsMonth">Month:</label>
     <select id="egsMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -536,8 +570,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="egsYear">Year:</label>
-    <select id="egsYear"></select>
   </div>
   </div>
 
@@ -572,6 +604,8 @@
   </div>
 
   <div class="report-toolbar">
+    <label for="yieldYear">Year:</label>
+    <select id="yieldYear"></select>
     <label for="yieldMonth">Month:</label>
     <select id="yieldMonth">
       <option value="1">January</option><option value="2">February</option>
@@ -581,8 +615,6 @@
       <option value="9">September</option><option value="10">October</option>
       <option value="11">November</option><option value="12">December</option>
     </select>
-    <label for="yieldYear">Year:</label>
-    <select id="yieldYear"></select>
   </div>
   </div>
 

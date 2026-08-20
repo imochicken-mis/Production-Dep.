@@ -631,7 +631,7 @@ async function buildSalesForecastVsProduction(year, month) {
 
 // ===================================================================
 // LB TARGET vs ACTUAL — date rows, month/year filtered.
-// Target: DataProductionBirdReq (3 weight-range columns)
+// Target: DataProductionBirdReq (4 weight-range columns)
 // Actual: DataLBSummary, bucketed by each row's Average_weight
 // ===================================================================
 
@@ -652,19 +652,21 @@ async function buildLbTargetVsActual(year, month) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
 
     const reqDay = reqMonth.filter((r) => String(r.Date) === dateStr);
-    const target125 = reqDay.reduce((s, r) => s + (Number(r["1.2-1.5kg"]) || 0), 0);
-    const target168 = reqDay.reduce((s, r) => s + (Number(r["1.6-1.8kg"]) || 0), 0);
-    const target19 = reqDay.reduce((s, r) => s + (Number(r["1.9Kg+"]) || 0), 0);
-    const totalTargetBirds = target125 + target168 + target19;
+    const target14 = reqDay.reduce((s, r) => s + (Number(r["1.2 - 1.4 kg"]) || 0), 0);
+    const target18 = reqDay.reduce((s, r) => s + (Number(r["1.5 - 1.8 kg"]) || 0), 0);
+    const target22 = reqDay.reduce((s, r) => s + (Number(r["1.9 - 2.2 kg"]) || 0), 0);
+    const target23 = reqDay.reduce((s, r) => s + (Number(r["2.3 kg Above"]) || 0), 0);
+    const totalTargetBirds = target14 + target18 + target22 + target23;
 
     const lbDay = lbMonth.filter((r) => String(r.Date) === dateStr);
-    let actual125 = 0, actual168 = 0, actual19 = 0;
+    let actual14 = 0, actual18 = 0, actual22 = 0, actual23 = 0;
     lbDay.forEach((r) => {
       const avg = Number(r.Average_weight) || 0;
       const birds = Number(r.No_of_birds) || 0;
-      if (avg >= 1.2 && avg <= 1.5) actual125 += birds;
-      else if (avg > 1.5 && avg <= 1.8) actual168 += birds;
-      else if (avg > 1.8) actual19 += birds;
+      if (avg >= 1.2 && avg <= 1.4) actual14 += birds;
+      else if (avg > 1.4 && avg <= 1.8) actual18 += birds;
+      else if (avg > 1.8 && avg <= 2.2) actual22 += birds;
+      else if (avg > 2.2) actual23 += birds;
       // avg < 1.2 -> not bucketed into any range column
     });
     const totalActualBirds = lbDay.reduce((s, r) => s + (Number(r.No_of_birds) || 0), 0);
@@ -674,19 +676,20 @@ async function buildLbTargetVsActual(year, month) {
 
     dateRows.push({
       date: dateStr, hasData,
-      target125, actual125, target168, actual168, target19, actual19,
+      target14, actual14, target18, actual18, target22, actual22, target23, actual23,
       totalTargetBirds, totalActualBirds, achievementPct,
     });
   }
 
   const totals = dateRows.reduce((acc, r) => {
-    acc.target125 += r.target125; acc.actual125 += r.actual125;
-    acc.target168 += r.target168; acc.actual168 += r.actual168;
-    acc.target19 += r.target19; acc.actual19 += r.actual19;
+    acc.target14 += r.target14; acc.actual14 += r.actual14;
+    acc.target18 += r.target18; acc.actual18 += r.actual18;
+    acc.target22 += r.target22; acc.actual22 += r.actual22;
+    acc.target23 += r.target23; acc.actual23 += r.actual23;
     acc.totalTargetBirds += r.totalTargetBirds;
     acc.totalActualBirds += r.totalActualBirds;
     return acc;
-  }, { target125: 0, actual125: 0, target168: 0, actual168: 0, target19: 0, actual19: 0, totalTargetBirds: 0, totalActualBirds: 0 });
+  }, { target14: 0, actual14: 0, target18: 0, actual18: 0, target22: 0, actual22: 0, target23: 0, actual23: 0, totalTargetBirds: 0, totalActualBirds: 0 });
   totals.achievementPct = totals.totalTargetBirds > 0 ? (totals.totalActualBirds / totals.totalTargetBirds) * 100 : 0;
 
   return { year, month, dateRows, totals };
@@ -966,4 +969,50 @@ function getDayOfWeekClass_(dateStr) {
   if (day === 0) return "dow-sunday";
   if (day === 6) return "dow-saturday";
   return "";
+}
+
+// ===================================================================
+// KPI 01 — Bay Mortality Rate %  (transposed: metrics as rows, days as columns)
+// ===================================================================
+
+const KPI_BAY_MORTALITY_STANDARD_ = 0.05;   // standard threshold %
+
+async function buildBayMortalityKpi(year, month) {
+  const rows = await Api.list("Live_Bird_Bay_Mortality_Rate_%");
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const monthRows = rows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const byDay = {};
+  monthRows.forEach((r) => {
+    const day = Number(String(r.Date).split("-")[2]);
+    const totalBirds = Number(r.Total_Birds_Received_Alive) || 0;
+    const bayMortality = Number(r.Bay_Mortality) || 0;
+    const pctRaw = r["Bay_Mortality%"];
+    const pct = pctRaw !== undefined && pctRaw !== "" ? Number(pctRaw) : (totalBirds > 0 ? (bayMortality / totalBirds) * 100 : 0);
+    byDay[day] = { totalBirds, bayMortality, pct };
+  });
+
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const rec = byDay[d];
+    days.push({
+      day: d,
+      hasData: !!rec,
+      totalBirds: rec ? rec.totalBirds : null,
+      bayMortality: rec ? rec.bayMortality : null,
+      pct: rec ? rec.pct : null,
+    });
+  }
+
+  return { year, month, days };
+}
+
+function bayMortalityColorClass_(pct) {
+  const std = KPI_BAY_MORTALITY_STANDARD_;
+  if (pct === null || pct === undefined) return "";
+  if (pct <= std) return "kpi-green";
+  if (pct <= std * 1.5) return "kpi-yellow";
+  if (pct <= std * 2) return "kpi-orange";
+  return "kpi-red";
 }
