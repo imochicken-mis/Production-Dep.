@@ -988,8 +988,7 @@ async function buildBayMortalityKpi(year, month) {
     const day = Number(String(r.Date).split("-")[2]);
     const totalBirds = Number(r.Total_Birds_Received_Alive) || 0;
     const bayMortality = Number(r.Bay_Mortality) || 0;
-    const pctRaw = r["Bay_Mortality%"];
-    const pct = pctRaw !== undefined && pctRaw !== "" ? Number(pctRaw) : (totalBirds > 0 ? (bayMortality / totalBirds) * 100 : 0);
+    const pct = totalBirds > 0 ? (bayMortality / totalBirds) * 100 : 0;
     byDay[day] = { totalBirds, bayMortality, pct };
   });
 
@@ -1005,7 +1004,7 @@ async function buildBayMortalityKpi(year, month) {
     });
   }
 
-  return { year, month, days };
+  return { year, month, days, summary: buildBayMortalitySummary_(days) };
 }
 
 function bayMortalityColorClass_(pct) {
@@ -1015,4 +1014,28 @@ function bayMortalityColorClass_(pct) {
   if (pct <= std * 1.5) return "kpi-yellow";
   if (pct <= std * 2) return "kpi-orange";
   return "kpi-red";
+}
+
+function buildBayMortalitySummary_(days) {
+  const std = KPI_BAY_MORTALITY_STANDARD_;
+  const withData = days.filter((d) => d.hasData);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((d) => {
+    const cls = bayMortalityColorClass_(d.pct);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≤ ${std.toFixed(2)}%`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${std.toFixed(2)}% – ${(std * 1.5).toFixed(2)}%`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${(std * 1.5).toFixed(2)}% – ${(std * 2).toFixed(2)}%`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `> ${(std * 2).toFixed(2)}%`, count: counts.red, pct: pct(counts.red) },
+  ];
 }

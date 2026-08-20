@@ -1527,7 +1527,8 @@ async function renderBayMortalityKpi() {
 
   try {
     const report = await buildBayMortalityKpi(year, month);
-    panel.innerHTML = renderBayMortalityTable_(report);
+    panel.innerHTML = renderBayMortalityTable_(report) + renderBayMortalitySummaryCards_(report.summary);
+    renderBayMortalityChart_(report);
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
   }
@@ -1544,13 +1545,136 @@ function renderBayMortalityTable_(report) {
   }).join("");
 
   return `
-    <table class="report-table kpi-bay-mortality-table">
-      <tbody>
-        <tr><td class="row-label">Date</td>${dateCells}</tr>
-        <tr><td class="row-label">Total Birds Received Alive</td>${birdsCells}</tr>
-        <tr><td class="row-label">Bay Mortality Birds</td>${mortalityCells}</tr>
-        <tr><td class="row-label">Bay Mortality %</td>${pctCells}</tr>
-      </tbody>
-    </table>
+    <div class="kpi-table-scroll">
+      <table class="report-table kpi-bay-mortality-table">
+        <tbody>
+          <tr><td class="row-label">Date</td>${dateCells}</tr>
+          <tr><td class="row-label">Total Birds Received Alive</td>${birdsCells}</tr>
+          <tr><td class="row-label">Bay Mortality Birds</td>${mortalityCells}</tr>
+          <tr><td class="row-label">Bay Mortality %</td>${pctCells}</tr>
+        </tbody>
+      </table>
+    </div>
   `;
+}
+function renderBayMortalitySummaryCards_(summary) {
+  const cards = summary.map((s) => `
+    <div class="kpi-card kpi-card-${s.key}">
+      <div class="kpi-card-label">${s.label}</div>
+      <div class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></div>
+      <div class="kpi-card-pct">${s.pct}%</div>
+      <div class="kpi-card-range">${s.range}</div>
+    </div>`).join("");
+
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+let kpi01ChartInstance_ = null;
+
+const bayMortalityBandFill_ = {
+  id: "bayMortalityBandFill",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const std = KPI_BAY_MORTALITY_STANDARD_;
+
+    const yStd = yScale.getPixelForValue(std);
+    const yStd15 = yScale.getPixelForValue(std * 1.5);
+    const yStd2 = yScale.getPixelForValue(std * 2);
+
+    ctx.save();
+
+    // Below standard (0 to std) — green
+    ctx.fillStyle = "rgba(76, 175, 80, 0.35)";
+    ctx.fillRect(chartArea.left, yStd, chartArea.right - chartArea.left, chartArea.bottom - yStd);
+
+    // std to std*1.5 — yellow
+    ctx.fillStyle = "rgba(255, 213, 79, 0.4)";
+    ctx.fillRect(chartArea.left, yStd15, chartArea.right - chartArea.left, yStd - yStd15);
+
+    // std*1.5 to std*2 — orange
+    ctx.fillStyle = "rgba(255, 152, 0, 0.35)";
+    ctx.fillRect(chartArea.left, yStd2, chartArea.right - chartArea.left, yStd15 - yStd2);
+
+    // above std*2 — red
+    ctx.fillStyle = "rgba(244, 67, 54, 0.3)";
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, yStd2 - chartArea.top);
+
+    ctx.restore();
+  },
+};
+
+function renderBayMortalityChart_(report) {
+  const withData = report.days.filter((d) => d.hasData && d.totalBirds !== null);
+
+  const labels = withData.map((d) => String(d.day).padStart(2, "0"));
+  const actualValues = withData.map((d) => d.pct);
+  const standardValues = withData.map(() => KPI_BAY_MORTALITY_STANDARD_);
+
+  if (kpi01ChartInstance_) {
+    kpi01ChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi01Chart").getContext("2d");
+  kpi01ChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Actual Bay Mortality %",
+          data: actualValues,
+          borderColor: "#5892f8",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#2c4a7c",
+        },
+        {
+          label: "Standard (0.05%)",
+          data: standardValues,
+          borderColor: "#4bcb32",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [bayMortalityBandFill_],
+    options: {
+      responsive: true,
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart",
+        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+          if (ctx.type !== "data" || ctx.xStarted) return 0;
+          ctx.xStarted = true;
+          return ctx.index * 40;
+        }},
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "Bay Mortality %" },
+        },
+        x: {
+          title: { display: true, text: "Date" },
+        },
+      },
+      plugins: {
+  title: {
+    display: true,
+    text: "Bay Mortality % Trend",
+    font: { size: 16, weight: "bold" },
+    color: "#14213D",
+    padding: { top: 4, bottom: 12 },
+  },
+  legend: { position: "top" },
+},
+    },
+  });
 }
