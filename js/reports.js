@@ -897,7 +897,7 @@ async function buildYieldReport(year, month) {
     const fgWeight = sumField(fgForDate, "Weight"); // ⚠️ confirm exact column name in DataFBPProduction
 
     const finalYield = liveWeightToPlant > 0 ? fgWeight / liveWeightToPlant : 0;
-    const chillLoss = fgWeight > 0 ? chillWeight / fgWeight : 0;
+    const chillLoss = fgWeight > 0 ? (chillWeight-fgWeight) / fgWeight : 0;
     const screwAbsorption = yieldBF - chillLoss;
 
     dateRows.push({
@@ -1038,4 +1038,290 @@ function buildBayMortalitySummary_(days) {
     { key: "orange", label: "Warning", range: `${(std * 1.5).toFixed(2)}% – ${(std * 2).toFixed(2)}%`, count: counts.orange, pct: pct(counts.orange) },
     { key: "red", label: "Critical", range: `> ${(std * 2).toFixed(2)}%`, count: counts.red, pct: pct(counts.red) },
   ];
+}
+
+// ===================================================================
+// KPI 01 — Full year data (for Weekly/Monthly Good Days % trend)
+// ===================================================================
+async function buildBayMortalityYearData_(year) {
+  const rows = await Api.list("Live_Bird_Bay_Mortality_Rate_%");
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const totalBirds = dayRows.reduce((s, r) => s + (Number(r.Total_Birds_Received_Alive) || 0), 0);
+    const bayMortality = dayRows.reduce((s, r) => s + (Number(r.Bay_Mortality) || 0), 0);
+    const pct = totalBirds > 0 ? (bayMortality / totalBirds) * 100 : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: dayRows.length > 0,
+      pct,
+    });
+  }
+
+  return allDays;
+}
+
+// ===================================================================
+// KPI 05 — Dressed Yield %
+// ===================================================================
+
+async function buildDressedYieldKpi(year, month) {
+  const [lbRows, fbpRows] = await Promise.all([
+    Api.list("DataLBSummary"),
+    Api.list("DataFBPProduction"),
+  ]);
+
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const dateRows = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
+
+    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
+    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+
+    const liveWeight = lbDay.reduce((s, r) => s + (Number(r.Live_weight_to_plant) || 0), 0);
+    const dressedWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const yieldPct = liveWeight > 0 ? (dressedWeight / liveWeight) * 100 : 0;
+
+    dateRows.push({
+      day: d,
+      date: dateStr,
+      hasData: lbDay.length > 0 || fbpDay.length > 0,
+      liveWeight,
+      dressedWeight,
+      yieldPct,
+    });
+  }
+
+  const totalLiveWeight = dateRows.reduce((s, r) => s + r.liveWeight, 0);
+  const totalDressedWeight = dateRows.reduce((s, r) => s + r.dressedWeight, 0);
+  const totalYieldPct = totalLiveWeight > 0 ? (totalDressedWeight / totalLiveWeight) * 100 : 0;
+
+  return {
+  year,
+  month,
+  daysInMonth,
+  dateRows,
+  totals: { liveWeight: totalLiveWeight, dressedWeight: totalDressedWeight, yieldPct: totalYieldPct },
+  summary: buildDressedYieldSummary_(dateRows),
+};
+}
+
+// ===================================================================
+// KPI 05 — Dressed Yield % summary cards
+// ===================================================================
+
+const KPI_DRESSED_YIELD_THRESHOLDS_ = { green: 79, yellow: 70, orange: 65 };
+const KPI_DRESSED_YIELD_STANDARD_ = 79;
+
+function dressedYieldColorClass_(pct) {
+  const t = KPI_DRESSED_YIELD_THRESHOLDS_;
+  if (pct >= t.green) return "kpi-green";
+  if (pct >= t.yellow) return "kpi-yellow";
+  if (pct >= t.orange) return "kpi-orange";
+  return "kpi-red";
+}
+
+function buildDressedYieldSummary_(dateRows) {
+  const t = KPI_DRESSED_YIELD_THRESHOLDS_;
+  const withData = dateRows.filter((r) => r.hasData);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((r) => {
+    const cls = dressedYieldColorClass_(r.yieldPct);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≥ ${t.green}%`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${t.yellow}% – ${t.green}%`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${t.orange}% – ${t.yellow}%`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `< ${t.orange}%`, count: counts.red, pct: pct(counts.red) },
+  ];
+}
+
+// ===================================================================
+// KPI 05 — Full year data (for Weekly/Monthly Good Days % trend)
+// ===================================================================
+async function buildDressedYieldYearData_(year) {
+  const [lbRows, fbpRows] = await Promise.all([
+    Api.list("DataLBSummary"),
+    Api.list("DataFBPProduction"),
+  ]);
+
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
+    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+
+    const liveWeight = lbDay.reduce((s, r) => s + (Number(r.Live_weight_to_plant) || 0), 0);
+    const dressedWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const yieldPct = liveWeight > 0 ? (dressedWeight / liveWeight) * 100 : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: lbDay.length > 0 || fbpDay.length > 0,
+      yieldPct,
+    });
+  }
+
+  return allDays;
+}
+
+// ===================================================================
+// KPI 06 — Chill Loss %
+// Chill Loss % = (Chill weight - Dress weight) / Chill weight * 100
+// ===================================================================
+
+async function buildChillLossKpi(year, month) {
+  const [chillRows, fbpRows] = await Promise.all([
+    Api.list("DataPackingChillWeight"),
+    Api.list("DataFBPProduction"),
+  ]);
+
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const dateRows = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
+
+    const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
+    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+
+    const chillWeight = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const dressWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const diff = chillWeight - dressWeight;
+    const chillLossPct = chillWeight > 0 ? (diff / chillWeight) * 100 : 0;
+
+    dateRows.push({
+      day: d,
+      date: dateStr,
+      hasData: chillDay.length > 0 || fbpDay.length > 0,
+      chillWeight,
+      dressWeight,
+      diff,
+      chillLossPct,
+    });
+  }
+
+  const totalChillWeight = dateRows.reduce((s, r) => s + r.chillWeight, 0);
+  const totalDressWeight = dateRows.reduce((s, r) => s + r.dressWeight, 0);
+  const totalDiff = totalChillWeight - totalDressWeight;
+  const totalChillLossPct = totalChillWeight > 0 ? (totalDiff / totalChillWeight) * 100 : 0;
+
+  return {
+    year,
+    month,
+    daysInMonth,
+    dateRows,
+    totals: { chillWeight: totalChillWeight, dressWeight: totalDressWeight, diff: totalDiff, chillLossPct: totalChillLossPct },
+    summary: buildChillLossSummary_(dateRows),
+  };
+}
+
+// ===================================================================
+// KPI 06 — Chill Loss % summary cards
+// Lower is better here (standard < 2%) — thresholds run the opposite
+// direction from KPI 05. Adjust the numbers below to fine-tune.
+// ===================================================================
+
+const KPI_CHILL_LOSS_THRESHOLDS_ = { green: 2, yellow: 3, orange: 4 };
+
+function chillLossColorClass_(pct) {
+  const t = KPI_CHILL_LOSS_THRESHOLDS_;
+  if (pct <= t.green) return "kpi-green";
+  if (pct <= t.yellow) return "kpi-yellow";
+  if (pct <= t.orange) return "kpi-orange";
+  return "kpi-red";
+}
+
+function buildChillLossSummary_(dateRows) {
+  const t = KPI_CHILL_LOSS_THRESHOLDS_;
+  const withData = dateRows.filter((r) => r.hasData);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((r) => {
+    const cls = chillLossColorClass_(r.chillLossPct);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≤ ${t.green}%`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${t.green}% – ${t.yellow}%`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${t.yellow}% – ${t.orange}%`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `> ${t.orange}%`, count: counts.red, pct: pct(counts.red) },
+  ];
+}
+
+// ===================================================================
+// KPI 06 — Full year data (for Weekly/Monthly Good Days % trend)
+// ===================================================================
+async function buildChillLossYearData_(year) {
+  const [chillRows, fbpRows] = await Promise.all([
+    Api.list("DataPackingChillWeight"),
+    Api.list("DataFBPProduction"),
+  ]);
+
+  const yearPrefix = `${year}-`;
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
+    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+
+    const chillWeight = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const dressWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const diff = chillWeight - dressWeight;
+    const chillLossPct = chillWeight > 0 ? (diff / chillWeight) * 100 : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: chillDay.length > 0 || fbpDay.length > 0,
+      chillLossPct,
+    });
+  }
+
+  return allDays;
 }

@@ -87,25 +87,32 @@
 
     <!-- DASHBOARD (placeholder — charts/summaries added in later steps) -->
     <section class="view active" id="view-dashboard">
+      <div class="sticky-report-header">
+      <div class="header-row-flex">
       <div class="view-head">
         <h1>Production Overview</h1>
         <p class="sub">Production summary </p>
       </div>
+      </div>
       <div class="panel">
         <div class="panel-body">
-          <p class="hint">Comming Soon...</p>
+          <p class="hint-01">Comming Soon...</p>
         </div>
+      </div>
       </div>
     </section>
 
     <!-- KPI 01 — BAY MORTALITY RATE % -->
 <section class="view" id="view-kpi-01">
   <div class="sticky-report-header">
+  <div class="header-row-flex">
     <div class="view-head">
       <h1>KPI 01 — Bay Mortality Rate %</h1>
       <p class="sub">Daily bay mortality rate — filter by year and month.</p>
     </div>
     <div class="report-toolbar">
+      <label for="kpi01Year">Year:</label>
+      <select id="kpi01Year"></select>
       <label for="kpi01Month">Month:</label>
       <select id="kpi01Month">
         <option value="1">January</option><option value="2">February</option>
@@ -115,22 +122,108 @@
         <option value="9">September</option><option value="10">October</option>
         <option value="11">November</option><option value="12">December</option>
       </select>
-      <label for="kpi01Year">Year:</label>
-      <select id="kpi01Year"></select>
     </div>
   </div>
+</div>
 
   <div class="panel">
     <div class="panel-body" id="kpi01Panel">
       <p class="hint">Select year and month to load the KPI.</p>
     </div>
   </div>
+</section>
 
-  <div class="panel kpi-chart-panel">
-  <div class="panel-body">
-    <canvas id="kpi01Chart" height="90"></canvas>
+<!-- KPI 02 — BIRDS UNLOADING RATE % -->
+<section class="view" id="view-kpi-02">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 02 — Birds Unloading Rate %</h1>
+        <p class="sub">Daily birds unloading rate — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="kpi02Year">Year:</label>
+        <select id="kpi02Year"></select>
+        <label for="kpi02Month">Month:</label>
+        <select id="kpi02Month">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
-</div>
+
+  <div class="panel">
+    <div class="panel-body" id="kpi02Panel">
+      <p class="hint-01">COMMING SOON...</p>
+    </div>
+  </div>
+</section>
+
+<!-- KPI 05 — DRESSED YIELD % -->
+<section class="view" id="view-kpi-05">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 05 — Dressed Yield %</h1>
+        <p class="sub">Daily live bird weight vs dressed weight — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="kpi05Year">Year:</label>
+        <select id="kpi05Year"></select>
+        <label for="kpi05Month">Month:</label>
+        <select id="kpi05Month">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="kpi05Panel">
+      <p class="hint">Select year and month to load the KPI.</p>
+    </div>
+  </div>
+</section>
+
+<!-- KPI 06 — CHILL LOSS % -->
+<section class="view" id="view-kpi-06">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 06 — Chill Loss %</h1>
+        <p class="sub">Chill weight vs dress weight loss — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="kpi06Year">Year:</label>
+        <select id="kpi06Year"></select>
+        <label for="kpi06Month">Month:</label>
+        <select id="kpi06Month">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="kpi06Panel">
+      <p class="hint">Select year and month to load the KPI.</p>
+    </div>
+  </div>
 </section>
 
     <!-- DAILY LB INPUT REPORT -->
@@ -176,24 +269,25 @@
 <!-- TOTAL LB REPORT -->
 <section class="view" id="view-total-lb">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Total LB Report</h1>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Total LB Report</h1>
+        <p class="sub">Monthly live bird summary — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="totalLbYear">Year:</label>
+        <select id="totalLbYear"></select>
+        <label for="totalLbMonth">Month:</label>
+        <select id="totalLbMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
     </div>
-    <p class="sub">Monthly live bird summary — filter by year and month.</p>
-
-  <div class="report-toolbar">
-    <label for="totalLbYear">Year:</label>
-    <select id="totalLbYear"></select>
-    <label for="totalLbMonth">Month:</label>
-    <select id="totalLbMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
   </div>
 
   <div class="print-header" id="totalLbPrintHeader">
@@ -376,24 +470,25 @@
 <!-- TOTAL PRODUCTION SUMMARY -->
 <section class="view" id="view-total-production-summary">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Total Production Summary</h1>
-    <p class="sub">Item-wise daily production — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="tpsYear">Year:</label>
-    <select id="tpsYear"></select>
-    <label for="tpsMonth">Month:</label>
-    <select id="tpsMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Total Production Summary</h1>
+        <p class="sub">Item-wise daily production — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="tpsYear">Year:</label>
+        <select id="tpsYear"></select>
+        <label for="tpsMonth">Month:</label>
+        <select id="tpsMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="tpsPrintHeader">
@@ -422,24 +517,25 @@
 <!-- SALES FORECAST vs PRODUCTION -->
 <section class="view" id="view-salesforecast-vs-production">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Sales Forecast vs Production</h1>
-    <p class="sub">Item-wise comparison — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="sfpYear">Year:</label>
-    <select id="sfpYear"></select>
-    <label for="sfpMonth">Month:</label>
-    <select id="sfpMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Sales Forecast vs Production</h1>
+        <p class="sub">Item-wise comparison — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="sfpYear">Year:</label>
+        <select id="sfpYear"></select>
+        <label for="sfpMonth">Month:</label>
+        <select id="sfpMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="sfpPrintHeader">
@@ -468,24 +564,25 @@
 <!-- LB TARGET vs ACTUAL -->
 <section class="view" id="view-lbtarget-vs-actual">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>LB Target vs Actual</h1>
-    <p class="sub">Daily bird target vs actual by weight range — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="ltaYear">Year:</label>
-    <select id="ltaYear"></select>
-    <label for="ltaMonth">Month:</label>
-    <select id="ltaMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>LB Target vs Actual</h1>
+        <p class="sub">Daily bird target vs actual by weight range — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="ltaYear">Year:</label>
+        <select id="ltaYear"></select>
+        <label for="ltaMonth">Month:</label>
+        <select id="ltaMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="ltaPrintHeader">
@@ -514,24 +611,25 @@
 <!-- PRODUCTION TARGET vs ACTUAL -->
 <section class="view" id="view-productiontarget-vs-actual">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Production Target vs Actual</h1>
-    <p class="sub">Item-wise daily target vs actual — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="ptaYear">Year:</label>
-    <select id="ptaYear"></select>
-    <label for="ptaMonth">Month:</label>
-    <select id="ptaMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Production Target vs Actual</h1>
+        <p class="sub">Item-wise daily target vs actual — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="ptaYear">Year:</label>
+        <select id="ptaYear"></select>
+        <label for="ptaMonth">Month:</label>
+        <select id="ptaMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="ptaPrintHeader">
@@ -560,24 +658,25 @@
 <!-- EASY & GIBLET STOCK -->
 <section class="view" id="view-easy-&-giblet-stock">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Easy & Giblet Stock</h1>
-    <p class="sub">Running stock balance — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="egsYear">Year:</label>
-    <select id="egsYear"></select>
-    <label for="egsMonth">Month:</label>
-    <select id="egsMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Easy & Giblet Stock</h1>
+        <p class="sub">Running stock balance — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="egsYear">Year:</label>
+        <select id="egsYear"></select>
+        <label for="egsMonth">Month:</label>
+        <select id="egsMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="egsPrintHeader">
@@ -603,26 +702,28 @@
   </div>
 </section>
 
+<!-- YIELD REPORT -->
 <section class="view" id="view-yield-report">
   <div class="sticky-report-header">
-  <div class="view-head">
-    <h1>Yield Report</h1>
-    <p class="sub">Monthly yield summary — filter by year and month.</p>
-  </div>
-
-  <div class="report-toolbar">
-    <label for="yieldYear">Year:</label>
-    <select id="yieldYear"></select>
-    <label for="yieldMonth">Month:</label>
-    <select id="yieldMonth">
-      <option value="1">January</option><option value="2">February</option>
-      <option value="3">March</option><option value="4">April</option>
-      <option value="5">May</option><option value="6">June</option>
-      <option value="7">July</option><option value="8">August</option>
-      <option value="9">September</option><option value="10">October</option>
-      <option value="11">November</option><option value="12">December</option>
-    </select>
-  </div>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Yield Report</h1>
+        <p class="sub">Monthly yield summary — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="yieldYear">Year:</label>
+        <select id="yieldYear"></select>
+        <label for="yieldMonth">Month:</label>
+        <select id="yieldMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="print-header" id="yieldPrintHeader">

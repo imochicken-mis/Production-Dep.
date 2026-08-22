@@ -82,6 +82,8 @@ function showView(key) {
   if (key === "easy-&-giblet-stock") initEasyGibletStock();
   if (key === "yield-report") initYieldReport();
   if (key === "kpi-01") initBayMortalityKpi();
+  if (key === "kpi-05") initDressedYieldKpi();
+  if (key === "kpi-06") initChillLossKpi();
 }
 
 // ===================================================================
@@ -605,9 +607,44 @@ function renderEasyProductionTable_(report) {
 }
 
 function downloadProductionWeightCsv_(report) {
-  downloadDressWeightCsv_(report);   // Table 1 + 2 CSV reused; Easy section appended below
+  // Table 1 + 2 CSV (Dress Weight part)
+  let csv = "S/No,Farm Name,No of Birds,AVG Weight (Kg),Live Weight (Kg),Rejected Weight (Kg),Live Weight to Plant (Kg)\n";
+  report.farms.forEach((f) => {
+    csv += [f.sno, f.farmName, f.noOfBirds, f.avgWeight, f.liveWeight, f.rejectedWeight, f.liveWeightToPlant]
+      .map((v) => `"${v}"`).join(",") + "\n";
+  });
+  csv += `"Total","","${report.farmTotals.noOfBirds}","","${report.farmTotals.liveWeight}","${report.farmTotals.rejectedWeight}","${report.farmTotals.liveWeightToPlant}"\n\n`;
 
-  // Note: Easy Production section export can be added as a second CSV block if needed later.
+  csv += "Item Code,Item Name,Quantity (Kg),Item Code,Item Name,Quantity (Kg)\n";
+  const rowCount = Math.max(report.left.length, report.right.length);
+  for (let i = 0; i < rowCount; i++) {
+    const l = report.left[i], r = report.right[i];
+    csv += [l?.code||"", l?.name||"", l?.value??"", r?.code||"", r?.name||"", r?.value??""]
+      .map((v) => `"${v}"`).join(",") + "\n";
+  }
+  csv += `\n"Total Finished Goods weight","","${report.totalFinishedGoods}"\n`;
+  csv += `"Giblet Use for Whole Chicken","","${report.gibletUse}"\n`;
+  csv += `"Pet Food from the Easy","","${report.petFood}"\n`;
+  csv += `"Dress Weight","","${report.dressWeight}"\n`;
+  csv += `"Yeild %","","${Math.round(report.yieldPct)}%"\n\n`;
+
+  // ✅ Table 3: Easy Production section
+  csv += `Daily Easy Production Summary\n`;
+  csv += `Used Easy Material Net Weight,${report.usedEasyMaterialNetWeight}\n\n`;
+  csv += `Item Code,Product Name,Weight (Kg)\n`;
+  report.easyProducts.forEach((p) => {
+    csv += `"${p.code}","${p.name}","${p.value}"\n`;
+  });
+  csv += `"Total Easy Product Weight","","${report.totalEasyProductWeight}"\n`;
+  csv += `"Yield (%)","","${report.easyYieldPct.toFixed(2)}%"\n`;
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Production_Report_${report.date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadTotalLbCsv_(report) {
@@ -1179,9 +1216,12 @@ function renderPtaTable_(report) {
   return `<th colspan="2" class="${dowClass}"><div class="day-header-num">${String(day).padStart(2, "0")}</div><div class="day-header-batch">${batchNo}</div></th>`;
 }).join("");
 
-  const dayTargetActualHeaders = Array.from({ length: report.daysInMonth }, () =>
-    `<th>Target</th><th>Actual</th>`
-  ).join("");
+  const dayTargetActualHeaders = Array.from({ length: report.daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dowClass = getDayOfWeekClass_(dateStr);
+    return `<th class="${dowClass}">Target</th><th class="${dowClass}">Actual</th>`;
+  }).join("");
 
   const rows = report.items.map((item) => {
   const dayCells = item.targets.map((t, i) => {
@@ -1527,7 +1567,10 @@ async function renderBayMortalityKpi() {
 
   try {
     const report = await buildBayMortalityKpi(year, month);
-    panel.innerHTML = renderBayMortalityTable_(report) + renderBayMortalitySummaryCards_(report.summary);
+    panel.innerHTML =
+      renderBayMortalitySummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div></div>` +
+      renderBayMortalityTable_(report);
     renderBayMortalityChart_(report);
     syncChartWidthToTable_();
   } catch (err) {
@@ -1562,9 +1605,11 @@ function renderBayMortalitySummaryCards_(summary) {
   const cards = summary.map((s) => `
     <div class="kpi-card kpi-card-${s.key}">
       <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></div>
-      <div class="kpi-card-pct">${s.pct}%</div>
       <div class="kpi-card-range">${s.range}</div>
+      <div class="kpi-card-bottom-row">
+        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+        <span class="kpi-card-pct">${s.pct}%</span>
+      </div>
     </div>`).join("");
 
   return `<div class="kpi-cards-wrap">${cards}</div>`;
@@ -1625,9 +1670,9 @@ function renderBayMortalityChart_(report) {
         {
           label: "Actual Bay Mortality %",
           data: actualValues,
-          borderColor: "#5892f8",
+          borderColor: "#2c4a7c",
           backgroundColor: "transparent",
-          borderWidth: 1.5,
+          borderWidth: 2,
           tension: 0.35,
           fill: false,
           pointRadius: 1.5,
@@ -1636,7 +1681,7 @@ function renderBayMortalityChart_(report) {
         {
           label: "Standard (0.05%)",
           data: standardValues,
-          borderColor: "#0bb922",
+          borderColor: "#c0564a",
           borderWidth: 2,
           borderDash: [6, 4],
           tension: 0,
@@ -1673,7 +1718,7 @@ function renderBayMortalityChart_(report) {
   plugins: {
     title: {
       display: true,
-      text: "Bay Mortality % Trend",
+      text: "Daily Bay Mortality % Trend",
       font: { size: 16, weight: "bold" },
       color: "#14213D",
       padding: { top: 4, bottom: 12 },
@@ -1707,4 +1752,1272 @@ function syncChartWidthToTable_() {
     const tableWidth = table.getBoundingClientRect().width;
     chartPanel.style.maxWidth = `${tableWidth}px`;
   });
+}
+
+// ===================================================================
+// KPI 01 — Good Days % Trend (Weekly / Monthly toggle)
+// ===================================================================
+
+let kpi01GoodDaysChartInstance_ = null;
+let kpi01GoodDaysView_ = "weekly"; // "weekly" | "monthly"
+
+function computeKpi01GoodDaysBuckets_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
+
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      if (bayMortalityColorClass_(r.pct) === "kpi-green") buckets[r.month].good += 1;
+    });
+
+    return Object.keys(buckets)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((m) => {
+        const b = buckets[m];
+        const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+        return { label: MONTH_SHORT_NAMES_[m - 1], pct, total: b.total, good: b.good };
+      });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, good: 0 };
+    buckets[weekNum].total += 1;
+    if (bayMortalityColorClass_(r.pct) === "kpi-green") buckets[weekNum].good += 1;
+  });
+
+  return Object.keys(buckets)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((wk) => {
+      const b = buckets[wk];
+      const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+      return { label: `W${wk}`, pct, total: b.total, good: b.good };
+    });
+}
+
+function renderKpi01GoodDaysChart_(yearDays) {
+  const buckets = computeKpi01GoodDaysBuckets_(yearDays, kpi01GoodDaysView_);
+  const labels = buckets.map((b) => b.label);
+  const values = buckets.map((b) => b.pct);
+
+  if (kpi01GoodDaysChartInstance_) {
+    kpi01GoodDaysChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi01GoodDaysChart").getContext("2d");
+  kpi01GoodDaysChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Good Days %",
+          data: values,
+          borderColor: "#0da23a",
+          backgroundColor: "#b3d5b5",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: "#2d6a6a",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "Good Days %" },
+        },
+        x: {
+          title: { display: true, text: kpi01GoodDaysView_ === "monthly" ? "Month" : "Week" },
+        },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi01GoodDaysView_ === "monthly" ? "Good Days % — Monthly" : "Good Days % — Weekly",
+          font: { size: 15, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 10 },
+        },
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel(item) {
+              const b = buckets[item.dataIndex];
+              return `${b.good} of ${b.total} days good`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function setupKpi01GoodDaysToggle_() {
+  const weeklyBtn = document.getElementById("kpi01ViewWeekly");
+  const monthlyBtn = document.getElementById("kpi01ViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi01GoodDaysView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    monthlyBtn.classList.remove("active");
+    renderKpi01GoodDaysChart_(window.currentKpi01YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi01GoodDaysView_ = "monthly";
+    monthlyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderKpi01GoodDaysChart_(window.currentKpi01YearDays_ || []);
+  };
+}
+
+async function renderBayMortalityKpi() {
+  const year = document.getElementById("kpi01Year").value;
+  const month = document.getElementById("kpi01Month").value;
+  const panel = document.getElementById("kpi01Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildBayMortalityKpi(year, month);
+
+    panel.innerHTML =
+  renderBayMortalitySummaryCards_(report.summary) +
+  `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div></div>` +
+  renderBayMortalityTable_(report) +
+  `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+    <div class="chart-toolbar" style="padding:10px 14px 0;">
+      <div class="kpi-view-toggle">
+        <button type="button" id="kpi01ViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+        <button type="button" id="kpi01ViewMonthly" class="kpi-toggle-btn">Monthly</button>
+      </div>
+    </div>
+    <div class="panel-body"><canvas id="kpi01GoodDaysChart" height="50"></canvas></div>
+  </div>` +
+  `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+    <div class="chart-toolbar" style="padding:10px 14px 0;">
+      <div class="kpi-view-toggle">
+        <button type="button" id="kpi01StatusViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+        <button type="button" id="kpi01StatusViewMonthly" class="kpi-toggle-btn">Monthly</button>
+      </div>
+    </div>
+    <div class="panel-body"><canvas id="kpi01StatusChart" height="50"></canvas></div>
+  </div>`;
+
+renderBayMortalityChart_(report);
+syncChartWidthToTable_();
+
+kpi01GoodDaysView_ = "weekly";
+setupKpi01GoodDaysToggle_();
+
+const yearDays = await buildBayMortalityYearData_(year);
+window.currentKpi01YearDays_ = yearDays;
+renderKpi01GoodDaysChart_(yearDays);
+
+kpi01StatusView_ = "weekly";
+setupKpi01StatusToggle_();
+renderKpi01StatusChart_(yearDays);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+// ===================================================================
+// KPI 05 — Dressed Yield %
+// ===================================================================
+function initDressedYieldKpi() {
+  const monthSelect = document.getElementById("kpi05Month");
+  const yearSelect = document.getElementById("kpi05Year");
+
+  if (!yearSelect || !monthSelect) {
+    console.error("KPI 05: Year or Month select not found in DOM");
+    return;
+  }
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderDressedYieldKpi);
+  yearSelect.addEventListener("change", renderDressedYieldKpi);
+
+  renderDressedYieldKpi();
+}
+
+async function renderDressedYieldKpi() {
+  const year = document.getElementById("kpi05Year").value;
+  const month = document.getElementById("kpi05Month").value;
+  const panel = document.getElementById("kpi05Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildDressedYieldKpi(year, month);
+    panel.innerHTML = renderDressedYieldTable_(report);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+function renderDressedYieldTable_(report) {
+  const dateCells = report.dateRows.map((r) => `<td>${String(r.day).padStart(2, "0")}</td>`).join("");
+  const liveCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.liveWeight, 1) : ""}</td>`).join("");
+  const dressedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.dressedWeight, 1) : ""}</td>`).join("");
+  const pctCells = report.dateRows.map((r) => {
+    if (!r.hasData) return `<td></td>`;
+    const y = r.yieldPct;
+    const cls = y >= 75 ? "kpi-green" : y >= 70 ? "kpi-yellow" : y >= 65 ? "kpi-orange" : "kpi-red";
+    return `<td class="${cls}">${y.toFixed(2)}%</td>`;
+  }).join("");
+
+  return `
+    <div class="kpi-table-scroll">
+      <table class="report-table kpi-dressed-yield-table">
+        <tbody>
+          <tr><td class="row-label">Date</td>${dateCells}</tr>
+          <tr><td class="row-label">Live Bird Weight (Kg)</td>${liveCells}</tr>
+          <tr><td class="row-label">Dressed Weight (Kg)</td>${dressedCells}</tr>
+          <tr><td class="row-label">Yield %</td>${pctCells}</tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function renderDressedYieldSummaryCards_(summary) {
+  const cards = summary.map((s) => `
+    <div class="kpi-card kpi-card-${s.key}">
+      <div class="kpi-card-label">${s.label}</div>
+      <div class="kpi-card-range">${s.range}</div>
+      <div class="kpi-card-bottom-row">
+        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+        <span class="kpi-card-pct">${s.pct}%</span>
+      </div>
+    </div>`).join("");
+
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+async function renderDressedYieldKpi() {
+  const year = document.getElementById("kpi05Year").value;
+  const month = document.getElementById("kpi05Month").value;
+  const panel = document.getElementById("kpi05Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildDressedYieldKpi(year, month);
+    panel.innerHTML =
+      renderDressedYieldSummaryCards_(report.summary) +
+      renderDressedYieldTable_(report);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+// ===================================================================
+// KPI 05 — Dressed Yield % chart
+// ===================================================================
+
+let kpi05ChartInstance_ = null;
+
+const dressedYieldBandFill_ = {
+  id: "dressedYieldBandFill",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const t = KPI_DRESSED_YIELD_THRESHOLDS_;
+
+    const yGreen = yScale.getPixelForValue(t.green);
+    const yYellow = yScale.getPixelForValue(t.yellow);
+    const yOrange = yScale.getPixelForValue(t.orange);
+
+    ctx.save();
+
+    // Above green threshold — green
+    ctx.fillStyle = "rgba(76, 175, 80, 0.35)";
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, yGreen - chartArea.top);
+
+    // yellow to green — yellow
+    ctx.fillStyle = "rgba(255, 213, 79, 0.4)";
+    ctx.fillRect(chartArea.left, yGreen, chartArea.right - chartArea.left, yYellow - yGreen);
+
+    // orange to yellow — orange
+    ctx.fillStyle = "rgba(255, 152, 0, 0.35)";
+    ctx.fillRect(chartArea.left, yYellow, chartArea.right - chartArea.left, yOrange - yYellow);
+
+    // below orange — red
+    ctx.fillStyle = "rgba(244, 67, 54, 0.3)";
+    ctx.fillRect(chartArea.left, yOrange, chartArea.right - chartArea.left, chartArea.bottom - yOrange);
+
+    ctx.restore();
+  },
+};
+
+function renderDressedYieldChart_(report) {
+  const withData = report.dateRows.filter((r) => r.hasData);
+
+  const labels = withData.map((r) => String(r.day).padStart(2, "0"));
+  const actualValues = withData.map((r) => r.yieldPct);
+  const standardValues = withData.map(() => KPI_DRESSED_YIELD_STANDARD_);
+
+  if (kpi05ChartInstance_) {
+    kpi05ChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi05Chart").getContext("2d");
+  kpi05ChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Dressed Yield %",
+          data: actualValues,
+          borderColor: "#2c4a7c",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#2c4a7c",
+        },
+        {
+          label: "Standard (79%)",
+          data: standardValues,
+          borderColor: "#c0564a",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [dressedYieldBandFill_],
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart",
+        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+          if (ctx.type !== "data" || ctx.xStarted) return 0;
+          ctx.xStarted = true;
+          return ctx.index * 40;
+        }},
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "Dressed Yield %" },
+        },
+        x: {
+          title: { display: true, text: "Date" },
+        },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: "Dressed Yield % Trend",
+          font: { size: 16, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 12 },
+        },
+        legend: { position: "top" },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            afterBody(tooltipItems) {
+              const actual = tooltipItems.find((t) => t.dataset.label === "Dressed Yield %");
+              const standard = tooltipItems.find((t) => t.dataset.label === "Standard (79%)");
+              if (!actual || !standard) return "";
+              const gap = actual.parsed.y - standard.parsed.y;
+              const sign = gap >= 0 ? "+" : "";
+              return `Gap: ${sign}${gap.toFixed(2)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function syncKpi05ChartWidthToTable_() {
+  const table = document.querySelector("#view-kpi-05 .kpi-dressed-yield-table");
+  const chartPanel = document.querySelector("#view-kpi-05 .kpi-chart-panel");
+  if (!table || !chartPanel) return;
+  requestAnimationFrame(() => {
+    const tableWidth = table.getBoundingClientRect().width;
+    chartPanel.style.maxWidth = `${tableWidth}px`;
+  });
+}
+
+async function renderDressedYieldKpi() {
+  const year = document.getElementById("kpi05Year").value;
+  const month = document.getElementById("kpi05Month").value;
+  const panel = document.getElementById("kpi05Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildDressedYieldKpi(year, month);
+    panel.innerHTML =
+      renderDressedYieldSummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div></div>` +
+      renderDressedYieldTable_(report);
+    renderDressedYieldChart_(report);
+    syncKpi05ChartWidthToTable_();
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+// ===================================================================
+// KPI 05 — Good Days % Trend (Weekly / Monthly toggle)
+// ===================================================================
+
+let kpi05GoodDaysChartInstance_ = null;
+let kpi05GoodDaysView_ = "weekly"; // "weekly" | "monthly"
+
+function computeKpi05GoodDaysBuckets_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
+
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      if (dressedYieldColorClass_(r.yieldPct) === "kpi-green") buckets[r.month].good += 1;
+    });
+
+    return Object.keys(buckets)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((m) => {
+        const b = buckets[m];
+        const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+        return { label: MONTH_SHORT_NAMES_[m - 1], pct, total: b.total, good: b.good };
+      });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, good: 0 };
+    buckets[weekNum].total += 1;
+    if (dressedYieldColorClass_(r.yieldPct) === "kpi-green") buckets[weekNum].good += 1;
+  });
+
+  return Object.keys(buckets)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((wk) => {
+      const b = buckets[wk];
+      const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+      return { label: `W${wk}`, pct, total: b.total, good: b.good };
+    });
+}
+
+function renderKpi05GoodDaysChart_(yearDays) {
+  const buckets = computeKpi05GoodDaysBuckets_(yearDays, kpi05GoodDaysView_);
+  const labels = buckets.map((b) => b.label);
+  const values = buckets.map((b) => b.pct);
+
+  if (kpi05GoodDaysChartInstance_) {
+    kpi05GoodDaysChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi05GoodDaysChart").getContext("2d");
+  kpi05GoodDaysChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Good Days %",
+          data: values,
+          borderColor: "#0da23a",
+          backgroundColor: "#b3d5b5",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: "#2d6a6a",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "Good Days %" },
+        },
+        x: {
+          title: { display: true, text: kpi05GoodDaysView_ === "monthly" ? "Month" : "Week" },
+        },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi05GoodDaysView_ === "monthly" ? "Good Days % — Monthly" : "Good Days % — Weekly",
+          font: { size: 15, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 10 },
+        },
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel(item) {
+              const b = buckets[item.dataIndex];
+              return `${b.good} of ${b.total} days good`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function setupKpi05GoodDaysToggle_() {
+  const weeklyBtn = document.getElementById("kpi05ViewWeekly");
+  const monthlyBtn = document.getElementById("kpi05ViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi05GoodDaysView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    monthlyBtn.classList.remove("active");
+    renderKpi05GoodDaysChart_(window.currentKpi05YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi05GoodDaysView_ = "monthly";
+    monthlyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderKpi05GoodDaysChart_(window.currentKpi05YearDays_ || []);
+  };
+}
+
+async function renderDressedYieldKpi() {
+  const year = document.getElementById("kpi05Year").value;
+  const month = document.getElementById("kpi05Month").value;
+  const panel = document.getElementById("kpi05Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildDressedYieldKpi(year, month);
+
+    panel.innerHTML =
+      renderDressedYieldSummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div></div>` +
+      renderDressedYieldTable_(report) +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi05ViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi05ViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi05GoodDaysChart" height="50"></canvas></div>
+      </div>` +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+    <div class="chart-toolbar" style="padding:10px 14px 0; margin-bottom:-10px">
+      <div class="kpi-view-toggle">
+        <button type="button" id="kpi05StatusViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+        <button type="button" id="kpi05StatusViewMonthly" class="kpi-toggle-btn">Monthly</button>
+      </div>
+    </div>
+    <div class="panel-body"><canvas id="kpi05StatusChart" height="50"></canvas></div>
+  </div>`;
+
+    renderDressedYieldChart_(report);
+    syncKpi05ChartWidthToTable_();
+
+    kpi05GoodDaysView_ = "weekly";
+    setupKpi05GoodDaysToggle_();
+    
+    const yearDays = await buildDressedYieldYearData_(year);
+    window.currentKpi05YearDays_ = yearDays;
+    renderKpi05GoodDaysChart_(yearDays);
+    
+    kpi05StatusView_ = "weekly";
+    setupKpi05StatusToggle_();
+    renderKpi05StatusChart_(yearDays);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+// ===================================================================
+// KPI 06 — Chill Loss %
+// ===================================================================
+function initChillLossKpi() {
+  const monthSelect = document.getElementById("kpi06Month");
+  const yearSelect = document.getElementById("kpi06Year");
+
+  if (!yearSelect || !monthSelect) {
+    console.error("KPI 06: Year or Month select not found in DOM");
+    return;
+  }
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderChillLossKpi);
+  yearSelect.addEventListener("change", renderChillLossKpi);
+
+  renderChillLossKpi();
+}
+
+function renderChillLossTable_(report) {
+  const dateCells = report.dateRows.map((r) => `<td>${String(r.day).padStart(2, "0")}</td>`).join("");
+  const chillCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.chillWeight, 1) : ""}</td>`).join("");
+  const diffCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.diff, 1) : ""}</td>`).join("");
+  const pctCells = report.dateRows.map((r) => {
+    if (!r.hasData) return `<td></td>`;
+    const cls = chillLossColorClass_(r.chillLossPct);
+    return `<td class="${cls}">${r.chillLossPct.toFixed(2)}%</td>`;
+  }).join("");
+
+  return `
+    <div class="kpi-table-scroll">
+      <table class="report-table kpi-dressed-yield-table">
+        <tbody>
+          <tr><td class="row-label">Date</td>${dateCells}</tr>
+          <tr><td class="row-label">Chill Weight (Kg)</td>${chillCells}</tr>
+          <tr><td class="row-label">Diff (Chill-Dress)</td>${diffCells}</tr>
+          <tr><td class="row-label">Chill Loss %</td>${pctCells}</tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderChillLossSummaryCards_(summary) {
+  const cards = summary.map((s) => `
+    <div class="kpi-card kpi-card-${s.key}">
+      <div class="kpi-card-label">${s.label}</div>
+      <div class="kpi-card-range">${s.range}</div>
+      <div class="kpi-card-bottom-row">
+        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+        <span class="kpi-card-pct">${s.pct}%</span>
+      </div>
+    </div>`).join("");
+
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+// ===================================================================
+// KPI 06 — Chill Loss % chart
+// ===================================================================
+
+let kpi06ChartInstance_ = null;
+const KPI_CHILL_LOSS_STANDARD_ = 2;
+
+const chillLossBandFill_ = {
+  id: "chillLossBandFill",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const t = KPI_CHILL_LOSS_THRESHOLDS_;
+
+    const yGreen = yScale.getPixelForValue(t.green);
+    const yYellow = yScale.getPixelForValue(t.yellow);
+    const yOrange = yScale.getPixelForValue(t.orange);
+
+    ctx.save();
+
+    // 0 up to green threshold (near the bottom, since low % is good) — green
+    ctx.fillStyle = "rgba(76, 175, 80, 0.35)";
+    ctx.fillRect(chartArea.left, yGreen, chartArea.right - chartArea.left, chartArea.bottom - yGreen);
+
+    // green to yellow — yellow
+    ctx.fillStyle = "rgba(255, 213, 79, 0.4)";
+    ctx.fillRect(chartArea.left, yYellow, chartArea.right - chartArea.left, yGreen - yYellow);
+
+    // yellow to orange — orange
+    ctx.fillStyle = "rgba(255, 152, 0, 0.35)";
+    ctx.fillRect(chartArea.left, yOrange, chartArea.right - chartArea.left, yYellow - yOrange);
+
+    // above orange (worst, near top) — red
+    ctx.fillStyle = "rgba(244, 67, 54, 0.3)";
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, yOrange - chartArea.top);
+
+    ctx.restore();
+  },
+};
+
+function renderChillLossChart_(report) {
+  const withData = report.dateRows.filter((r) => r.hasData);
+
+  const labels = withData.map((r) => String(r.day).padStart(2, "0"));
+  const actualValues = withData.map((r) => r.chillLossPct);
+  const standardValues = withData.map(() => KPI_CHILL_LOSS_STANDARD_);
+
+  if (kpi06ChartInstance_) {
+    kpi06ChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi06Chart").getContext("2d");
+  kpi06ChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Chill Loss %",
+          data: actualValues,
+          borderColor: "#2c4a7c",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#2c4a7c",
+        },
+        {
+          label: "Standard (2%)",
+          data: standardValues,
+          borderColor: "#c0564a",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [chillLossBandFill_],
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart",
+        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+          if (ctx.type !== "data" || ctx.xStarted) return 0;
+          ctx.xStarted = true;
+          return ctx.index * 40;
+        }},
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "Chill Loss %" },
+        },
+        x: {
+          title: { display: true, text: "Date" },
+        },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: "Chill Loss % Trend",
+          font: { size: 16, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 12 },
+        },
+        legend: { position: "top" },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            afterBody(tooltipItems) {
+              const actual = tooltipItems.find((t) => t.dataset.label === "Chill Loss %");
+              const standard = tooltipItems.find((t) => t.dataset.label === "Standard (2%)");
+              if (!actual || !standard) return "";
+              const gap = actual.parsed.y - standard.parsed.y;
+              const sign = gap >= 0 ? "+" : "";
+              return `Gap: ${sign}${gap.toFixed(2)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function syncKpi06ChartWidthToTable_() {
+  const table = document.querySelector("#view-kpi-06 .kpi-dressed-yield-table");
+  const chartPanel = document.querySelector("#view-kpi-06 .kpi-chart-panel");
+  if (!table || !chartPanel) return;
+  requestAnimationFrame(() => {
+    const tableWidth = table.getBoundingClientRect().width;
+    chartPanel.style.maxWidth = `${tableWidth}px`;
+  });
+}
+
+async function renderChillLossKpi() {
+  const year = document.getElementById("kpi06Year").value;
+  const month = document.getElementById("kpi06Month").value;
+  const panel = document.getElementById("kpi06Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildChillLossKpi(year, month);
+    window.currentKpi06DateRows_ = report.dateRows;
+
+    panel.innerHTML =
+      renderChillLossSummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div></div>` +
+      renderChillLossTable_(report) +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi06ViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi06ViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi06GoodDaysChart" height="90"></canvas></div>
+      </div>`;
+
+    renderChillLossChart_(report);
+    syncKpi06ChartWidthToTable_();
+
+        kpi06GoodDaysView_ = "weekly";
+    setupGoodDaysToggle_();
+
+    const yearDays = await buildChillLossYearData_(year);
+    window.currentKpi06YearDays_ = yearDays;
+    renderGoodDaysChart_(yearDays);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+// ===================================================================
+// KPI 06 — Good Days % Trend (Weekly / Monthly toggle)
+// ===================================================================
+
+let kpi06GoodDaysChartInstance_ = null;
+let kpi06GoodDaysView_ = "weekly"; // "weekly" | "monthly"
+
+const MONTH_SHORT_NAMES_ = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function computeGoodDaysBuckets_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  if (viewMode === "monthly") {
+    // 12 buckets — one per calendar month of the selected year
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
+
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      if (chillLossColorClass_(r.chillLossPct) === "kpi-green") buckets[r.month].good += 1;
+    });
+
+    return Object.keys(buckets)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((m) => {
+        const b = buckets[m];
+        const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+        return { label: MONTH_SHORT_NAMES_[m - 1], pct, total: b.total, good: b.good };
+      });
+  }
+
+  // weekly: 52-53 buckets — one per week of the whole year (7-day chunks from Jan 1)
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, good: 0 };
+    buckets[weekNum].total += 1;
+    if (chillLossColorClass_(r.chillLossPct) === "kpi-green") buckets[weekNum].good += 1;
+  });
+
+  return Object.keys(buckets)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((wk) => {
+      const b = buckets[wk];
+      const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+      return { label: `W${wk}`, pct, total: b.total, good: b.good };
+    });
+}
+
+function renderGoodDaysChart_(yearDays) {
+  const buckets = computeGoodDaysBuckets_(yearDays, kpi06GoodDaysView_);
+  const labels = buckets.map((b) => b.label);
+  const values = buckets.map((b) => b.pct);
+
+  if (kpi06GoodDaysChartInstance_) {
+    kpi06GoodDaysChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi06GoodDaysChart").getContext("2d");
+  kpi06GoodDaysChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Good Days %",
+          data: values,
+          borderColor: "#0da23a",
+          backgroundColor: "#b3d5b5",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: "#2d6a6a",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "Good Days %" },
+        },
+        x: {
+          title: { display: true, text: kpi06GoodDaysView_ === "monthly" ? "Month" : "Week" },
+        },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi06GoodDaysView_ === "monthly" ? "Good Days % — Monthly" : "Good Days % — Weekly",
+          font: { size: 15, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 10 },
+        },
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel(item) {
+              const b = buckets[item.dataIndex];
+              return `${b.good} of ${b.total} days good`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function setupGoodDaysToggle_() {
+  const weeklyBtn = document.getElementById("kpi06ViewWeekly");
+  const monthlyBtn = document.getElementById("kpi06ViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi06GoodDaysView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    monthlyBtn.classList.remove("active");
+    renderGoodDaysChart_(window.currentKpi06YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi06GoodDaysView_ = "monthly";
+    monthlyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderGoodDaysChart_(window.currentKpi06YearDays_ || []);
+  };
+}
+
+// ===================================================================
+// KPI 01 — Caution / Warning / Critical Days % Trend (combined chart)
+// ===================================================================
+
+let kpi01StatusChartInstance_ = null;
+let kpi01StatusView_ = "weekly";
+
+function computeKpi01StatusSeries_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  const classify = (r) => bayMortalityColorClass_(r.pct);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      const cls = classify(r);
+      if (cls === "kpi-yellow") buckets[r.month].yellow += 1;
+      else if (cls === "kpi-orange") buckets[r.month].orange += 1;
+      else if (cls === "kpi-red") buckets[r.month].red += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m];
+      const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+      return { label: MONTH_SHORT_NAMES_[m - 1], total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+    });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    buckets[weekNum].total += 1;
+    const cls = classify(r);
+    if (cls === "kpi-yellow") buckets[weekNum].yellow += 1;
+    else if (cls === "kpi-orange") buckets[weekNum].orange += 1;
+    else if (cls === "kpi-red") buckets[weekNum].red += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk];
+    const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+    return { label: `W${wk}`, total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+  });
+}
+
+function renderKpi01StatusChart_(yearDays) {
+  const buckets = computeKpi01StatusSeries_(yearDays, kpi01StatusView_);
+  const labels = buckets.map((b) => b.label);
+
+  if (kpi01StatusChartInstance_) {
+    kpi01StatusChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi01StatusChart").getContext("2d");
+  kpi01StatusChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Caution %",
+          data: buckets.map((b) => b.caution),
+          borderColor: "#d4a017",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#d4a017",
+        },
+        {
+          label: "Warning %",
+          data: buckets.map((b) => b.warning),
+          borderColor: "#e07b00",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#e07b00",
+        },
+        {
+          label: "Critical %",
+          data: buckets.map((b) => b.critical),
+          borderColor: "#c0392b",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#c0392b",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "% of Days" } },
+        x: { title: { display: true, text: kpi01StatusView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `Caution / Warning / Critical Days % — ${kpi01StatusView_ === "monthly" ? "Monthly" : "Weekly"}`,
+          font: { size: 15, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 10 },
+        },
+        legend: { position: "top" },
+        tooltip: { mode: "index", intersect: false },
+      },
+    },
+  });
+}
+
+function setupKpi01StatusToggle_() {
+  const weeklyBtn = document.getElementById("kpi01StatusViewWeekly");
+  const monthlyBtn = document.getElementById("kpi01StatusViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi01StatusView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    monthlyBtn.classList.remove("active");
+    renderKpi01StatusChart_(window.currentKpi01YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi01StatusView_ = "monthly";
+    monthlyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderKpi01StatusChart_(window.currentKpi01YearDays_ || []);
+  };
+}
+
+// ===================================================================
+// KPI 05 — Caution / Warning / Critical Days % Trend (combined chart)
+// ===================================================================
+
+let kpi05StatusChartInstance_ = null;
+let kpi05StatusView_ = "weekly";
+
+function computeKpi05StatusSeries_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  const classify = (r) => dressedYieldColorClass_(r.pct);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      const cls = classify(r);
+      if (cls === "kpi-yellow") buckets[r.month].yellow += 1;
+      else if (cls === "kpi-orange") buckets[r.month].orange += 1;
+      else if (cls === "kpi-red") buckets[r.month].red += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m];
+      const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+      return { label: MONTH_SHORT_NAMES_[m - 1], total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+    });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    buckets[weekNum].total += 1;
+    const cls = classify(r);
+    if (cls === "kpi-yellow") buckets[weekNum].yellow += 1;
+    else if (cls === "kpi-orange") buckets[weekNum].orange += 1;
+    else if (cls === "kpi-red") buckets[weekNum].red += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk];
+    const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+    return { label: `W${wk}`, total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+  });
+}
+
+function renderKpi05StatusChart_(yearDays) {
+  const buckets = computeKpi05StatusSeries_(yearDays, kpi05StatusView_);
+  const labels = buckets.map((b) => b.label);
+
+  if (kpi05StatusChartInstance_) {
+    kpi05StatusChartInstance_.destroy();
+  }
+
+  const ctx = document.getElementById("kpi05StatusChart").getContext("2d");
+  kpi05StatusChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Caution %",
+          data: buckets.map((b) => b.caution),
+          borderColor: "#d4a017",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#d4a017",
+        },
+        {
+          label: "Warning %",
+          data: buckets.map((b) => b.warning),
+          borderColor: "#e07b00",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#e07b00",
+        },
+        {
+          label: "Critical %",
+          data: buckets.map((b) => b.critical),
+          borderColor: "#c0392b",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#c0392b",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "% of Days" } },
+        x: { title: { display: true, text: kpi05StatusView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `Caution / Warning / Critical Days % — ${kpi05StatusView_ === "monthly" ? "Monthly" : "Weekly"}`,
+          font: { size: 15, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 10 },
+        },
+        legend: { position: "top" },
+        tooltip: { mode: "index", intersect: false },
+      },
+    },
+  });
+}
+
+function setupKpi05StatusToggle_() {
+  const weeklyBtn = document.getElementById("kpi05StatusViewWeekly");
+  const monthlyBtn = document.getElementById("kpi05StatusViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi05StatusView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    monthlyBtn.classList.remove("active");
+    renderKpi05StatusChart_(window.currentKpi05YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi05StatusView_ = "monthly";
+    monthlyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderKpi05StatusChart_(window.currentKpi05YearDays_ || []);
+  };
 }
