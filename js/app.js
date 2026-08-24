@@ -85,6 +85,7 @@ function showView(key) {
   if (key === "kpi-05") initDressedYieldKpi();
   if (key === "kpi-06") initChillLossKpi();
   if (key === "kpi-04") initPackingEfficiencyKpi();
+  if (key === "kpi-03") initBirdInputEfficiencyKpi();
 }
 
 // ===================================================================
@@ -3611,4 +3612,437 @@ function setupKpi06StatusToggle_() {
     weeklyBtn.classList.remove("active");
     renderKpi06StatusChart_(window.currentKpi06YearDays_ || []);
   };
+}
+
+// ===================================================================
+// KPI 03 — Bird Input Efficiency %
+// ===================================================================
+function initBirdInputEfficiencyKpi() {
+  const monthSelect = document.getElementById("kpi03Month");
+  const yearSelect = document.getElementById("kpi03Year");
+
+  if (!yearSelect || !monthSelect) {
+    console.error("KPI 03: Year or Month select not found in DOM");
+    return;
+  }
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderBirdInputEfficiencyKpi);
+  yearSelect.addEventListener("change", renderBirdInputEfficiencyKpi);
+
+  renderBirdInputEfficiencyKpi();
+}
+
+function renderBirdInputTable_(report) {
+  const dateCells = report.days.map((d) => `<td>${String(d.day).padStart(2, "0")}</td>`).join("");
+  const actualCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`).join("");
+  const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
+  const pctCells = report.days.map((d) => {
+    if (!d.hasData) return `<td></td>`;
+    const cls = birdInputColorClass_(d.pct);
+    return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
+  }).join("");
+
+  return `
+    <div class="kpi-table-scroll">
+      <table class="report-table kpi-dressed-yield-table">
+        <tbody>
+          <tr><td class="row-label">Date</td>${dateCells}</tr>
+          <tr><td class="row-label">Planned birds</td>${plannedCells}</tr>
+          <tr><td class="row-label">Actual birds</td>${actualCells}</tr>
+          <tr><td class="row-label">Efficiency %</td>${pctCells}</tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderBirdInputSummaryCards_(summary) {
+  const cards = summary.map((s) => `
+    <div class="kpi-card kpi-card-${s.key}">
+      <div class="kpi-card-label">${s.label}</div>
+      <div class="kpi-card-range">${s.range}</div>
+      <div class="kpi-card-bottom-row">
+        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+        <span class="kpi-card-pct">${s.pct}%</span>
+      </div>
+    </div>`).join("");
+
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+
+let kpi03ChartInstance_ = null;
+
+const birdInputBandFill_ = {
+  id: "birdInputBandFill",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const std = KPI_BIRD_INPUT_STANDARD_;
+
+    const yGreen = yScale.getPixelForValue(std);
+    const yYellow = yScale.getPixelForValue(std - 10);
+    const yOrange = yScale.getPixelForValue(std - 20);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(76, 175, 80, 0.35)";
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, yGreen - chartArea.top);
+    ctx.fillStyle = "rgba(255, 213, 79, 0.4)";
+    ctx.fillRect(chartArea.left, yGreen, chartArea.right - chartArea.left, yYellow - yGreen);
+    ctx.fillStyle = "rgba(255, 152, 0, 0.35)";
+    ctx.fillRect(chartArea.left, yYellow, chartArea.right - chartArea.left, yOrange - yYellow);
+    ctx.fillStyle = "rgba(244, 67, 54, 0.3)";
+    ctx.fillRect(chartArea.left, yOrange, chartArea.right - chartArea.left, chartArea.bottom - yOrange);
+    ctx.restore();
+  },
+};
+
+function renderBirdInputChart_(report) {
+  const withData = report.days.filter((d) => d.hasData);
+
+  const labels = withData.map((d) => String(d.day).padStart(2, "0"));
+  const actualValues = withData.map((d) => d.pct);
+  const standardValues = withData.map(() => KPI_BIRD_INPUT_STANDARD_);
+
+  if (kpi03ChartInstance_) kpi03ChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi03Chart").getContext("2d");
+  kpi03ChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Bird Input Efficiency %",
+          data: actualValues,
+          borderColor: "#2c4a7c",
+          backgroundColor: "transparent",
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: false,
+          pointRadius: 3,
+          pointBackgroundColor: "#2c4a7c",
+        },
+        {
+          label: `Standard (${KPI_BIRD_INPUT_STANDARD_}%)`,
+          data: standardValues,
+          borderColor: "#c0564a",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [birdInputBandFill_],
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart",
+        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+          if (ctx.type !== "data" || ctx.xStarted) return 0;
+          ctx.xStarted = true;
+          return ctx.index * 40;
+        }},
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: "Efficiency %" } },
+        x: { title: { display: true, text: "Date" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: "Bird Input Efficiency % Trend",
+          font: { size: 16, weight: "bold" },
+          color: "#14213D",
+          padding: { top: 4, bottom: 12 },
+        },
+        legend: { position: "top" },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            afterBody(tooltipItems) {
+              const actual = tooltipItems.find((t) => t.dataset.label === "Bird Input Efficiency %");
+              const standard = tooltipItems.find((t) => t.dataset.label.startsWith("Standard"));
+              if (!actual || !standard) return "";
+              const gap = actual.parsed.y - standard.parsed.y;
+              const sign = gap >= 0 ? "+" : "";
+              return `Gap: ${sign}${gap.toFixed(2)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function syncKpi03ChartWidthToTable_() {
+  const table = document.querySelector("#view-kpi-03 .kpi-dressed-yield-table");
+  const chartPanel = document.querySelector("#view-kpi-03 .kpi-chart-panel");
+  if (!table || !chartPanel) return;
+  requestAnimationFrame(() => {
+    const tableWidth = table.getBoundingClientRect().width;
+    chartPanel.style.maxWidth = `${tableWidth}px`;
+  });
+}
+
+// ---- Good Days % trend ----
+let kpi03GoodDaysChartInstance_ = null;
+let kpi03GoodDaysView_ = "weekly";
+
+function computeKpi03GoodDaysBuckets_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      if (birdInputColorClass_(r.pct) === "kpi-green") buckets[r.month].good += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m];
+      const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+      return { label: MONTH_SHORT_NAMES_[m - 1], pct, total: b.total, good: b.good };
+    });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, good: 0 };
+    buckets[weekNum].total += 1;
+    if (birdInputColorClass_(r.pct) === "kpi-green") buckets[weekNum].good += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk];
+    const pct = b.total > 0 ? (b.good / b.total) * 100 : 0;
+    return { label: `W${wk}`, pct, total: b.total, good: b.good };
+  });
+}
+
+function renderKpi03GoodDaysChart_(yearDays) {
+  const buckets = computeKpi03GoodDaysBuckets_(yearDays, kpi03GoodDaysView_);
+  const labels = buckets.map((b) => b.label);
+  const values = buckets.map((b) => b.pct);
+
+  if (kpi03GoodDaysChartInstance_) kpi03GoodDaysChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi03GoodDaysChart").getContext("2d");
+  kpi03GoodDaysChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Good Days %",
+        data: values,
+        borderColor: "#0da23a",
+        backgroundColor: "#b3d5b5",
+        borderWidth: 2.5,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: "#2d6a6a",
+      }],
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "Good Days %" } },
+        x: { title: { display: true, text: kpi03GoodDaysView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi03GoodDaysView_ === "monthly" ? "Good Days % — Monthly" : "Good Days % — Weekly",
+          font: { size: 15, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 10 },
+        },
+        legend: { display: false },
+        tooltip: { callbacks: { afterLabel(item) { const b = buckets[item.dataIndex]; return `${b.good} of ${b.total} days good`; } } },
+      },
+    },
+  });
+}
+
+function setupKpi03GoodDaysToggle_() {
+  const weeklyBtn = document.getElementById("kpi03ViewWeekly");
+  const monthlyBtn = document.getElementById("kpi03ViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi03GoodDaysView_ = "weekly";
+    weeklyBtn.classList.add("active"); monthlyBtn.classList.remove("active");
+    renderKpi03GoodDaysChart_(window.currentKpi03YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi03GoodDaysView_ = "monthly";
+    monthlyBtn.classList.add("active"); weeklyBtn.classList.remove("active");
+    renderKpi03GoodDaysChart_(window.currentKpi03YearDays_ || []);
+  };
+}
+
+// ---- Caution/Warning/Critical status trend ----
+let kpi03StatusChartInstance_ = null;
+let kpi03StatusView_ = "weekly";
+
+function computeKpi03StatusSeries_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+  const classify = (r) => birdInputColorClass_(r.pct);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      const cls = classify(r);
+      if (cls === "kpi-yellow") buckets[r.month].yellow += 1;
+      else if (cls === "kpi-orange") buckets[r.month].orange += 1;
+      else if (cls === "kpi-red") buckets[r.month].red += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m];
+      const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+      return { label: MONTH_SHORT_NAMES_[m - 1], total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+    });
+  }
+
+  const buckets = {};
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[weekNum]) buckets[weekNum] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    buckets[weekNum].total += 1;
+    const cls = classify(r);
+    if (cls === "kpi-yellow") buckets[weekNum].yellow += 1;
+    else if (cls === "kpi-orange") buckets[weekNum].orange += 1;
+    else if (cls === "kpi-red") buckets[weekNum].red += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk];
+    const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+    return { label: `W${wk}`, total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+  });
+}
+
+function renderKpi03StatusChart_(yearDays) {
+  const buckets = computeKpi03StatusSeries_(yearDays, kpi03StatusView_);
+  const labels = buckets.map((b) => b.label);
+
+  if (kpi03StatusChartInstance_) kpi03StatusChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi03StatusChart").getContext("2d");
+  kpi03StatusChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Caution %", data: buckets.map((b) => b.caution), borderColor: "#d4a017", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#d4a017" },
+        { label: "Warning %", data: buckets.map((b) => b.warning), borderColor: "#e07b00", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#e07b00" },
+        { label: "Critical %", data: buckets.map((b) => b.critical), borderColor: "#c0392b", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#c0392b" },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "% of Days" } },
+        x: { title: { display: true, text: kpi03StatusView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `Caution / Warning / Critical Days % — ${kpi03StatusView_ === "monthly" ? "Monthly" : "Weekly"}`,
+          font: { size: 15, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 10 },
+        },
+        legend: { position: "top" },
+        tooltip: { mode: "index", intersect: false },
+      },
+    },
+  });
+}
+
+function setupKpi03StatusToggle_() {
+  const weeklyBtn = document.getElementById("kpi03StatusViewWeekly");
+  const monthlyBtn = document.getElementById("kpi03StatusViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+
+  weeklyBtn.onclick = () => {
+    kpi03StatusView_ = "weekly";
+    weeklyBtn.classList.add("active"); monthlyBtn.classList.remove("active");
+    renderKpi03StatusChart_(window.currentKpi03YearDays_ || []);
+  };
+  monthlyBtn.onclick = () => {
+    kpi03StatusView_ = "monthly";
+    monthlyBtn.classList.add("active"); weeklyBtn.classList.remove("active");
+    renderKpi03StatusChart_(window.currentKpi03YearDays_ || []);
+  };
+}
+
+// ---- Main render orchestrator ----
+async function renderBirdInputEfficiencyKpi() {
+  const year = document.getElementById("kpi03Year").value;
+  const month = document.getElementById("kpi03Month").value;
+  const panel = document.getElementById("kpi03Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildBirdInputEfficiencyKpi(year, month);
+
+    panel.innerHTML =
+      renderBirdInputSummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div></div>` +
+      renderBirdInputTable_(report) +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi03ViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi03ViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi03GoodDaysChart" height="50"></canvas></div>
+      </div>` +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi03StatusViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi03StatusViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi03StatusChart" height="50"></canvas></div>
+      </div>`;
+
+    renderBirdInputChart_(report);
+    syncKpi03ChartWidthToTable_();
+
+    kpi03GoodDaysView_ = "weekly";
+    setupKpi03GoodDaysToggle_();
+
+    const yearDays = await buildBirdInputYearData_(year);
+    window.currentKpi03YearDays_ = yearDays;
+    renderKpi03GoodDaysChart_(yearDays);
+
+    kpi03StatusView_ = "weekly";
+    setupKpi03StatusToggle_();
+    renderKpi03StatusChart_(yearDays);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
 }

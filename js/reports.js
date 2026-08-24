@@ -1426,3 +1426,109 @@ async function buildPackingEfficiencyYearData_(year) {
 
   return allDays;
 }
+
+// ===================================================================
+// KPI 03 — Bird Input Efficiency %
+// Efficiency % = (Actual birds / Planned birds) * 100
+// Planned: DataProductionBirdReq ("Total (kg)")
+// Actual:  DataLBSummary ("No_of_birds_to_plant")
+// ===================================================================
+
+const KPI_BIRD_INPUT_STANDARD_ = 95;   // ⚠️ confirm your actual standard %
+
+async function buildBirdInputEfficiencyKpi(year, month) {
+  const [reqRows, lbRows] = await Promise.all([
+    Api.list("DataProductionBirdReq"),
+    Api.list("DataLBSummary"),
+  ]);
+
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const reqMonth = reqRows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const lbMonth = lbRows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
+
+    const reqDay = reqMonth.filter((r) => String(r.Date) === dateStr);
+    const lbDay = lbMonth.filter((r) => String(r.Date) === dateStr);
+
+    const planned = reqDay.reduce((s, r) => s + (Number(r["Total (kg)"]) || 0), 0);
+    const actual = lbDay.reduce((s, r) => s + (Number(r.No_of_birds_to_plant) || 0), 0);
+    const pct = planned > 0 ? (actual / planned) * 100 : 0;
+
+    const hasData = reqDay.length > 0 || lbDay.length > 0;
+    days.push({ day: d, hasData, planned: hasData ? planned : null, actual: hasData ? actual : null, pct: hasData ? pct : null });
+  }
+
+  return { year, month, days, summary: buildBirdInputSummary_(days) };
+}
+
+function birdInputColorClass_(pct) {
+  const std = KPI_BIRD_INPUT_STANDARD_;
+  if (pct === null || pct === undefined) return "";
+  if (pct >= std) return "kpi-green";
+  if (pct >= std - 10) return "kpi-yellow";
+  if (pct >= std - 20) return "kpi-orange";
+  return "kpi-red";
+}
+
+function buildBirdInputSummary_(days) {
+  const std = KPI_BIRD_INPUT_STANDARD_;
+  const withData = days.filter((d) => d.hasData);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((d) => {
+    const cls = birdInputColorClass_(d.pct);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≥ ${std}%`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${std - 10}% – ${std}%`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${std - 20}% – ${std - 10}%`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `< ${std - 20}%`, count: counts.red, pct: pct(counts.red) },
+  ];
+}
+
+// ===================================================================
+// KPI 03 — Full year data (for Weekly/Monthly Good Days % + Status trend)
+// ===================================================================
+async function buildBirdInputYearData_(year) {
+  const [reqRows, lbRows] = await Promise.all([
+    Api.list("DataProductionBirdReq"),
+    Api.list("DataLBSummary"),
+  ]);
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const reqDay = reqRows.filter((r) => String(r.Date) === dateStr);
+    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
+    const planned = reqDay.reduce((s, r) => s + (Number(r["Total (kg)"]) || 0), 0);
+    const actual = lbDay.reduce((s, r) => s + (Number(r.No_of_birds_to_plant) || 0), 0);
+    const pct = planned > 0 ? (actual / planned) * 100 : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: reqDay.length > 0 || lbDay.length > 0,
+      pct,
+    });
+  }
+
+  return allDays;
+}
