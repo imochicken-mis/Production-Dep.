@@ -1419,3 +1419,29 @@ td.dow-saturday, th.dow-saturday {
 .kpi-toggle-btn.active{background:#2c4a7c; color:#fff;}
 .kpi-toggle-btn:hover{background:#eef1f7;}
 .kpi-toggle-btn.active:hover{background:#234069;}
+
+
+/* ===================================================================
+   KPI 04 — Packing Line Efficiency %
+   =================================================================== */
+#view-kpi-04 .kpi-table-scroll { overflow-x: auto; max-width: 100%; }
+#view-kpi-04 .kpi-dressed-yield-table { table-layout: auto; border-collapse: separate; border-spacing: 0; }
+#view-kpi-04 .kpi-dressed-yield-table thead th {
+  background: #00245E; color: #fff; font-weight: bold; padding: 8px 10px;
+  text-align: center; border: 1px solid #7a7a7a;
+}
+#view-kpi-04 .kpi-dressed-yield-table td {
+  padding: 6px 10px; text-align: center; border: 1px solid #d0d0d0; font-size: 13px;
+}
+#view-kpi-04 .kpi-dressed-yield-table tbody tr:nth-child(even) { background: #ececec; }
+#view-kpi-04 .kpi-dressed-yield-table tbody tr:nth-child(odd) { background: #f8f8f8; }
+#view-kpi-04 .kpi-dressed-yield-table td.row-label { font-weight: 600; background: #f0f0f0; width: 80px; }
+
+#view-kpi-04 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
+#view-kpi-04 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
+#view-kpi-04 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
+#view-kpi-04 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
+
+#view-kpi-04 .kpi-dressed-yield-table tfoot td {
+  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
+}

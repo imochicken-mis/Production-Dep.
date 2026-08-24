@@ -1325,3 +1325,104 @@ async function buildChillLossYearData_(year) {
 
   return allDays;
 }
+
+// ===================================================================
+// KPI 04 — Packing Line Efficiency %
+// Efficiency % = (Actual / Planned) * 100
+// ===================================================================
+
+const KPI_PACKING_EFFICIENCY_STANDARD_ = 95;   // standard threshold %
+
+async function buildPackingEfficiencyKpi(year, month) {
+  const rows = await Api.list("Packing_Line_Efficiency_%");
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const monthRows = rows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const byDay = {};
+  monthRows.forEach((r) => {
+    const day = Number(String(r.Date).split("-")[2]);
+    const planned = Number(r.Planned_Qty) || 0;
+    const actual = Number(r.Actual) || 0;
+    const pct = planned > 0 ? (actual / planned) * 100 : 0;
+    byDay[day] = { planned, actual, pct };
+  });
+
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const rec = byDay[d];
+    days.push({
+      day: d,
+      hasData: !!rec,
+      planned: rec ? rec.planned : null,
+      actual: rec ? rec.actual : null,
+      pct: rec ? rec.pct : null,
+    });
+  }
+
+  return { year, month, days, summary: buildPackingEfficiencySummary_(days) };
+}
+
+function packingEfficiencyColorClass_(pct) {
+  const std = KPI_PACKING_EFFICIENCY_STANDARD_;
+  if (pct === null || pct === undefined) return "";
+  if (pct >= std) return "kpi-green";
+  if (pct >= std - 10) return "kpi-yellow";
+  if (pct >= std - 20) return "kpi-orange";
+  return "kpi-red";
+}
+
+function buildPackingEfficiencySummary_(days) {
+  const std = KPI_PACKING_EFFICIENCY_STANDARD_;
+  const withData = days.filter((d) => d.hasData);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((d) => {
+    const cls = packingEfficiencyColorClass_(d.pct);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≥ ${std}%`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${std - 10}% – ${std}%`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${std - 20}% – ${std - 10}%`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `< ${std - 20}%`, count: counts.red, pct: pct(counts.red) },
+  ];
+}
+
+// ===================================================================
+// KPI 04 — Full year data (for Weekly/Monthly Good Days % + Status trend)
+// ===================================================================
+async function buildPackingEfficiencyYearData_(year) {
+  const rows = await Api.list("Packing_Line_Efficiency_%");
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const planned = dayRows.reduce((s, r) => s + (Number(r.Planned_Qty) || 0), 0);
+    const actual = dayRows.reduce((s, r) => s + (Number(r.Actual) || 0), 0);
+    const pct = planned > 0 ? (actual / planned) * 100 : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: dayRows.length > 0,
+      pct,
+    });
+  }
+
+  return allDays;
+}
