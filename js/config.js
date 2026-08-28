@@ -4,4 +4,4 @@
 //    Web App URL eka methanata paste karanna.
 //    Example: https://script.google.com/macros/s/AKfycb.../exec
 // ===============================================
-const API_URL = "https://script.google.com/macros/s/AKfycbwPYpQI4FFbVocWwGivnIrpVTJGf_LECEnFu-FExYuT_cbLKo22p7gFBGc5xEfJO6-lZw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzyvqLEFayJ3n7XMB9tE2Y1x1Q9tEq0bhN_OlUNpQRM-yFQE0PKTMnlRtZ1yEXFZNg1Hw/exec";

@@ -38,4 +38,10 @@ const Api = {
   login(username, password) {
     return this._post({ sheet: "Users", action: "login", data: { username, password } });
   },
+  forgotPassword(username) {
+  return this._post({ sheet: "Users", action: "forgotPassword", data: { username } });
+  },
+  resetPassword(username, code, newPassword) {
+  return this._post({ sheet: "Users", action: "resetPassword", data: { username, code, newPassword } });
+  },
 };

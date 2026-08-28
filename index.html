@@ -23,6 +23,9 @@
 
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
+    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">
+    <span id="collapseIcon">◀</span>
+  </button>
     <img src="images/logo.png" alt="Company logo" class="company-logo2">
     <div class="brand">
       <span class="brand-name">Imo Chicken & Agro (Pvt) Ltd</span>
@@ -761,6 +764,42 @@
   <div class="report-actions">
     <button class="btn-report-action" id="egsCsvBtn">⬇ Download CSV</button>
     <button class="btn-report-action" id="egsPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- DAY OF STOCK AVAILABLE -->
+<section class="view" id="view-Stock-Available">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Day of Stock Available</h1>
+      <p class="sub">Production forecast vs. stock on hand — filter by date to view.</p>
+    </div>
+    <div class="report-toolbar">
+      <label for="saDateFilter">Date:</label>
+      <input type="date" id="saDateFilter">
+    </div>
+  </div>
+ 
+  <div class="print-header" id="saPrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-report-title">Day of Stock Available</div>
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Date:</span> <span id="saPrintDate"></span></div>
+    </div>
+  </div>
+ 
+  <div class="panel">
+    <div class="panel-body" id="saPanel">
+      <p class="hint">Select a date to load the report.</p>
+    </div>
+  </div>
+ 
+  <div class="report-actions">
+    <button class="btn-report-action" id="saCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="saPdfBtn">🖨 Print PDF</button>
   </div>
 </section>
 

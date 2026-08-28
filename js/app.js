@@ -34,6 +34,25 @@ document.getElementById("hamburgerBtn").addEventListener("click", () => {
 });
 
 // ===================================================================
+// SIDEBAR — Collapse/Expand toggle
+// ===================================================================
+const sidebarCollapseBtn = document.getElementById("sidebarCollapseBtn");
+const collapseIcon = document.getElementById("collapseIcon");
+const appShell = document.querySelector(".app-shell");
+
+// Restore saved state (persists across page loads within this browser)
+if (sessionStorage.getItem("sidebar_collapsed") === "true") {
+  appShell.classList.add("sidebar-collapsed");
+  collapseIcon.textContent = "▶";
+}
+
+sidebarCollapseBtn.addEventListener("click", () => {
+  const isCollapsed = appShell.classList.toggle("sidebar-collapsed");
+  collapseIcon.textContent = isCollapsed ? "▶" : "◀";
+  sessionStorage.setItem("sidebar_collapsed", isCollapsed);
+});
+
+// ===================================================================
 // SIDEBAR — Collapsible KPI's / Reports accordion
 // ===================================================================
 const kpiToggle = document.getElementById("kpiToggle");
@@ -80,6 +99,7 @@ function showView(key) {
   if (key === "lbtarget-vs-actual") initLbTargetVsActual();
   if (key === "productiontarget-vs-actual") initProductionTargetVsActual();
   if (key === "easy-&-giblet-stock") initEasyGibletStock();
+  if (key === "Stock-Available") initStockAvailable();
   if (key === "yield-report") initYieldReport();
   if (key === "kpi-01") initBayMortalityKpi();
   if (key === "kpi-05") initDressedYieldKpi();
@@ -1435,6 +1455,127 @@ function printWithFilename_(filename) {
 }
 
 // ===================================================================
+// DAY OF STOCK AVAILABLE
+// ===================================================================
+function initStockAvailable() {
+  const dateInput = document.getElementById("saDateFilter");
+  if (dateInput.dataset.bound) {
+    return;   // already rendered — panel HTML persists in the DOM, no need to re-fetch
+  }
+  dateInput.dataset.bound = "true";
+ 
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  dateInput.value = today;
+ 
+  dateInput.addEventListener("change", () => {
+    if (dateInput.value) renderStockAvailable(dateInput.value);
+  });
+ 
+  document.getElementById("saCsvBtn").addEventListener("click", () => {
+    if (window.currentStockAvailableReport) downloadStockAvailableCsv_(window.currentStockAvailableReport);
+  });
+  document.getElementById("saPdfBtn").addEventListener("click", () => {
+    printWithFilename_(`Day_of_Stock_Available_${window.currentStockAvailableReport?.date || "report"}`);
+  });
+ 
+  renderStockAvailable(today);
+}
+ 
+async function renderStockAvailable(dateStr) {
+  const panel = document.getElementById("saPanel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+ 
+  try {
+    const report = await buildStockAvailableReport_(dateStr);
+    window.currentStockAvailableReport = report;
+    document.getElementById("saPrintDate").textContent = formatDateDMY_(report.date);
+    panel.innerHTML = renderStockAvailableTable_(report);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+ 
+function renderStockAvailableTable_(report) {
+  const rows = report.items.map((it) => `
+    <tr>
+      <td class="row-label">${it.code}</td>
+      <td>${it.name}</td>
+      <td>${formatNum_(it.salesPlan, "auto")}</td>
+      <td>${formatNum_(it.dailyToProduce, "auto")}</td>
+      <td>${formatNum_(it.availableStock, "auto")}</td>
+      <td>${it.daysOfAvailable === null ? "-" : formatNum_(it.daysOfAvailable, "auto")}</td>
+      <td>${it.weightRange}</td>
+      <td>${formatNum_(it.productionPlan, "auto")}</td>
+      <td>${it.liveWeight}</td>
+      <td></td>
+    </tr>
+  `).join("");
+ 
+  return `
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th class="row-label">Item Code</th>
+          <th>Item Name</th>
+          <th>Monthly Sales Plan (Kg)</th>
+          <th>Daily to be Produced (kg)</th>
+          <th>Available Stock as at ${report.asAtLabel} (kg)</th>
+          <th>Days of Available</th>
+          <th>Weight or weight range (g)</th>
+          <th>Production Plan</th>
+          <th>Live Weight</th>
+          <th>No of Pieces (per pack)</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="bold-row">
+          <td class="total-cell" colspan="2">Total</td>
+          <td class="total-cell">${formatNum_(report.totalSalesPlan, "auto")}</td>
+          <td class="total-cell">${formatNum_(report.totalDailyToProduce, "auto")}</td>
+          <td class="total-cell">${formatNum_(report.totalAvailableStock, "auto")}</td>
+          <td class="total-cell"></td>
+          <td class="total-cell"></td>
+          <td class="total-cell"></td>
+          <td class="total-cell"></td>
+          <td class="total-cell"></td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+}
+ 
+function downloadStockAvailableCsv_(report) {
+  const headers = [
+    "Item Code", "Item Name", "Monthly Sales Plan (Kg)", "Daily to be Produced (kg)",
+    `Available Stock as at ${report.asAtLabel} (kg)`, "Days of Available",
+    "Weight or weight range (g)", "Production Plan", "Live Weight", "No of Pieces (per pack)",
+  ];
+  let csv = headers.map((h) => `"${h}"`).join(",") + "\n";
+ 
+  report.items.forEach((it) => {
+    const row = [
+      it.code, it.name, it.salesPlan, it.dailyToProduce, it.availableStock,
+      it.daysOfAvailable === null ? "" : it.daysOfAvailable,
+      it.weightRange, it.productionPlan, it.liveWeight, "",
+    ];
+    csv += row.map((v) => `"${v}"`).join(",") + "\n";
+  });
+ 
+  csv += ["Total", "", report.totalSalesPlan, report.totalDailyToProduce, report.totalAvailableStock, "", "", "", "", ""]
+    .map((v) => `"${v}"`).join(",") + "\n";
+ 
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Day_of_Stock_Available_${report.date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===================================================================
 // YIELD REPORT
 // ===================================================================
 function initYieldReport() {
@@ -1581,7 +1722,11 @@ async function renderBayMortalityKpi() {
 }
 
 function renderBayMortalityTable_(report) {
-  const dateCells = report.days.map((d) => `<td>${String(d.day).padStart(2, "0")}</td>`).join("");
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.days.map((d) => {
+    const cls = getDateHeaderClass_(d.date, holidayMap);
+    return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
+  }).join("");
   const birdsCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.totalBirds, 0) : ""}</td>`).join("");
   const mortalityCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.bayMortality, 0) : ""}</td>`).join("");
   const pctCells = report.days.map((d) => {
@@ -1896,7 +2041,8 @@ async function renderBayMortalityKpi() {
 
     panel.innerHTML =
   renderBayMortalitySummaryCards_(report.summary) +
-  `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div></div>` +
+  `<div class="panel kpi-chart-panel">
+  <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div></div>` +
   renderBayMortalityTable_(report) +
   `<div class="panel kpi-chart-panel" style="margin-top:16px;">
     <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -1967,7 +2113,11 @@ function initPackingEfficiencyKpi() {
 }
 
 function renderPackingEfficiencyTable_(report) {
-  const dateCells = report.days.map((d) => `<td>${String(d.day).padStart(2, "0")}</td>`).join("");
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.days.map((d) => {
+    const cls = getDateHeaderClass_(d.date, holidayMap);
+    return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
+  }).join("");
   const actualCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`).join("");
   const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
   const pctCells = report.days.map((d) => {
@@ -2421,7 +2571,11 @@ async function renderDressedYieldKpi() {
 }
 
 function renderDressedYieldTable_(report) {
-  const dateCells = report.dateRows.map((r) => `<td>${String(r.day).padStart(2, "0")}</td>`).join("");
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.dateRows.map((r) => {
+    const cls = getDateHeaderClass_(r.date, holidayMap);
+    return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
+  }).join("");
   const liveCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.liveWeight, 1) : ""}</td>`).join("");
   const dressedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.dressedWeight, 1) : ""}</td>`).join("");
   const pctCells = report.dateRows.map((r) => {
@@ -2842,7 +2996,11 @@ function initChillLossKpi() {
 }
 
 function renderChillLossTable_(report) {
-  const dateCells = report.dateRows.map((r) => `<td>${String(r.day).padStart(2, "0")}</td>`).join("");
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.dateRows.map((r) => {
+    const cls = getDateHeaderClass_(r.date, holidayMap);
+    return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
+  }).join("");
   const chillCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.chillWeight, 1) : ""}</td>`).join("");
   const diffCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.diff, 1) : ""}</td>`).join("");
   const pctCells = report.dateRows.map((r) => {
@@ -3646,7 +3804,11 @@ function initBirdInputEfficiencyKpi() {
 }
 
 function renderBirdInputTable_(report) {
-  const dateCells = report.days.map((d) => `<td>${String(d.day).padStart(2, "0")}</td>`).join("");
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.days.map((d) => {
+    const cls = getDateHeaderClass_(d.date, holidayMap);
+    return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
+  }).join("");
   const actualCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`).join("");
   const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
   const pctCells = report.days.map((d) => {

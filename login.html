@@ -30,6 +30,37 @@
         <input type="password" id="password" required>
       </label>
       <p id="loginError"></p>
+      <div class="forgot-password-link">
+  <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+</div>
+
+<!-- Forgot Password Modal -->
+<div class="modal-overlay" id="forgotPasswordModal" style="display:none;">
+  <div class="modal-box">
+    <h3>Reset Password</h3>
+
+    <div id="fpStep1">
+      <p class="modal-hint">Enter your username to receive a reset code by email.</p>
+      <input type="text" id="fpUsername" placeholder="Username" class="modal-input">
+      <div id="fpStep1Error" class="modal-error"></div>
+      <button id="fpSendCodeBtn" class="btn">Send Reset Code</button>
+    </div>
+
+    <div id="fpStep2" style="display:none;">
+      <p class="modal-hint">Enter the code sent to your email, and your new password.</p>
+      <input type="text" id="fpCode" placeholder="6-digit code" class="modal-input">
+      <input type="password" id="fpNewPassword" placeholder="New password" class="modal-input">
+      <div id="fpStep2Error" class="modal-error"></div>
+      <button id="fpResetBtn" class="btn">Reset Password</button>
+    </div>
+
+    <div id="fpSuccess" style="display:none;">
+      <p class="modal-success">Password reset successfully! You can now log in.</p>
+    </div>
+
+    <button id="fpCloseBtn" class="modal-close">Close</button>
+  </div>
+</div>
       <button class="btn btn-primary" type="submit">Log in</button>
       <h3>© 2026 MIS Dep. All rights reserved.</h3>
     </form>
@@ -62,6 +93,65 @@
       errorEl.textContent = "Couldn't reach server: " + err.message;
     }
   });
+  document.getElementById("forgotPasswordLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  document.getElementById("forgotPasswordModal").style.display = "flex";
+  document.getElementById("fpStep1").style.display = "block";
+  document.getElementById("fpStep2").style.display = "none";
+  document.getElementById("fpSuccess").style.display = "none";
+});
+
+document.getElementById("fpCloseBtn").addEventListener("click", () => {
+  document.getElementById("forgotPasswordModal").style.display = "none";
+});
+
+document.getElementById("fpSendCodeBtn").addEventListener("click", async () => {
+  const username = document.getElementById("fpUsername").value.trim();
+  const errorEl = document.getElementById("fpStep1Error");
+  errorEl.textContent = "";
+
+  if (!username) {
+    errorEl.textContent = "Please enter your username.";
+    return;
+  }
+
+  try {
+    const result = await Api.forgotPassword(username);
+    if (result.success) {
+      document.getElementById("fpStep1").style.display = "none";
+      document.getElementById("fpStep2").style.display = "block";
+      window.currentResetUsername_ = username;
+    } else {
+      errorEl.textContent = result.error || "Something went wrong.";
+    }
+  } catch (err) {
+    errorEl.textContent = "Failed to send code: " + err.message;
+  }
+});
+
+document.getElementById("fpResetBtn").addEventListener("click", async () => {
+  const code = document.getElementById("fpCode").value.trim();
+  const newPassword = document.getElementById("fpNewPassword").value;
+  const errorEl = document.getElementById("fpStep2Error");
+  errorEl.textContent = "";
+
+  if (!code || !newPassword) {
+    errorEl.textContent = "Please fill in both fields.";
+    return;
+  }
+
+  try {
+    const result = await Api.resetPassword(window.currentResetUsername_, code, newPassword);
+    if (result.success) {
+      document.getElementById("fpStep2").style.display = "none";
+      document.getElementById("fpSuccess").style.display = "block";
+    } else {
+      errorEl.textContent = result.error || "Invalid code.";
+    }
+  } catch (err) {
+    errorEl.textContent = "Failed to reset password: " + err.message;
+  }
+});
 </script>
 </body>
 </html>

@@ -979,6 +979,7 @@ const KPI_BAY_MORTALITY_STANDARD_ = 0.05;   // standard threshold %
 
 async function buildBayMortalityKpi(year, month) {
   const rows = await Api.list("Live_Bird_Bay_Mortality_Rate_%");
+  const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const monthRows = rows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
@@ -994,17 +995,19 @@ async function buildBayMortalityKpi(year, month) {
 
   const days = [];
   for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
     const rec = byDay[d];
     days.push({
       day: d,
       hasData: !!rec,
+      date: dateStr,
       totalBirds: rec ? rec.totalBirds : null,
       bayMortality: rec ? rec.bayMortality : null,
       pct: rec ? rec.pct : null,
     });
   }
 
-  return { year, month, days, summary: buildBayMortalitySummary_(days) };
+  return { year, month, days, summary: buildBayMortalitySummary_(days), holidayMap };
 }
 
 function bayMortalityColorClass_(pct) {
@@ -1080,7 +1083,7 @@ async function buildDressedYieldKpi(year, month) {
     Api.list("DataLBSummary"),
     Api.list("DataFBPProduction"),
   ]);
-
+  const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
@@ -1116,6 +1119,7 @@ async function buildDressedYieldKpi(year, month) {
   dateRows,
   totals: { liveWeight: totalLiveWeight, dressedWeight: totalDressedWeight, yieldPct: totalYieldPct },
   summary: buildDressedYieldSummary_(dateRows),
+  holidayMap,
 };
 }
 
@@ -1205,7 +1209,7 @@ async function buildChillLossKpi(year, month) {
     Api.list("DataPackingChillWeight"),
     Api.list("DataFBPProduction"),
   ]);
-
+  const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
@@ -1244,6 +1248,7 @@ async function buildChillLossKpi(year, month) {
     dateRows,
     totals: { chillWeight: totalChillWeight, dressWeight: totalDressWeight, diff: totalDiff, chillLossPct: totalChillLossPct },
     summary: buildChillLossSummary_(dateRows),
+    holidayMap,
   };
 }
 
@@ -1335,6 +1340,7 @@ const KPI_PACKING_EFFICIENCY_STANDARD_ = 95;   // standard threshold %
 
 async function buildPackingEfficiencyKpi(year, month) {
   const rows = await Api.list("Packing_Line_Efficiency_%");
+  const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const monthRows = rows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
@@ -1350,9 +1356,11 @@ async function buildPackingEfficiencyKpi(year, month) {
 
   const days = [];
   for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
     const rec = byDay[d];
     days.push({
       day: d,
+      date: dateStr,
       hasData: !!rec,
       planned: rec ? rec.planned : null,
       actual: rec ? rec.actual : null,
@@ -1360,7 +1368,7 @@ async function buildPackingEfficiencyKpi(year, month) {
     });
   }
 
-  return { year, month, days, summary: buildPackingEfficiencySummary_(days) };
+  return { year, month, days, summary: buildPackingEfficiencySummary_(days),holidayMap };
 }
 
 function packingEfficiencyColorClass_(pct) {
@@ -1441,7 +1449,7 @@ async function buildBirdInputEfficiencyKpi(year, month) {
     Api.list("DataProductionBirdReq"),
     Api.list("DataLBSummary"),
   ]);
-
+  const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const reqMonth = reqRows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const lbMonth = lbRows.filter((r) => String(r.Date).startsWith(monthPrefix));
@@ -1459,10 +1467,10 @@ async function buildBirdInputEfficiencyKpi(year, month) {
     const pct = planned > 0 ? (actual / planned) * 100 : 0;
 
     const hasData = reqDay.length > 0 || lbDay.length > 0;
-    days.push({ day: d, hasData, planned: hasData ? planned : null, actual: hasData ? actual : null, pct: hasData ? pct : null });
+    days.push({ day: d, date: dateStr, hasData, planned: hasData ? planned : null, actual: hasData ? actual : null, pct: hasData ? pct : null });
   }
 
-  return { year, month, days, summary: buildBirdInputSummary_(days) };
+  return { year, month, days, summary: buildBirdInputSummary_(days),holidayMap };
 }
 
 function birdInputColorClass_(pct) {
@@ -1531,4 +1539,189 @@ async function buildBirdInputYearData_(year) {
   }
 
   return allDays;
+}
+
+// ===================================================================
+// DAY OF STOCK AVAILABLE — daily sales forecast vs. stock on hand.
+// Item master (code/name/weight range/live weight) is static; the
+// forecast + stock figures are pulled live for the selected date.
+// ===================================================================
+
+const STOCK_AVAILABLE_ITEMS_ = [
+  { code: "01CW01", name: "Whole Chicken (S)", weightRange: "850-1100", liveWeight: "1.2" },
+  { code: "01CW02", name: "Whole Chicken (L)", weightRange: "1101-1400", liveWeight: "1.5" },
+  { code: "01CW03", name: "Whole Chicken (XL)", weightRange: "1401-2000", liveWeight: "2.1" },
+  { code: "01CW06", name: "Half Chicken", weightRange: "600 - 800", liveWeight: "1.6" },
+  { code: "01CW07", name: "Quarter Chicken", weightRange: "-", liveWeight: "-" },
+  { code: "02CW01", name: "Whole Chicken - Without Giblets (S)", weightRange: "900-1000", liveWeight: "1.3" },
+  { code: "02CW09", name: "Whole Chicken - Without Giblets (M) Special", weightRange: "1101-1200", liveWeight: "1.4" },
+  { code: "02CW03", name: "Whole Chicken - Without Giblets (L)", weightRange: "1201-1300", liveWeight: "1.5" },
+  { code: "02CW04", name: "Whole Chicken - Without Giblets (XL)", weightRange: "1301-1500", liveWeight: "1.7" },
+  { code: "02CW05", name: "Whole Chicken - Without Giblets (XXL)", weightRange: "1501-1800", liveWeight: "2" },
+  { code: "03CW01", name: "Skinless Whole Chicken (S)", weightRange: "900-1100", liveWeight: "1.3" },
+  { code: "03CW08", name: "Skinless Whole Chicken (M) Special", weightRange: "1101-1200", liveWeight: "1.5" },
+  { code: "03CW03", name: "Skinless Whole Chicken (L)", weightRange: "1201-1400", liveWeight: "1.6" },
+  { code: "03CW04", name: "Skinless Whole Chicken (XL)", weightRange: "1401-1600", liveWeight: "1.8" },
+  { code: "03CW05", name: "Skinless Whole Chicken (XXL)", weightRange: "1601-1850", liveWeight: "2.1" },
+  { code: "04CP01", name: "Skinless Breast", weightRange: "425 - 600", liveWeight: "1.9 & above" },
+  { code: "04CP02", name: "Skinon Breast", weightRange: "450 - 625", liveWeight: "1.9 & above" },
+  { code: "04CP03", name: "Skinless Drumstick", weightRange: "80 - 120", liveWeight: "1.9 & above" },
+  { code: "04CP04", name: "Skinon Drumstick", weightRange: "90 - 130", liveWeight: "1.9 & above" },
+  { code: "04CP05", name: "Skinon Drumstick - Special", weightRange: "90 - 110", liveWeight: "1.9 & above" },
+  { code: "04CP07", name: "Skinless thigh special", weightRange: "90 - 105", liveWeight: "1.9 & above" },
+  { code: "04CP06", name: "Skinless Thigh", weightRange: "90 - 140", liveWeight: "1.9 & above" },
+  { code: "04CP08", name: "Skinon Thigh", weightRange: "100 - 150", liveWeight: "1.9 & above" },
+  { code: "04CP09", name: "Skinless Leg", weightRange: "210-270", liveWeight: "1.9 & above" },
+  { code: "04CP11", name: "Skinon Leg", weightRange: "220-280", liveWeight: "1.9 & above" },
+  { code: "04CP12", name: "Skinless Back Quarter", weightRange: "200-230", liveWeight: "1.8" },
+  { code: "04CP13", name: "Skinless Back Quarter - Special", weightRange: "230-270", liveWeight: "1.8" },
+  { code: "04CP14", name: "Skinon Back Quarter", weightRange: "250-290", liveWeight: "1.8" },
+  { code: "04CP16", name: "Whole Wings", weightRange: "L 80-95(Per piece) /  S 60-75(Per piece)", liveWeight: "1.9 & above" },
+  { code: "04CP17", name: "Winglet", weightRange: "40-43", liveWeight: "1.9 & above" },
+  { code: "04CP19", name: "D. Winglet / Lolipop", weightRange: "38-48", liveWeight: "1.9 & above" },
+  { code: "04CP20", name: "Wing Tip", weightRange: "8_12", liveWeight: "1.9 & above" },
+  { code: "04CP23", name: "Bite Pieces", weightRange: "500", liveWeight: "1.9 & above" },
+  { code: "04CP25", name: "Liver 1 Kg", weightRange: "42-54", liveWeight: "1.9 & above" },
+  { code: "04CP24", name: "Liver 500g", weightRange: "42-54", liveWeight: "1.9 & above" },
+  { code: "04CP27", name: "Gizzard 1 Kg", weightRange: "20-26", liveWeight: "1.9 & above" },
+  { code: "04CP26", name: "Gizzard 500g", weightRange: "20-26", liveWeight: "1.9 & above" },
+  { code: "04CP28", name: "Gadget 500g", weightRange: "2_4", liveWeight: "1.9 & above" },
+  { code: "04CP29", name: "Curry Pieces 500g", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "04CP30", name: "Soup Bone", weightRange: "125-150", liveWeight: "1.9 & above" },
+  { code: "04CP31", name: "Thigh Bone", weightRange: "20-22", liveWeight: "1.9 & above" },
+  { code: "04CP32", name: "Kitchen Packed (500g)", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "", name: "Broiler Chicken Feet", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "", name: "Kitchen Item", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "04CP37", name: "MDM Material 500g", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "04CP40", name: "Middle Wing 500g", weightRange: "27-37", liveWeight: "1.9 & above" },
+  { code: "04CP41", name: "Neck 500g", weightRange: "35-45", liveWeight: "1.9 & above" },
+  { code: "05CM01", name: "Skinless Boneless Breast", weightRange: "400-550", liveWeight: "1.9 & above" },
+  { code: "05CM02", name: "Skinless Boneless Thigh", weightRange: "100-120", liveWeight: "1.9 & above" },
+  { code: "05CM03", name: "Chicken Skin - Loose Meat 5 Kg", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "05CM04", name: "Chicken Fat", weightRange: "-", liveWeight: "1.9 & above" },
+  { code: "04CP34", name: "Pet Food - Minced 500g", weightRange: "-", liveWeight: "-" },
+  { code: "06CE01", name: "EASY 250g", weightRange: "-", liveWeight: "2 & above" },
+  { code: "06CE02", name: "EASY 400g", weightRange: "-", liveWeight: "2 & above" },
+  { code: "06CE03", name: "EASY 700g", weightRange: "-", liveWeight: "2 & above" },
+  { code: "06CE05", name: "Easy 05kg", weightRange: "-", liveWeight: "-" },
+  { code: "01CW05", name: "Krosher Whole Chicken", weightRange: "-", liveWeight: "-" },
+];
+
+function ordinalSuffix_(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
+// Working days = calendar days in the month minus Sundays.
+// (Assumption — change here if Poya/Mercantile holidays should also be excluded.)
+function countWorkingDaysInMonth_(year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (new Date(year, month - 1, d).getDay() !== 0) count++;
+  }
+  return count;
+}
+
+async function buildStockAvailableReport_(dateStr) {
+  const [forecastRows, stockRows] = await Promise.all([
+    Api.list("DataProductionForecast"),
+    Api.list("DataProductionStock"),
+  ]);
+
+  const [yearStr, monthStr, dayStr] = dateStr.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const workingDays = countWorkingDaysInMonth_(year, month);
+  const asAtLabel = ordinalSuffix_(Number(dayStr));
+
+  const items = STOCK_AVAILABLE_ITEMS_.map((item) => {
+    const salesPlan = forecastRows
+      .filter((r) => String(r.Date) === dateStr && String(r.Code) === item.code)
+      .reduce((s, r) => s + (Number(r["Sales Weight (Kg)"]) || 0), 0);
+
+    const dailyToProduce = workingDays > 0 ? salesPlan / workingDays : 0;
+
+    const availableStock = stockRows
+      .filter((r) => String(r.Date) === dateStr && String(r.Item_Code) === item.code)
+      .reduce((s, r) => s + (Number(r.Qty) || 0), 0);
+
+    const daysOfAvailable = dailyToProduce > 0 ? availableStock / dailyToProduce : null;
+
+    return {
+      code: item.code,
+      name: item.name,
+      salesPlan,
+      dailyToProduce,
+      availableStock,
+      daysOfAvailable,
+      weightRange: item.weightRange,
+      productionPlan: dailyToProduce,
+      liveWeight: item.liveWeight,
+    };
+  });
+
+  const totalSalesPlan = items.reduce((s, i) => s + i.salesPlan, 0);
+  const totalDailyToProduce = items.reduce((s, i) => s + i.dailyToProduce, 0);
+  const totalAvailableStock = items.reduce((s, i) => s + i.availableStock, 0);
+
+  return { date: dateStr, asAtLabel, workingDays, items, totalSalesPlan, totalDailyToProduce, totalAvailableStock };
+}
+
+// ===================================================================
+// HOLIDAY LOOKUP — used by KPI Date headers (Poya / Mercantile)
+// ===================================================================
+
+let holidayMapCache_ = null;
+
+async function getHolidayMap_() {
+  if (holidayMapCache_) return holidayMapCache_;
+  const rows = await Api.list("Holidays");
+  const map = {};
+  rows.forEach((r) => {
+    const date = String(r.Date);
+    const category = String(r.Category || "").trim().toLowerCase();   // ← .toLowerCase() add කළා
+    if (category === "poya") map[date] = "Poya";
+    else if (category === "mercantile") map[date] = "Mercantile";
+  });
+  holidayMapCache_ = map;
+  return map;
+}
+
+function getDateHeaderClass_(dateStr, holidayMap) {
+  const dow = getDayOfWeekClass_(dateStr);   // reuses existing helper: dow-sunday / dow-saturday / ""
+  if (holidayMap[dateStr] === "Poya") return "date-poya";
+  if (holidayMap[dateStr] === "Mercantile") return "date-mercantile";
+  return dow;
+}
+
+// ===================================================================
+// KPI Main Chart — Daily/Weekly toggle helper
+// Aggregates a month's daily records into weeks (W01, W02, ...) —
+// average of the metric across days that have data in that week.
+// ===================================================================
+function aggregateToWeeks_(dailyRecords, valueKey) {
+  const withData = dailyRecords.filter((r) => r.hasData);
+  const buckets = {};
+
+  withData.forEach((r) => {
+    const weekNum = Math.ceil(r.day / 7);   // week within the month (1-5)
+    if (!buckets[weekNum]) buckets[weekNum] = { sum: 0, count: 0 };
+    buckets[weekNum].sum += r[valueKey];
+    buckets[weekNum].count += 1;
+  });
+
+  return Object.keys(buckets)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((wk) => ({
+      label: `W${String(wk).padStart(2, "0")}`,
+      value: buckets[wk].count > 0 ? buckets[wk].sum / buckets[wk].count : 0,
+    }));
 }

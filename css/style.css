@@ -148,6 +148,57 @@ button{font-family:var(--body); cursor:pointer;}
   transform:translateX(-60px);
   animation: heroSlideIn .7s cubic-bezier(.2,.7,.3,1) .1s forwards;
 }
+
+.forgot-password-link {
+  text-align: right;
+  margin-bottom: 10px;
+}
+.forgot-password-link a {
+  color: var(--steel, #2c4a7c);
+  font-size: 13px;
+  text-decoration: none;
+}
+.forgot-password-link a:hover {
+  text-decoration: underline;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 100%;
+  max-width: 360px;
+}
+.modal-box h3 { margin: 0 0 8px; font-size: 18px; }
+.modal-hint { font-size: 13px; color: #666; margin: 0 0 14px; }
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.modal-error { color: #c0392b; font-size: 12.5px; min-height: 16px; margin-bottom: 8px; }
+.modal-success { color: #2e7d32; font-size: 14px; font-weight: 600; }
+.modal-close {
+  margin-top: 12px;
+  width: 100%;
+  background: none;
+  border: 1px solid #ccc;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 @keyframes heroSlideIn{
   to{ opacity:1; transform:translateX(0); }
 }
@@ -162,6 +213,55 @@ button{font-family:var(--body); cursor:pointer;}
 @media (max-width: 900px){
   body{ justify-content:center !important; padding-right:0 !important; }
   .login-hero{ display:none; }
+}
+
+/* ===================================================================
+   SIDEBAR — Collapse/Expand toggle
+   =================================================================== */
+
+.sidebar-collapse-btn {
+  position: fixed;   /* was absolute — now independent of sidebar's own layout */
+  top: 12px;
+  left: 226px;   /* sits at sidebar's right edge when expanded (240px sidebar - 14px overlap) */
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2c4a7c;
+  color: #fff;
+  border: 2px solid #fff;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;   /* above everything, including the collapsed sidebar */
+  transition: left 0.25s ease, background 0.15s;
+}
+.sidebar-collapse-btn:hover {
+  background: #234069;
+}
+
+.sidebar {
+  position: relative;
+  transition: width 0.25s ease, padding 0.25s ease;
+}
+
+/* Collapsed state — sidebar shrinks to 0, content takes full width */
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
+.app-shell.sidebar-collapsed .sidebar {
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+}
+.app-shell.sidebar-collapsed .sidebar > *:not(.sidebar-collapse-btn) {
+  display: none;
+}
+
+/* Button moves to the far left edge when sidebar is collapsed */
+.app-shell.sidebar-collapsed .sidebar-collapse-btn {
+  left: -14px;
 }
 
 /* ===================================================================
@@ -374,9 +474,33 @@ button{font-family:var(--body); cursor:pointer;}
     padding: 2px 3px;
     line-height: 1;
   }
+
+  /* Day of Stock Available — shrink to fit one portrait page */
+  #view-Stock-Available .report-table {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+    font-size: 7px;
+  }
+  #view-Stock-Available .report-table th,
+  #view-Stock-Available .report-table td {
+    padding: 1px 2px;
+    line-height: 1;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  #view-Stock-Available .report-table td.row-label {
+    width: 40px;
+  }
+  #view-Stock-Available .report-table th:nth-child(2),
+  #view-Stock-Available .report-table td:nth-child(2) {
+    width: 110px;
+  }
+  #view-Stock-Available .report-table th:nth-child(7),
+  #view-Stock-Available .report-table td:nth-child(7) {
+    width: 80px;
+  }
 }
-
-
 
 /* ---- Shared "item list + summary" component ----
    Used by: Chill Weight Report, Dress Weight Report (Table 2),
@@ -1052,6 +1176,74 @@ td.dow-saturday, th.dow-saturday {
   background: #e2e2e2 !important;
 }
 
+/* ===================================================================
+   REPORT: Day of Stock Available  (#view-Stock-Available)
+   =================================================================== */
+#view-Stock-Available .report-table {
+  table-layout: fixed;
+  min-width: 1000px;
+}
+#view-Stock-Available .report-table td.row-label {
+  width: 50px;
+}
+#view-Stock-Available .report-table td {
+  padding: 4px 6px;
+  font-size: 11.5px;
+}
+ 
+/* Column 1 - Item Code */
+#view-Stock-Available .report-table th:nth-child(1),
+#view-Stock-Available .report-table td:nth-child(1) {
+  width: 70px;
+}
+/* Column 2 - Item Name */
+#view-Stock-Available .report-table th:nth-child(2),
+#view-Stock-Available .report-table td:nth-child(2) {
+  width: 160px;
+  text-align: left;
+  white-space: normal;
+}
+/* Column 3 - Monthly Sales Plan (Kg) */
+#view-Stock-Available .report-table th:nth-child(3),
+#view-Stock-Available .report-table td:nth-child(3) {
+  width: 70px;
+}
+/* Column 4 - Daily to be Produced (kg) */
+#view-Stock-Available .report-table th:nth-child(4),
+#view-Stock-Available .report-table td:nth-child(4) {
+  width: 70px;
+}
+/* Column 5 - Available Stock as at [date] (kg) */
+#view-Stock-Available .report-table th:nth-child(5),
+#view-Stock-Available .report-table td:nth-child(5) {
+  width: 70px;
+}
+/* Column 6 - Days of Available */
+#view-Stock-Available .report-table th:nth-child(6),
+#view-Stock-Available .report-table td:nth-child(6) {
+  width: 70px;
+}
+/* Column 7 - Weight or weight range (g) */
+#view-Stock-Available .report-table th:nth-child(7),
+#view-Stock-Available .report-table td:nth-child(7) {
+  width: 150px;
+  white-space: normal;
+}
+/* Column 8 - Production Plan */
+#view-Stock-Available .report-table th:nth-child(8),
+#view-Stock-Available .report-table td:nth-child(8) {
+  width: 70px;
+}
+/* Column 9 - Live Weight */
+#view-Stock-Available .report-table th:nth-child(9),
+#view-Stock-Available .report-table td:nth-child(9) {
+  width: 80px;
+}
+/* Column 10 - No of Pieces (per pack) */
+#view-Stock-Available .report-table th:nth-child(10),
+#view-Stock-Available .report-table td:nth-child(10) {
+  width: 80px;
+}
 
 
 
@@ -1469,4 +1661,48 @@ td.dow-saturday, th.dow-saturday {
 
 #view-kpi-03 .kpi-dressed-yield-table tfoot td {
   background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
+}
+
+
+
+
+/* ===================================================================
+   KPI TABLES — Date header colors (Sunday/Saturday/Poya/Mercantile)
+   =================================================================== */
+
+.kpi-bay-mortality-table tr:first-child td.dow-sunday,
+.kpi-dressed-yield-table tr:first-child td.dow-sunday {
+  background: #f4b6b6 !important;
+}
+.kpi-bay-mortality-table tr:first-child td.dow-saturday,
+.kpi-dressed-yield-table tr:first-child td.dow-saturday {
+  background: #d0d0d0 !important;
+}
+.kpi-bay-mortality-table tr:first-child td.date-poya,
+.kpi-dressed-yield-table tr:first-child td.date-poya {
+  background: #fff2b2 !important;
+}
+.kpi-bay-mortality-table tr:first-child td.date-mercantile,
+.kpi-dressed-yield-table tr:first-child td.date-mercantile {
+}
+
+
+/* ===================================================================
+   KPI 03 / 04 / 05 / 06 — Date row navy background (match KPI 01)
+   =================================================================== */
+#view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td,
+#view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td,
+#view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td,
+#view-kpi-06 .kpi-dressed-yield-table tbody tr:first-child td {
+  background: #2c4a7c;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+#view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
+#view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
+#view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
+#view-kpi-06 .kpi-dressed-yield-table tbody tr:first-child td.row-label {
+  background: #2c4a7c;
+  color: #fff;
 }
