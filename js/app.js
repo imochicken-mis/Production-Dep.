@@ -57,26 +57,30 @@ sidebarCollapseBtn.addEventListener("click", () => {
 // ===================================================================
 const kpiToggle = document.getElementById("kpiToggle");
 const reportsToggle = document.getElementById("reportsToggle");
+const notificationsToggle = document.getElementById("notificationsToggle");
 const kpiCollapse = document.getElementById("kpiCollapse");
 const reportsCollapse = document.getElementById("reportsCollapse");
+const notificationsCollapse = document.getElementById("notificationsCollapse");
 
 function setSection(open) {
-  // open = "kpi" | "reports" | null (null = both closed)
+  // open = "kpi" | "reports" | "notifications" | null
   kpiToggle.classList.toggle("active", open === "kpi");
   reportsToggle.classList.toggle("active", open === "reports");
+  notificationsToggle.classList.toggle("active", open === "notifications");
   kpiCollapse.classList.toggle("open", open === "kpi");
   reportsCollapse.classList.toggle("open", open === "reports");
+  notificationsCollapse.classList.toggle("open", open === "notifications");
 }
 
 function toggleSection(section) {
-  const isOpen = section === "kpi"
-    ? kpiCollapse.classList.contains("open")
-    : reportsCollapse.classList.contains("open");
-  setSection(isOpen ? null : section);   // click on open section -> close both; else open it
+  const collapseMap = { kpi: kpiCollapse, reports: reportsCollapse, notifications: notificationsCollapse };
+  const isOpen = collapseMap[section].classList.contains("open");
+  setSection(isOpen ? null : section);
 }
 
 kpiToggle.addEventListener("click", () => toggleSection("kpi"));
 reportsToggle.addEventListener("click", () => toggleSection("reports"));
+notificationsToggle.addEventListener("click", () => toggleSection("notifications"));
 
 function showView(key) {
   navItems.forEach((b) => b.classList.toggle("active", b.dataset.view === key));
@@ -85,8 +89,11 @@ function showView(key) {
   sidebar.classList.remove("open");
 
   // Auto-expand the matching section
-  const isKpi = key === "dashboard" || key.startsWith("kpi-");
-  setSection(isKpi ? "kpi" : "reports");
+  let section;
+  if (key === "dashboard-new" || key.startsWith("kpi-")) section = "kpi";
+  else if (key.startsWith("notify-kpi-")) section = "notifications";
+  else section = "reports";
+  setSection(section);
 
   if (key === "daily-lb-input") initLbInputReport();
   if (key === "total-lb") initTotalLbReport();
@@ -101,11 +108,20 @@ function showView(key) {
   if (key === "easy-&-giblet-stock") initEasyGibletStock();
   if (key === "Stock-Available") initStockAvailable();
   if (key === "yield-report") initYieldReport();
+  if (key === "all-division-consumable-reports") initAllDivisionConsumableReport();
   if (key === "kpi-01") initBayMortalityKpi();
   if (key === "kpi-05") initDressedYieldKpi();
   if (key === "kpi-06") initChillLossKpi();
   if (key === "kpi-04") initPackingEfficiencyKpi();
   if (key === "kpi-03") initBirdInputEfficiencyKpi();
+
+  // NEW: Notification views
+  if (key === "notify-kpi-01") initNotifyKpi("01");
+  if (key === "notify-kpi-02") initNotifyKpi("02");
+  if (key === "notify-kpi-03") initNotifyKpi("03");
+  if (key === "notify-kpi-04") initNotifyKpi("04");
+  if (key === "notify-kpi-05") initNotifyKpi("05");
+  if (key === "notify-kpi-06") initNotifyKpi("06");
 }
 
 // ===================================================================
@@ -1677,6 +1693,32 @@ function downloadYieldCsv_(report) {
 }
 
 // ===================================================================
+// Update KPI header with standard and working days
+// ===================================================================
+
+function updateKpiHeader(kpiKey, standard, workingDays) {
+  const viewElement = document.getElementById(`view-${kpiKey}`);
+  if (!viewElement) return;
+
+  // Update info row (center)
+  const infoRow = viewElement.querySelector('.info-row-center');
+  if (!infoRow) return;
+
+  let infoDiv = infoRow.querySelector('.kpi-header-info');
+  if (!infoDiv) {
+    infoDiv = document.createElement('div');
+    infoDiv.className = 'kpi-header-info';
+    infoRow.appendChild(infoDiv);
+  }
+
+  infoDiv.innerHTML = `
+    <span>📊 Standard: <strong class="standard-value">${standard}%</strong></span>
+    <span class="divider">|</span>
+    <span>📅 Working Days: <strong class="working-days-value">${workingDays}</strong></span>
+  `;
+}
+
+// ===================================================================
 // KPI 01 — Bay Mortality Rate %
 // ===================================================================
 function initBayMortalityKpi() {
@@ -1797,12 +1839,15 @@ const bayMortalityBandFill_ = {
   },
 };
 
-function renderBayMortalityChart_(report) {
-  const withData = report.days.filter((d) => d.hasData && d.totalBirds !== null);
+let kpi01TrendView_ = "daily"; // "daily" | "weekly"
 
-  const labels = withData.map((d) => String(d.day).padStart(2, "0"));
-  const actualValues = withData.map((d) => d.pct);
-  const standardValues = withData.map(() => KPI_BAY_MORTALITY_STANDARD_);
+function renderBayMortalityChart_(report) {
+  window.currentKpi01Report_ = report; // stash so the toggle can redraw without refetching
+  const buckets = computeKpi01TrendBuckets_(report.days, kpi01TrendView_);
+
+  const labels = buckets.map((b) => b.label);
+  const actualValues = buckets.map((b) => b.pct);
+  const standardValues = buckets.map(() => KPI_BAY_MORTALITY_STANDARD_);
 
   if (kpi01ChartInstance_) {
     kpi01ChartInstance_.destroy();
@@ -1863,13 +1908,13 @@ function renderBayMortalityChart_(report) {
     },
   },
   plugins: {
-    title: {
-      display: true,
-      text: "Daily Bay Mortality % Trend",
-      font: { size: 16, weight: "bold" },
-      color: "#14213D",
-      padding: { top: 4, bottom: 12 },
-    },
+          title: {
+        display: true,
+        text: kpi01TrendView_ === "weekly" ? "Weekly Bay Mortality % Trend" : "Daily Bay Mortality % Trend",
+        font: { size: 16, weight: "bold" },
+        color: "#14213D",
+        padding: { top: 4, bottom: 12 },
+      },
     legend: { position: "top" },
     tooltip: {
   mode: "index",
@@ -1899,6 +1944,25 @@ function syncChartWidthToTable_() {
     const tableWidth = table.getBoundingClientRect().width;
     chartPanel.style.maxWidth = `${tableWidth}px`;
   });
+}
+
+function setupKpi01TrendToggle_() {
+  const dailyBtn = document.getElementById("kpi01TrendViewDaily");
+  const weeklyBtn = document.getElementById("kpi01TrendViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi01TrendView_ = "daily";
+    dailyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    if (window.currentKpi01Report_) renderBayMortalityChart_(window.currentKpi01Report_);
+  };
+  weeklyBtn.onclick = () => {
+    kpi01TrendView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    dailyBtn.classList.remove("active");
+    if (window.currentKpi01Report_) renderBayMortalityChart_(window.currentKpi01Report_);
+  };
 }
 
 // ===================================================================
@@ -2039,10 +2103,24 @@ async function renderBayMortalityKpi() {
   try {
     const report = await buildBayMortalityKpi(year, month);
 
-    panel.innerHTML =
+    // Calculate working days for the selected month
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = KPI_BAY_MORTALITY_STANDARD_;
+
+    // Update the header with standard and working days
+    updateKpiHeader("kpi-01", std, workingDays);
+
+        panel.innerHTML =
   renderBayMortalitySummaryCards_(report.summary) +
   `<div class="panel kpi-chart-panel">
-  <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div></div>` +
+    <div class="chart-toolbar" style="padding:10px 14px 0;">
+      <div class="kpi-view-toggle">
+        <button type="button" id="kpi01TrendViewDaily" class="kpi-toggle-btn active">Daily</button>
+        <button type="button" id="kpi01TrendViewWeekly" class="kpi-toggle-btn">Weekly</button>
+      </div>
+    </div>
+    <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div>
+  </div>` +
   renderBayMortalityTable_(report) +
   `<div class="panel kpi-chart-panel" style="margin-top:16px;">
     <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -2064,6 +2142,8 @@ async function renderBayMortalityKpi() {
   </div>`;
 
 renderBayMortalityChart_(report);
+kpi01TrendView_ = "daily";
+setupKpi01TrendToggle_();
 syncChartWidthToTable_();
 
 kpi01GoodDaysView_ = "weekly";
@@ -2079,6 +2159,22 @@ renderKpi01StatusChart_(yearDays);
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
   }
+
+// ===================================================================
+// Helper: Count working days in a month (excluding Sundays)
+// ===================================================================
+
+function countWorkingDaysInMonth_(year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(year, month - 1, d).getDay();
+    if (dayOfWeek !== 0) { // 0 = Sunday
+      count++;
+    }
+  }
+  return count;
+}
 }
 
 // ===================================================================
@@ -2483,6 +2579,10 @@ async function renderPackingEfficiencyKpi() {
 
   try {
     const report = await buildPackingEfficiencyKpi(year, month);
+
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = KPI_PACKING_EFFICIENCY_STANDARD_;
+    updateKpiHeader("kpi-04", std, workingDays);
 
     panel.innerHTML =
       renderPackingEfficiencySummaryCards_(report.summary) +
@@ -2923,6 +3023,10 @@ async function renderDressedYieldKpi() {
   try {
     const report = await buildDressedYieldKpi(year, month);
 
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = KPI_DRESSED_YIELD_STANDARD_;
+    updateKpiHeader("kpi-05", std, workingDays);
+
     panel.innerHTML =
       renderDressedYieldSummaryCards_(report.summary) +
       `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div></div>` +
@@ -3185,6 +3289,9 @@ async function renderChillLossKpi() {
 
   try {
     const report = await buildChillLossKpi(year, month);
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = KPI_CHILL_LOSS_STANDARD_;
+    updateKpiHeader("kpi-06", std, workingDays);
     window.currentKpi06DateRows_ = report.dateRows;
 
     panel.innerHTML =
@@ -4168,6 +4275,10 @@ async function renderBirdInputEfficiencyKpi() {
   try {
     const report = await buildBirdInputEfficiencyKpi(year, month);
 
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = KPI_BIRD_INPUT_STANDARD_;
+    updateKpiHeader("kpi-03", std, workingDays);
+
     panel.innerHTML =
       renderBirdInputSummaryCards_(report.summary) +
       `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div></div>` +
@@ -4207,4 +4318,1350 @@ async function renderBirdInputEfficiencyKpi() {
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
   }
+}
+
+// ===================================================================
+// ALL DIVISION CONSUMABLE REPORTS
+// ===================================================================
+
+let consumableActiveDivision_ = "lb";
+
+function initAllDivisionConsumableReport() {
+  const monthSelect = document.getElementById("consumableMonth");
+  const yearSelect = document.getElementById("consumableYear");
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderConsumableReport);
+  yearSelect.addEventListener("change", renderConsumableReport);
+
+  document.getElementById("consumableCsvBtn").addEventListener("click", () => {
+    if (window.currentConsumableReport) downloadConsumableCsv_(window.currentConsumableReport);
+  });
+  document.getElementById("consumablePdfBtn").addEventListener("click", () => {
+    const r = window.currentConsumableReport;
+    printWithFilename_(r ? `${r.label.replace(/\s+/g, "_")}_Consumable_${MONTH_NAMES_[r.month - 1]}_${r.year}` : "Consumable_Report");
+  });
+
+  renderConsumableButtonsPanel_();
+  renderConsumableReport();
+}
+
+function renderConsumableButtonsPanel_() {
+  const divisions = [
+    ["lb", "Live Bird & Slaughtering"],
+    ["ev", "EV"],
+    ["packing1", "Packing 01"],
+    ["packing2", "Packing 02"],
+    ["easy", "Easy"],
+    ["fbp", "Final bulk packing"],
+  ];
+
+  const wrap = document.getElementById("consumableButtonsWrap");
+  wrap.innerHTML = `<div class="division-btn-wrap">
+    ${divisions.map(([key, label]) =>
+      `<button type="button" class="division-btn ${key === consumableActiveDivision_ ? "active" : ""}" data-division="${key}">${label}</button>`
+    ).join("")}
+  </div>`;
+
+  wrap.querySelectorAll(".division-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      consumableActiveDivision_ = btn.dataset.division;
+      wrap.querySelectorAll(".division-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderConsumableReport();
+    });
+  });
+}
+
+async function renderConsumableReport() {
+  const year = document.getElementById("consumableYear").value;
+  const month = document.getElementById("consumableMonth").value;
+  const panel = document.getElementById("consumablePanel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildConsumableReport_(consumableActiveDivision_, year, month);
+    window.currentConsumableReport = report;
+    document.getElementById("consumablePrintMonth").textContent = `${MONTH_NAMES_[month - 1]} ${year}`;
+    document.getElementById("consumablePrintDivision").textContent = report.label;
+    panel.innerHTML = renderConsumableTable_(report);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
+}
+
+function renderConsumableTable_(report) {
+  const dayHeaders = Array.from({ length: report.daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return `<th class="${getDayOfWeekClass_(dateStr)}">${String(day).padStart(2, "0")}</th>`;
+  }).join("");
+
+  const rows = report.items.map((item) => {
+    const cells = item.values.map((v, i) => {
+      const day = i + 1;
+      const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      return `<td class="${getDayOfWeekClass_(dateStr)}">${formatNum_(v, "auto")}</td>`;
+    }).join("");
+    return `<tr><td class="row-label">${item.itemName}</td>${cells}</tr>`;
+  }).join("");
+
+  const totalCells = report.columnTotals.map((v) => `<td>${formatNum_(v, "auto")}</td>`).join("");
+
+  return `
+    <table class="report-table consumable-table">
+      <thead>
+        <tr><th class="row-label">Material Name</th>${dayHeaders}</tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="bold-row"><td class="row-label">Total &gt;&gt;&gt;</td>${totalCells}</tr>
+      </tfoot>
+    </table>
+  `;
+}
+
+function downloadConsumableCsv_(report) {
+  const dayHeaders = Array.from({ length: report.daysInMonth }, (_, i) => String(i + 1).padStart(2, "0"));
+  let csv = ["Material Name", ...dayHeaders].map((v) => `"${v}"`).join(",") + "\n";
+
+  report.items.forEach((item) => {
+    csv += [item.itemName, ...item.values].map((v) => `"${v}"`).join(",") + "\n";
+  });
+  csv += ["Total", ...report.columnTotals].map((v) => `"${v}"`).join(",") + "\n";
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${report.label.replace(/\s+/g, "_")}_Consumable_${report.year}-${String(report.month).padStart(2, "0")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* js/dashboard-new.js */
+
+// ============================================================
+// KPI DASHBOARD - නව Version එක
+// KPIs 6ක් සඳහා වෙනම charts 6ක්, colors, animations
+// ============================================================
+
+// ========== KPI Configuration ==========
+const KPI_CONFIG_NEW = {
+  "kpi-01": {
+    id: "kpi-01",
+    label: "Bay Mortality",
+    shortLabel: "Bay Mortality",
+    icon: "🐦",
+    unit: "%",
+    standard: 0.05,
+    isLowerBetter: true,
+    color: "#E74C3C",
+    bgColor: "rgba(231, 76, 60, 0.12)",
+    borderColor: "#E74C3C",
+    gradientFrom: "rgba(231, 76, 60, 0.20)",
+    gradientTo: "rgba(231, 76, 60, 0.02)",
+    description: "Mortality rate during bay holding"
+  },
+  "kpi-02": {
+    id: "kpi-02",
+    label: "Birds Unloading",
+    shortLabel: "Live Birds Unloading",
+    icon: "🚚",
+    unit: "%",
+    standard: 95,
+    isLowerBetter: false,
+    color: "#3498DB",
+    bgColor: "rgba(52, 152, 219, 0.12)",
+    borderColor: "#3498DB",
+    gradientFrom: "rgba(52, 152, 219, 0.20)",
+    gradientTo: "rgba(52, 152, 219, 0.02)",
+    description: "Birds unloading efficiency"
+  },
+  "kpi-03": {
+    id: "kpi-03",
+    label: "Slaughter Efficiency",
+    shortLabel: "Slaughter Efficiency",
+    icon: "🔪",
+    unit: "%",
+    standard: 95,
+    isLowerBetter: false,
+    color: "#2ECC71",
+    bgColor: "rgba(46, 204, 113, 0.12)",
+    borderColor: "#2ECC71",
+    gradientFrom: "rgba(46, 204, 113, 0.20)",
+    gradientTo: "rgba(46, 204, 113, 0.02)",
+    description: "Slaughter line efficiency"
+  },
+  "kpi-04": {
+    id: "kpi-04",
+    label: "Packing Efficiency",
+    shortLabel: "Packing Efficiency",
+    icon: "📦",
+    unit: "%",
+    standard: 95,
+    isLowerBetter: false,
+    color: "#9B59B6",
+    bgColor: "rgba(155, 89, 182, 0.12)",
+    borderColor: "#9B59B6",
+    gradientFrom: "rgba(155, 89, 182, 0.20)",
+    gradientTo: "rgba(155, 89, 182, 0.02)",
+    description: "Packing line efficiency"
+  },
+  "kpi-05": {
+    id: "kpi-05",
+    label: "Dressed Yield",
+    shortLabel: "Dressed Yield",
+    icon: "🍗",
+    unit: "%",
+    standard: 79,
+    isLowerBetter: false,
+    color: "#F39C12",
+    bgColor: "rgba(243, 156, 18, 0.12)",
+    borderColor: "#F39C12",
+    gradientFrom: "rgba(243, 156, 18, 0.20)",
+    gradientTo: "rgba(243, 156, 18, 0.02)",
+    description: "Dressed yield percentage"
+  },
+  "kpi-06": {
+    id: "kpi-06",
+    label: "Chill Loss",
+    shortLabel: "Chill Loss",
+    icon: "❄️",
+    unit: "%",
+    standard: 2,
+    isLowerBetter: true,
+    color: "#1ABC9C",
+    bgColor: "rgba(26, 188, 156, 0.12)",
+    borderColor: "#1ABC9C",
+    gradientFrom: "rgba(26, 188, 156, 0.20)",
+    gradientTo: "rgba(26, 188, 156, 0.02)",
+    description: "Weight loss during chill process"
+  }
+};
+
+// ========== State ==========
+let dashNewState = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  viewMode: "quarterly", // "quarterly" | "monthly" | "weekly"
+  data: {},
+  chartInstances: {}
+};
+
+// ========== Helper Functions ==========
+function getKpiStatusNew(value, config) {
+  if (value === null || value === undefined || !isFinite(value)) {
+    return { status: "no-data", label: "No Data", color: "#9e9e9e" };
+  }
+  
+  const std = config.standard;
+  const isLowerBetter = config.isLowerBetter || false;
+  
+  if (isLowerBetter) {
+    if (value <= std) return { status: "good", label: "Good", color: "#2e7d32" };
+    if (value <= std * 1.5) return { status: "caution", label: "Caution", color: "#f57f17" };
+    if (value <= std * 2) return { status: "warning", label: "Warning", color: "#e65100" };
+    return { status: "critical", label: "Critical", color: "#c62828" };
+  } else {
+    if (value >= std) return { status: "good", label: "Good", color: "#2e7d32" };
+    if (value >= std * 0.85) return { status: "caution", label: "Caution", color: "#f57f17" };
+    if (value >= std * 0.7) return { status: "warning", label: "Warning", color: "#e65100" };
+    return { status: "critical", label: "Critical", color: "#c62828" };
+  }
+}
+
+function getViewLabel(viewMode) {
+  const map = {
+    "quarterly": "Quarterly",
+    "monthly": "Monthly",
+    "weekly": "Weekly"
+  };
+  return map[viewMode] || "Monthly";
+}
+
+// ========== Data Extraction ==========
+function extractKpiDataNew(report, kpiKey) {
+  if (!report || typeof report !== 'object') {
+    return { values: [], dates: [], hasData: false };
+  }
+
+  // KPI-01
+  if (kpiKey === "kpi-01" && report.days) {
+    const valid = report.days.filter(d => d && d.hasData === true);
+    return {
+      values: valid.map(d => (d.pct !== undefined && d.pct !== null) ? Number(d.pct) : null).filter(v => v !== null),
+      dates: valid.map(d => d.day || 0),
+      hasData: valid.length > 0
+    };
+  }
+  
+  // KPI-02 - Coming soon
+  if (kpiKey === "kpi-02") {
+    return { values: [], dates: [], hasData: false };
+  }
+  
+  // KPI-03
+  if (kpiKey === "kpi-03" && report.days) {
+    const valid = report.days.filter(d => d && d.hasData === true);
+    return {
+      values: valid.map(d => (d.pct !== undefined && d.pct !== null) ? Number(d.pct) : null).filter(v => v !== null),
+      dates: valid.map(d => d.day || 0),
+      hasData: valid.length > 0
+    };
+  }
+  
+  // KPI-04
+  if (kpiKey === "kpi-04" && report.days) {
+    const valid = report.days.filter(d => d && d.hasData === true);
+    return {
+      values: valid.map(d => (d.pct !== undefined && d.pct !== null) ? Number(d.pct) : null).filter(v => v !== null),
+      dates: valid.map(d => d.day || 0),
+      hasData: valid.length > 0
+    };
+  }
+  
+  // KPI-05
+  if (kpiKey === "kpi-05" && report.dateRows) {
+    const valid = report.dateRows.filter(d => d && d.hasData === true);
+    return {
+      values: valid.map(d => (d.yieldPct !== undefined && d.yieldPct !== null) ? Number(d.yieldPct) : null).filter(v => v !== null),
+      dates: valid.map(d => d.day || 0),
+      hasData: valid.length > 0
+    };
+  }
+  
+  // KPI-06
+  if (kpiKey === "kpi-06" && report.dateRows) {
+    const valid = report.dateRows.filter(d => d && d.hasData === true);
+    return {
+      values: valid.map(d => (d.chillLossPct !== undefined && d.chillLossPct !== null) ? Number(d.chillLossPct) : null).filter(v => v !== null),
+      dates: valid.map(d => d.day || 0),
+      hasData: valid.length > 0
+    };
+  }
+  
+  return { values: [], dates: [], hasData: false };
+}
+
+// ========== Fetch All KPI Data ==========
+async function fetchAllKpiDataNew(year, month) {
+  const results = {};
+  const kpiBuilders = {
+    "kpi-01": buildBayMortalityKpi,
+    "kpi-03": buildBirdInputEfficiencyKpi,
+    "kpi-04": buildPackingEfficiencyKpi,
+    "kpi-05": buildDressedYieldKpi,
+    "kpi-06": buildChillLossKpi,
+    // "kpi-02": buildUnloadingKpi, // Coming soon
+  };
+
+  for (const [key, builder] of Object.entries(kpiBuilders)) {
+    try {
+      results[key] = await builder(year, month);
+    } catch (err) {
+      console.warn(`Failed to load ${key}:`, err);
+      results[key] = null;
+    }
+  }
+  return results;
+}
+
+// ===================================================================
+// Fetch full-year data per KPI (for accurate Quarterly/Monthly/Weekly charts)
+// Reuses the *YearData_ builders already built for each KPI's Status trend
+// ===================================================================
+const KPI_PCT_FIELD_ = {
+  "kpi-01": "pct",
+  "kpi-03": "pct",
+  "kpi-04": "pct",
+  "kpi-05": "yieldPct",
+  "kpi-06": "chillLossPct",
+};
+
+async function fetchAllKpiYearDataNew(year) {
+  const results = {};
+  const yearBuilders = {
+    "kpi-01": buildBayMortalityYearData_,
+    "kpi-03": buildBirdInputYearData_,
+    "kpi-04": buildPackingEfficiencyYearData_,
+    "kpi-05": buildDressedYieldYearData_,
+    "kpi-06": buildChillLossYearData_,
+  };
+
+  for (const [key, builder] of Object.entries(yearBuilders)) {
+    try {
+      results[key] = await builder(year);
+    } catch (err) {
+      console.warn(`Failed to load year data for ${key}:`, err);
+      results[key] = [];
+    }
+  }
+  return results;
+}
+
+// ========== Aggregate Data by View Mode ==========
+// Fixed month->quarter mapping (real calendar quarters, not day-of-year thresholds)
+// Fixed month->quarter mapping (real calendar quarters, not day-of-year thresholds)
+const QUARTER_MONTHS_ = { Q1: [1, 2, 3], Q2: [4, 5, 6], Q3: [7, 8, 9], Q4: [10, 11, 12] };
+
+function aggregateYearByViewMode_(yearDays, pctField, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData && r[pctField] !== undefined && r[pctField] !== null);
+
+  if (viewMode === "monthly") {
+    // Always all 12 months on the x-axis — Jan through Dec
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { sum: 0, count: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].sum += r[pctField];
+      buckets[r.month].count += 1;
+    });
+    const labels = MONTH_SHORT_NAMES_.slice();
+    const values = labels.map((_, i) => {
+      const b = buckets[i + 1];
+      return b.count > 0 ? b.sum / b.count : 0;   // 0 instead of a gap when no data
+    });
+    return { labels, values, hasData: true };
+  }
+
+  if (viewMode === "quarterly") {
+    // Always all 4 quarters on the x-axis — Q1 through Q4
+    const qOrder = ["Q1", "Q2", "Q3", "Q4"];
+    const buckets = { Q1: { sum: 0, count: 0 }, Q2: { sum: 0, count: 0 }, Q3: { sum: 0, count: 0 }, Q4: { sum: 0, count: 0 } };
+    withData.forEach((r) => {
+      const q = qOrder.find((qk) => QUARTER_MONTHS_[qk].includes(r.month));
+      if (q) { buckets[q].sum += r[pctField]; buckets[q].count += 1; }
+    });
+    const values = qOrder.map((q) => (buckets[q].count > 0 ? buckets[q].sum / buckets[q].count : 0));
+    return { labels: qOrder, values, hasData: true };
+  }
+
+  // weekly — only show weeks that actually have data for the selected year
+  const buckets = {};
+  withData.forEach((r) => {
+    const wk = Math.min(52, Math.ceil(r.dayOfYear / 7));
+    if (!buckets[wk]) buckets[wk] = { sum: 0, count: 0 };
+    buckets[wk].sum += r[pctField];
+    buckets[wk].count += 1;
+  });
+  const weekNums = Object.keys(buckets).map(Number).sort((a, b) => a - b);
+  const labels = weekNums.map((w) => `W${String(w).padStart(2, "0")}`);
+  const values = weekNums.map((w) => buckets[w].sum / buckets[w].count);
+  return { labels, values, hasData: labels.length > 0 };
+}
+
+// ========== Render KPI Cards ==========
+function renderKpiCardsNew(data) {
+  const container = document.getElementById("dashNewCards");
+  if (!container) return;
+  
+  const keys = ["kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-05", "kpi-06"];
+  let html = "";
+  
+  keys.forEach(key => {
+    const config = KPI_CONFIG_NEW[key];
+    const report = data[key];
+    const extracted = extractKpiDataNew(report, key);
+    
+    let avgValue = null;
+    let status = { status: "no-data", label: "No Data", color: "#9e9e9e" };
+    let trend = { direction: "flat", value: 0 };
+    let displayValue = "—";
+    
+    if (extracted.hasData && extracted.values.length > 0) {
+      avgValue = extracted.values.reduce((a, b) => a + b, 0) / extracted.values.length;
+      status = getKpiStatusNew(avgValue, config);
+      displayValue = avgValue.toFixed(2);
+      
+      // Calculate trend (last 7 vs previous 7)
+      const vals = extracted.values;
+      if (vals.length >= 7) {
+        const recent = vals.slice(-7).reduce((a, b) => a + b, 0) / 7;
+        const prev = vals.slice(-14, -7).reduce((a, b) => a + b, 0) / 7;
+        if (prev > 0) {
+          const diff = ((recent - prev) / prev) * 100;
+          trend.direction = diff > 0 ? "up" : diff < 0 ? "down" : "flat";
+          trend.value = Math.abs(diff);
+        }
+      }
+    }
+    
+    const barWidth = avgValue !== null ? Math.min(100, (avgValue / config.standard) * 100) : 0;
+    const trendDisplay = trend.direction === "up" ? `▲ ${trend.value.toFixed(1)}%` :
+                        trend.direction === "down" ? `▼ ${trend.value.toFixed(1)}%` : "—";
+    const trendClass = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "";
+    
+    html += `
+      <div class="dash-kpi-card" style="border-left: 4px solid ${config.color}">
+        <div class="card-icon">${config.icon}</div>
+        <div class="card-label">${config.shortLabel}</div>
+        <div class="card-value">
+          ${displayValue}<span class="unit">${config.unit}</span>
+        </div>
+        <div>
+          <span class="card-status ${status.status}">${status.label}</span>
+          <span class="card-trend ${trendClass}">${trendDisplay}</span>
+        </div>
+        <div class="card-bar">
+          <div class="card-bar-fill" style="width: ${barWidth}%; background: ${config.color}"></div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// ========== Render Individual Chart ==========
+function renderSingleChart(kpiKey, aggregated, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  // Clear previous chart
+  container.innerHTML = `<canvas id="chart-${kpiKey}"></canvas>`;
+  
+  const canvas = document.getElementById(`chart-${kpiKey}`);
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext("2d");
+  const config = KPI_CONFIG_NEW[kpiKey];
+  
+  // Destroy previous instance
+  if (dashNewState.chartInstances[kpiKey]) {
+    dashNewState.chartInstances[kpiKey].destroy();
+  }
+  
+  const labels = aggregated.labels || [];
+  const values = aggregated.values || [];
+  const hasData = aggregated.hasData && values.length > 0;
+  
+  // Show no-data message
+  if (!hasData) {
+    container.innerHTML = `
+      <div class="dash-no-data">
+        <span class="emoji">📊</span>
+        No data available
+      </div>
+    `;
+    return;
+  }
+  
+  // Create gradient
+  const gradient = ctx.createLinearGradient(0, 0, 0, 160);
+  gradient.addColorStop(0, config.gradientFrom);
+  gradient.addColorStop(1, config.gradientTo);
+  
+  const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: config.shortLabel,
+        data: values,
+        borderColor: config.color,
+        backgroundColor: gradient,
+        borderWidth: 2.5,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: config.color,
+        pointBorderColor: "white",
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: config.color,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "index",
+        intersect: false
+      },
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart",
+        x: {
+          type: "number",
+          easing: "linear",
+          duration: 1000,
+          from: NaN,
+          delay(ctx) {
+            if (ctx.type !== "data" || ctx.xStarted) return 0;
+            ctx.xStarted = true;
+            return ctx.index * 30;
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: "rgba(20, 33, 61, 0.9)",
+          titleColor: "white",
+          bodyColor: "white",
+          borderColor: config.color,
+          borderWidth: 2,
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed.y;
+              return `${config.shortLabel}: ${val !== null && val !== undefined ? val.toFixed(2) : '—'}${config.unit}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: "rgba(0,0,0,0.05)",
+            drawBorder: false
+          },
+          ticks: {
+            font: { size: 9 },
+            maxTicksLimit: 5,
+            callback: function(value) {
+              return value + config.unit;
+            }
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 9 },
+            maxTicksLimit: 10
+          }
+        }
+      }
+    }
+  });
+  
+  dashNewState.chartInstances[kpiKey] = chart;
+}
+
+// ========== Render All Charts ==========
+function renderAllCharts(yearData, viewMode) {
+  const keys = ["kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-05", "kpi-06"];
+
+  keys.forEach(key => {
+    // KPI-02 has no data yet
+    if (key === "kpi-02") {
+      const container = document.getElementById(`chart-container-${key}`);
+      if (container) {
+        container.innerHTML = `
+          <div class="dash-no-data">
+            <span class="emoji">🚧</span>
+            Data Not Available
+          </div>
+        `;
+      }
+      return;
+    }
+
+    const yearDays = yearData[key] || [];
+    const pctField = KPI_PCT_FIELD_[key];
+    const aggregated = aggregateYearByViewMode_(yearDays, pctField, viewMode);
+
+    renderSingleChart(key, aggregated, `chart-container-${key}`);
+  });
+}
+
+// ========== Render Summary Table ==========
+function renderSummaryTable(data) {
+  const container = document.getElementById("dashNewSummary");
+  if (!container) return;
+  
+  const keys = ["kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-05", "kpi-06"];
+  let html = `
+    <table class="dash-summary-table">
+      <thead>
+        <tr>
+          <th>KPI</th>
+          <th>Average</th>
+          <th>Min</th>
+          <th>Max</th>
+          <th>Status</th>
+          <th>vs Standard</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
+  keys.forEach(key => {
+    const config = KPI_CONFIG_NEW[key];
+    const report = data[key];
+    const extracted = extractKpiDataNew(report, key);
+    
+    let avg = null, min = null, max = null;
+    let status = { status: "no-data", label: "No Data", color: "#9e9e9e" };
+    let vsStandard = "—";
+    
+    if (extracted.hasData && extracted.values.length > 0) {
+      const vals = extracted.values;
+      avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      min = Math.min(...vals);
+      max = Math.max(...vals);
+      status = getKpiStatusNew(avg, config);
+      
+      const diff = avg - config.standard;
+      const sign = diff > 0 ? "+" : "";
+      const color = status.status === "good" ? "#2e7d32" : 
+                   status.status === "caution" ? "#f57f17" :
+                   status.status === "warning" ? "#e65100" : "#c62828";
+      vsStandard = `<span style="color:${color};font-weight:600;">${sign}${diff.toFixed(2)}${config.unit}</span>`;
+    }
+    
+    const avgDisplay = avg !== null ? avg.toFixed(2) : "—";
+    const minDisplay = min !== null ? min.toFixed(2) : "—";
+    const maxDisplay = max !== null ? max.toFixed(2) : "—";
+    
+    html += `
+      <tr>
+        <td><span style="color:${config.color}">${config.icon}</span> ${config.shortLabel}</td>
+        <td><strong>${avgDisplay}${config.unit}</strong></td>
+        <td>${minDisplay}${config.unit}</td>
+        <td>${maxDisplay}${config.unit}</td>
+        <td>
+          <span class="status-dot ${status.status}"></span>
+          ${status.label}
+        </td>
+        <td>${vsStandard}</td>
+      </tr>
+    `;
+  });
+  
+  html += `
+      </tbody>
+    </table>
+  `;
+  
+  container.innerHTML = html;
+}
+
+// ========== Main Render Function ==========
+async function renderDashboardNew() {
+  const container = document.getElementById("dashNewCards");
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="dash-loading">
+      <div class="spinner"></div>
+      Loading KPI data...
+    </div>
+  `;
+  
+  try {
+    const year = dashNewState.year;
+    const month = dashNewState.month;
+    const viewMode = dashNewState.viewMode;
+    
+        // Fetch month data (Cards + Summary table use this, unchanged)
+    const data = await fetchAllKpiDataNew(year, month);
+    dashNewState.data = data;
+
+    // Fetch full-year data (charts need this for correct Quarterly/Monthly/Weekly buckets)
+    const yearData = await fetchAllKpiYearDataNew(year);
+    dashNewState.yearData = yearData;
+
+    // Render cards
+    renderKpiCardsNew(data);
+
+    // Render charts
+    renderAllCharts(yearData, viewMode);
+
+    // Render summary
+    renderSummaryTable(data);
+    
+  } catch (err) {
+    container.innerHTML = `
+      <div class="dash-no-data">
+        <span class="emoji">❌</span>
+        Failed to load: ${err.message}
+      </div>
+    `;
+  }
+}
+
+// ========== Initialize Dashboard ==========
+function initDashboardNew() {
+  const yearSelect = document.getElementById("dashNewYear");
+  const monthSelect = document.getElementById("dashNewMonth");
+  const refreshBtn = document.getElementById("dashNewRefreshBtn");
+  const viewBtns = document.querySelectorAll(".dash-view-btn");
+  
+  if (!yearSelect) return;
+  if (yearSelect.dataset.bound) return;
+  yearSelect.dataset.bound = "true";
+  
+  // Populate years
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+  
+  // Event: Year change
+  yearSelect.addEventListener("change", () => {
+    dashNewState.year = parseInt(yearSelect.value);
+    renderDashboardNew();
+  });
+  
+  // Event: Month change
+  monthSelect.addEventListener("change", () => {
+    dashNewState.month = parseInt(monthSelect.value);
+    renderDashboardNew();
+  });
+  
+  // Event: Refresh
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", renderDashboardNew);
+  }
+  
+    // Event: View toggle — reuse cached year data, no need to re-fetch
+  viewBtns.forEach(btn => {
+    btn.addEventListener("click", function() {
+      viewBtns.forEach(b => b.classList.remove("active"));
+      this.classList.add("active");
+      dashNewState.viewMode = this.dataset.view;
+      if (dashNewState.yearData) {
+        renderAllCharts(dashNewState.yearData, dashNewState.viewMode);
+      } else {
+        renderDashboardNew();
+      }
+    });
+  });
+  
+  // Initial render
+  renderDashboardNew();
+}
+
+// ========== Chart Container HTML Generator ==========
+function generateChartContainers() {
+  const container = document.getElementById("dashNewCharts");
+  if (!container) return;
+  
+  const keys = [
+    { id: "kpi-01", label: "Bay Mortality" },
+    { id: "kpi-02", label: "Birds Unloading" },
+    { id: "kpi-03", label: "Slaughter Efficiency" },
+    { id: "kpi-04", label: "Packing Efficiency" },
+    { id: "kpi-05", label: "Dressed Yield" },
+    { id: "kpi-06", label: "Chill Loss" }
+  ];
+  
+  let html = "";
+  keys.forEach(k => {
+    const config = KPI_CONFIG_NEW[k.id];
+    html += `
+      <div class="dash-chart-card" style="border-top: 3px solid ${config.color}">
+        <div class="chart-header">
+          <span class="chart-title">${config.icon} ${config.label}</span>
+          <span class="chart-badge">${config.unit}</span>
+        </div>
+        <div class="chart-container" id="chart-container-${k.id}">
+          <canvas id="chart-${k.id}"></canvas>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// ========== DOM Ready ==========
+document.addEventListener("DOMContentLoaded", function() {
+  // Generate chart containers first
+  generateChartContainers();
+  
+  // Initialize dashboard
+  initDashboardNew();
+});
+
+// ===================================================================
+// KPI NOTIFICATIONS — Individual KPI notification views
+// ===================================================================
+
+const NOTIFY_KPI_CONFIG = {
+  "01": { 
+    kpiKey: "kpi-01", 
+    label: "Bay Mortality", 
+    valueLabel: "Bay Mortality %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+  "02": { 
+    kpiKey: "kpi-02", 
+    label: "Birds Unloading", 
+    valueLabel: "Unloading Rate %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+  "03": { 
+    kpiKey: "kpi-03", 
+    label: "Slaughter Efficiency", 
+    valueLabel: "Slaughter Efficiency %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+  "04": { 
+    kpiKey: "kpi-04", 
+    label: "Packing Efficiency", 
+    valueLabel: "Packing Efficiency %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+  "05": { 
+    kpiKey: "kpi-05", 
+    label: "Dressed Yield", 
+    valueLabel: "Dressed Yield %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+  "06": { 
+    kpiKey: "kpi-06", 
+    label: "Chill Loss", 
+    valueLabel: "Chill Loss %",
+    mail01: "manager@company.com",
+    mail02: "supervisor@company.com"
+  },
+};
+
+let notificationChartInstances = {};
+let notifySentStatus = {};
+
+// ===================================================================
+// Initialize each KPI notification view
+// ===================================================================
+
+function initNotifyKpi(num) {
+  const config = NOTIFY_KPI_CONFIG[num];
+  if (!config) return;
+
+  const monthSelect = document.getElementById(`notifyMonth${num}`);
+  const yearSelect = document.getElementById(`notifyYear${num}`);
+  const panel = document.getElementById(`notifyPanel${num}`);
+
+  if (!monthSelect || !yearSelect || !panel) return;
+
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", () => renderNotifyKpi(num));
+  yearSelect.addEventListener("change", () => renderNotifyKpi(num));
+
+  renderNotifyKpi(num);
+}
+
+// ===================================================================
+// Render individual KPI notification
+// ===================================================================
+
+async function renderNotifyKpi(num) {
+  const config = NOTIFY_KPI_CONFIG[num];
+  if (!config) return;
+
+  const monthSelect = document.getElementById(`notifyMonth${num}`);
+  const yearSelect = document.getElementById(`notifyYear${num}`);
+  const panel = document.getElementById(`notifyPanel${num}`);
+
+  if (!monthSelect || !yearSelect || !panel) return;
+
+  const year = yearSelect.value;
+  const month = monthSelect.value;
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const data = await buildNotificationData_(config.kpiKey, year, month);
+
+    if (!data.available) {
+      panel.innerHTML = `
+        <p class="hint">${config.label} is not yet configured for notifications.</p>
+        <p class="hint" style="font-size:0.9rem;color:#999;">Data source for this KPI is not available.</p>
+      `;
+      return;
+    }
+
+    // Calculate totals for summary
+    const totalCaution = data.buckets.caution.length;
+    const totalWarning = data.buckets.warning.length;
+    const totalCritical = data.buckets.critical.length;
+    const totalIssues = totalCaution + totalWarning + totalCritical;
+
+    // Summary cards
+    const summaryHtml = `
+      <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="background:#fff3e0;padding:12px 20px;border-radius:8px;border-left:4px solid #d4a017;flex:1;min-width:120px;">
+          <div style="font-size:12px;color:#666;">Caution</div>
+          <div style="font-size:24px;font-weight:700;color:#d4a017;">${totalCaution}</div>
+        </div>
+        <div style="background:#fff3e0;padding:12px 20px;border-radius:8px;border-left:4px solid #e07b00;flex:1;min-width:120px;">
+          <div style="font-size:12px;color:#666;">Warning</div>
+          <div style="font-size:24px;font-weight:700;color:#e07b00;">${totalWarning}</div>
+        </div>
+        <div style="background:#fff3e0;padding:12px 20px;border-radius:8px;border-left:4px solid #c0392b;flex:1;min-width:120px;">
+          <div style="font-size:12px;color:#666;">Critical</div>
+          <div style="font-size:24px;font-weight:700;color:#c0392b;">${totalCritical}</div>
+        </div>
+        <div style="background:#e8f5e9;padding:12px 20px;border-radius:8px;border-left:4px solid #4CAF50;flex:1;min-width:120px;">
+          <div style="font-size:12px;color:#666;">Total Issues</div>
+          <div style="font-size:24px;font-weight:700;color:#2e7d32;">${totalIssues}</div>
+        </div>
+      </div>
+    `;
+
+    // Mail recipients info
+    const mailInfoHtml = `
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;background:#f5f5f5;padding:8px 16px;border-radius:6px;border:1px solid #e0e0e0;">
+        <div style="font-size:13px;color:#555;">
+          <span style="font-weight:600;">📧 Mail 01:</span> 
+          <span style="color:#1976D2;">${config.mail01 || 'Not configured'}</span>
+        </div>
+        <div style="font-size:13px;color:#555;">
+          <span style="font-weight:600;">📧 Mail 02:</span> 
+          <span style="color:#1976D2;">${config.mail02 || 'Not configured'}</span>
+        </div>
+      </div>
+    `;
+
+    // Tables - Caution, Warning, Critical
+    const cautionHtml = renderNotifyStatusTable_("Caution", data.buckets.caution, config.kpiKey, "caution");
+    const warningHtml = renderNotifyStatusTable_("Warning", data.buckets.warning, config.kpiKey, "warning");
+    const criticalHtml = renderNotifyStatusTable_("Critical", data.buckets.critical, config.kpiKey, "critical");
+
+    // ⬇️ Order: Summary → Mail Info → Tables → Chart (පහළින්)
+    panel.innerHTML = `
+      ${cautionHtml}
+      ${warningHtml}
+      ${criticalHtml}
+      <div class="panel kpi-chart-panel" style="margin-top:12px; padding: 6px 8px;">
+        <div class="panel-body" style="padding: 4px 8px; height: 150px;">
+          <canvas id="notifyChart_${num}"></canvas>
+        </div>
+      </div>
+    `;
+
+    renderNotifyChart(num, data);
+    wireNotifySendButtons_();
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load: ${err.message}</p>`;
+  }
+}
+
+// ===================================================================
+// Render notification status table
+// ===================================================================
+
+function renderNotifyStatusTable_(title, entries, kpiKey, statusKey) {
+  if (entries.length === 0) {
+    return `
+      <div style="background:#e8f5e9;padding:8px 14px;border-radius:4px;margin:6px 0;border-left:3px solid #4CAF50;">
+        <span style="font-weight:600;color:#2e7d32;font-size:13px;">✅ ${title}:</span>
+        <span style="color:#555;font-size:13px;"> No days in this range.</span>
+      </div>
+    `;
+  }
+
+  const statusColors = {
+    caution: '#d4a017',
+    warning: '#e07b00',
+    critical: '#c0392b'
+  };
+
+  const rows = entries.map((e) => {
+    const rowId = `${kpiKey}_${statusKey}_${e.date}`;
+    const mail01Sent = notifySentStatus[`${rowId}_mail01`] || false;
+    const mail02Sent = notifySentStatus[`${rowId}_mail02`] || false;
+    
+    return `<tr>
+      <td style="font-weight:500;text-align:center;padding:3px 4px;font-size:12px;">${formatDateDMY_(e.date)}</td>
+      <td style="font-weight:600;color:${statusColors[statusKey] || '#333'};text-align:center;padding:3px 4px;font-size:12px;">${e.value.toFixed(2)}%</td>
+      <td style="text-align:center;font-weight:500;color:${mail01Sent ? '#2e7d32' : '#ccc'};padding:3px 4px;font-size:12px;">${mail01Sent ? '✅' : '—'}</td>
+      <td style="text-align:center;font-weight:500;color:${mail02Sent ? '#2e7d32' : '#ccc'};padding:3px 4px;font-size:12px;">${mail02Sent ? '✅' : '—'}</td>
+      <td style="text-align:center;color:#ccc;padding:3px 4px;font-size:12px;">—</td>
+      <td style="text-align:center;color:#ccc;padding:3px 4px;font-size:12px;">—</td>
+    </tr>`;
+  }).join("");
+
+  return `
+    <div style="margin:10px 0 4px 0;">
+      <h3 style="color:${statusColors[statusKey] || '#333'};border-bottom:2px solid ${statusColors[statusKey] || '#333'};padding-bottom:3px;font-size:14px;margin:0;">
+        ${title} <span style="font-size:11px;font-weight:400;color:#666;">(${entries.length})</span>
+      </h3>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+      <thead>
+        <tr style="background:#f5f5f5;">
+          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Date</th>
+          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Out Figure</th>
+          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 01</th>
+          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 02</th>
+          <th style="width:120px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 01 Resp</th>
+          <th style="width:120px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 02 Resp</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ===================================================================
+// Render notification chart (Column chart)
+// ===================================================================
+
+function renderNotifyChart(num, data) {
+  const canvas = document.getElementById(`notifyChart_${num}`);
+  if (!canvas) return;
+
+  // Destroy previous instance
+  if (notificationChartInstances[num]) {
+    notificationChartInstances[num].destroy();
+    delete notificationChartInstances[num];
+  }
+
+  // Collect all days with issues
+  const allEntries = [
+    ...data.buckets.caution.map(e => ({ ...e, status: 'caution' })),
+    ...data.buckets.warning.map(e => ({ ...e, status: 'warning' })),
+    ...data.buckets.critical.map(e => ({ ...e, status: 'critical' })),
+  ];
+
+  const ctx = canvas.getContext('2d');
+
+  // If no issues
+  if (allEntries.length === 0) {
+    notificationChartInstances[num] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['All Days'],
+        datasets: [{
+          label: 'Within Standard Range',
+          data: [1],
+          backgroundColor: ['#4CAF50'],
+          borderColor: ['#2e7d32'],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { 
+            display: true, 
+            text: '✅ All days within standard range', 
+            font: { size: 12, weight: 'bold' },
+            color: '#2e7d32'
+          },
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 1,
+            display: false
+          },
+          x: {
+            display: false
+          }
+        }
+      }
+    });
+    return;
+  }
+
+  // Group by status
+  const statusColors = {
+    caution: '#d4a017',
+    warning: '#e07b00',
+    critical: '#c0392b'
+  };
+
+  const statusLabels = {
+    caution: 'Caution',
+    warning: 'Warning',
+    critical: 'Critical'
+  };
+
+  const grouped = {};
+  allEntries.forEach(e => {
+    if (!grouped[e.status]) grouped[e.status] = [];
+    grouped[e.status].push(e);
+  });
+
+  const labels = Object.keys(grouped).map(s => statusLabels[s] || s);
+  const counts = Object.keys(grouped).map(s => grouped[s].length);
+  const colors = Object.keys(grouped).map(s => statusColors[s] || '#999');
+
+  // Create column chart
+  notificationChartInstances[num] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Number of Days',
+        data: counts,
+        backgroundColor: colors.map(c => c + 'CC'),
+        borderColor: colors,
+        borderWidth: 2,
+        borderRadius: 4,
+        barPercentage: 0.5,
+        categoryPercentage: 0.7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Out-of-Standard Days by Category',
+          font: { size: 12, weight: 'bold' }
+        },
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              return `${value} day${value > 1 ? 's' : ''} (${percentage}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Days', font: { size: 10 } },
+          ticks: { 
+            stepSize: 1,
+            font: { size: 9 }
+          }
+        },
+        x: {
+          title: { display: true, text: 'Category', font: { size: 10 } },
+          ticks: { font: { size: 10, weight: 'bold' } }
+        }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
+      }
+    }
+  });
+}
+
+// ===================================================================
+// Wire send notification buttons
+// ===================================================================
+
+function wireNotifySendButtons_() {
+  document.querySelectorAll(".btn-notif-send:not([disabled])").forEach((btn) => {
+    btn.removeEventListener("click", handleNotifySend);
+    btn.addEventListener("click", handleNotifySend);
+  });
+}
+
+function handleNotifySend(e) {
+  const btn = e.currentTarget;
+  const rowId = btn.dataset.rowId;
+  const mailType = btn.dataset.mail || "mail01";
+  const statusKey = `${rowId}_${mailType}`;
+
+  // Show sending state
+  btn.textContent = "⏳";
+  btn.disabled = true;
+  btn.style.background = "#FFA000";
+
+  // Simulate sending
+  setTimeout(() => {
+    notifySentStatus[statusKey] = true;
+    btn.textContent = "✅";
+    btn.style.background = "#4CAF50";
+
+    const statusCell = document.querySelector(`.notif-status-cell[data-row-id="${statusKey}"]`);
+    if (statusCell) {
+      statusCell.textContent = "✅ Sent";
+      statusCell.style.color = "#2e7d32";
+    }
+
+    console.log(`✅ ${mailType} notification sent:`, {
+      kpi: btn.dataset.kpi,
+      status: btn.dataset.status,
+      date: btn.dataset.date,
+      value: btn.dataset.value,
+      rowId: rowId,
+      mail: mailType
+    });
+  }, 600);
+}
+
+// ===================================================================
+// Build notification data - uses existing KPI year data builders
+// ===================================================================
+
+async function buildNotificationData_(kpiKey, year, month) {
+  // KPI 02 - Not yet available
+  if (kpiKey === "kpi-02") {
+    return { available: false, label: "KPI 02" };
+  }
+
+  // Map KPI key to builder function
+  const builderMap = {
+    "kpi-01": { builder: buildBayMortalityYearData_, colorClass: bayMortalityColorClass_, valueField: "pct" },
+    "kpi-03": { builder: buildBirdInputYearData_, colorClass: birdInputColorClass_, valueField: "pct" },
+    "kpi-04": { builder: buildPackingEfficiencyYearData_, colorClass: packingEfficiencyColorClass_, valueField: "pct" },
+    "kpi-05": { builder: buildDressedYieldYearData_, colorClass: dressedYieldColorClass_, valueField: "yieldPct" },
+    "kpi-06": { builder: buildChillLossYearData_, colorClass: chillLossColorClass_, valueField: "chillLossPct" },
+  };
+
+  const config = builderMap[kpiKey];
+  if (!config) {
+    return { available: false, label: kpiKey };
+  }
+
+  const yearDays = await config.builder(year);
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const monthDays = yearDays.filter((r) => r.hasData && r.date.startsWith(monthPrefix));
+
+  const buckets = { caution: [], warning: [], critical: [] };
+  monthDays.forEach((r) => {
+    const cls = config.colorClass(r[config.valueField]);
+    const entry = { date: r.date, value: r[config.valueField] };
+    if (cls === "kpi-yellow") buckets.caution.push(entry);
+    else if (cls === "kpi-orange") buckets.warning.push(entry);
+    else if (cls === "kpi-red") buckets.critical.push(entry);
+  });
+
+  return { available: true, label: kpiKey, valueLabel: config.valueField, buckets };
 }

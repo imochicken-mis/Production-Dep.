@@ -48,12 +48,12 @@ button{font-family:var(--body); cursor:pointer;}
 }
 .brand{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px 22px;}
 .brand-mark{color:var(--amber); font-size:22px;}
-.brand-name{font-family:calibri; font-size:16px; color:#fff; letter-spacing:.3px; text-align:center; font-weight: 400;}
-.brand-subtitle{display:block; font-size:12px; color:#8A94A3; margin-top:2px; text-align:center; font-weight: 600;}
+.brand-name{font-family:calibri; font-size:12px; color:#f6ee07; letter-spacing:.3px; text-align:center; font-weight: bold;}
+.brand-subtitle{display:block; font-size:17px; color:#ffffff; margin-top:2px; text-align:center; font-weight: 600;}
 
 .nav{
   display:flex; flex-direction:column; gap:2px; flex:1;
-  min-height:0;   /* scroll removed from here — KPI Dashboard stays fixed */
+  min-height:0;
 }
 
 .nav-scroll{
@@ -218,11 +218,10 @@ button{font-family:var(--body); cursor:pointer;}
 /* ===================================================================
    SIDEBAR — Collapse/Expand toggle
    =================================================================== */
-
 .sidebar-collapse-btn {
-  position: fixed;   /* was absolute — now independent of sidebar's own layout */
+  position: fixed;
   top: 12px;
-  left: 226px;   /* sits at sidebar's right edge when expanded (240px sidebar - 14px overlap) */
+  left: 226px;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -234,8 +233,8 @@ button{font-family:var(--body); cursor:pointer;}
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;   /* above everything, including the collapsed sidebar */
-  transition: left 0.25s ease, background 0.15s;
+  z-index: 200;
+  transition: left 0.25s ease, 0.15s;
 }
 .sidebar-collapse-btn:hover {
   background: #234069;
@@ -246,7 +245,6 @@ button{font-family:var(--body); cursor:pointer;}
   transition: width 0.25s ease, padding 0.25s ease;
 }
 
-/* Collapsed state — sidebar shrinks to 0, content takes full width */
 .app-shell.sidebar-collapsed {
   grid-template-columns: 0 1fr;
 }
@@ -258,30 +256,87 @@ button{font-family:var(--body); cursor:pointer;}
 .app-shell.sidebar-collapsed .sidebar > *:not(.sidebar-collapse-btn) {
   display: none;
 }
-
-/* Button moves to the far left edge when sidebar is collapsed */
 .app-shell.sidebar-collapsed .sidebar-collapse-btn {
   left: -14px;
 }
 
 /* ===================================================================
-   SHARED REPORT COMPONENTS
-   (used by every report view — toolbar, base table, actions, print)
+   SIDEBAR — Collapsible sections (accordion)
    =================================================================== */
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #00afef;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  padding: 16px 12px 6px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+.toggle-arrow {
+  transition: transform .2s ease;
+  font-size: 20px;
+}
+.nav-section-toggle.active .toggle-arrow {
+  transform: rotate(180deg);
+}
 
+.nav-collapse {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .25s ease;
+}
+.nav-collapse.open {
+  max-height: 2000px;
+}
+#reportsCollapse.open {
+  overflow-y: auto;
+  max-height: 550px;
+}
+
+/* ===================================================================
+   SHARED REPORT COMPONENTS
+   =================================================================== */
 .sticky-report-header {
   position: sticky;
   top: 0;
   z-index: 50;
   background: rgb(255, 255, 255);
-  padding-top: 28px;   /* moved here from .content, so nothing can peek above it */
+  padding-top: 28px;
   isolation: isolate;
   transform: translateZ(0);
   padding-bottom: 20px;
 }
 
+.header-row-flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
 .view-head {
   margin-bottom: 12px;
+}
+.view-head h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #14213D;
+  margin: 0;
+}
+.view-head .sub {
+  font-size: 13px;
+  color: #6c757d;
+  margin: 2px 0 0 0;
 }
 
 .report-toolbar {
@@ -291,31 +346,36 @@ button{font-family:var(--body); cursor:pointer;}
   margin-bottom: 0;
   flex-wrap: wrap;
   padding-bottom: 12px;
+  flex-shrink: 0;
 }
-
 .report-toolbar label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--text-secondary, #333);
+  color: #495057;
+  margin: 0;
 }
 .report-toolbar input[type="date"] {
   padding: 8px 12px;
-  border: 1px solid var(--border-color, #ccc);
+  border: 1px solid #ced4da;
   border-radius: 15px;
   font-family: calibri;
   font-size: 14px;
   background: #fff;
 }
-
 .report-toolbar select {
   padding: 8px 12px;
-  border: 1px solid var(--border-color, #ccc);
+  border: 1px solid #ced4da;
   border-radius: 15px;
   font-family: calibri;
   font-size: 14px;
   background: #fff;
-  color: var(--text, #14213D);
+  color: #14213D;
   cursor: pointer;
+}
+.report-toolbar select:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.15);
 }
 
 .batch-display {
@@ -326,7 +386,7 @@ button{font-family:var(--body); cursor:pointer;}
   padding: 6px 14px;
   background: #eef1f7;
   border-radius: 6px;
-  color: var(--brand-color, #2c4a7c);
+  color: #2c4a7c;
 }
 
 .report-subhead {
@@ -338,7 +398,7 @@ button{font-family:var(--body); cursor:pointer;}
 }
 .report-subhead:first-child { margin-top: 0; }
 
-/* ---- Base report table (default look for every report) ---- */
+/* ---- Base report table ---- */
 .report-table {
   width: 100%;
   table-layout: fixed;
@@ -397,7 +457,7 @@ button{font-family:var(--body); cursor:pointer;}
   color: #1a3a5c;
 }
 
-/* ---- Report action buttons (CSV / PDF) ---- */
+/* ---- Report action buttons ---- */
 .report-actions {
   display: flex;
   justify-content: flex-end;
@@ -422,7 +482,7 @@ button{font-family:var(--body); cursor:pointer;}
   color: #fff;
 }
 
-/* ---- Print-only header (hidden on screen, shown when printing) ---- */
+/* ---- Print-only header ---- */
 .print-header { display: none; }
 
 @media print {
@@ -442,9 +502,7 @@ button{font-family:var(--body); cursor:pointer;}
     box-sizing: border-box;
     border-bottom: 4px solid #E3B23C;
   }
-  .print-logo {
-    height: 40px; width: auto;
-  }
+  .print-logo { height: 40px; width: auto; }
   .print-header-text { flex: 1; }
   .print-company { font-size: 12px; font-weight: 700; color: #E3B23C; }
   .print-report-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
@@ -458,58 +516,128 @@ button{font-family:var(--body); cursor:pointer;}
   .panel-body { padding: 0; }
   .report-table { min-width: 0; border-radius: 0; }
 
-  /* Force portrait orientation */
-  @page {
-    margin: 10mm;
-  }
+  @page { margin: 10mm; }
 
-  /* LB Target vs Actual — shrink to fit one portrait page */
+  /* Print-specific overrides */
   #view-lbtarget-vs-actual .lta-table {
-    min-width: 0;
-    width: 100%;
-    font-size: 8px;
+    min-width: 0; width: 100%; font-size: 8px;
   }
   #view-lbtarget-vs-actual .lta-table th,
   #view-lbtarget-vs-actual .lta-table td {
-    padding: 2px 3px;
-    line-height: 1;
+    padding: 2px 3px; line-height: 1;
   }
 
-  /* Day of Stock Available — shrink to fit one portrait page */
   #view-Stock-Available .report-table {
-    min-width: 0;
-    width: 100%;
-    table-layout: fixed;
-    font-size: 7px;
+    min-width: 0; width: 100%; table-layout: fixed; font-size: 7px;
   }
   #view-Stock-Available .report-table th,
   #view-Stock-Available .report-table td {
-    padding: 1px 2px;
-    line-height: 1;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-  #view-Stock-Available .report-table td.row-label {
-    width: 40px;
-  }
-  #view-Stock-Available .report-table th:nth-child(2),
-  #view-Stock-Available .report-table td:nth-child(2) {
-    width: 110px;
-  }
-  #view-Stock-Available .report-table th:nth-child(7),
-  #view-Stock-Available .report-table td:nth-child(7) {
-    width: 80px;
+    padding: 1px 2px; line-height: 1;
+    word-wrap: break-word; overflow-wrap: break-word;
   }
 }
 
-/* ---- Shared "item list + summary" component ----
-   Used by: Chill Weight Report, Dress Weight Report (Table 2),
-   Production Report (Table 2). Same visual component, reused. */
-.chill-weight-table th:nth-child(2), .chill-weight-table td:nth-child(2),
-.chill-weight-table th:nth-child(5), .chill-weight-table td:nth-child(5) {
-  text-align: left;
+/* ===================================================================
+   MONTHLY REPORTS — Sunday/Saturday highlighting
+   =================================================================== */
+tr.dow-sunday td { background: #fbdcdc !important; }
+tr.dow-saturday td { background: #e2e2e2 !important; }
+td.dow-sunday, th.dow-sunday { background: #fbdcdc !important; }
+td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
+
+/* Date header colors for KPI tables */
+.kpi-bay-mortality-table tr:first-child td.dow-sunday,
+.kpi-dressed-yield-table tr:first-child td.dow-sunday {
+  background: #f4b6b6 !important;
 }
-.item-name.highlight { color: #c0564a; font-weight: 600; }
+.kpi-bay-mortality-table tr:first-child td.dow-saturday,
+.kpi-dressed-yield-table tr:first-child td.dow-saturday {
+  background: #d0d0d0 !important;
+}
+.kpi-bay-mortality-table tr:first-child td.date-poya,
+.kpi-dressed-yield-table tr:first-child td.date-poya {
+  background: #fff2b2 !important;
+}
+
+/* ===================================================================
+   INFO ROW — Center (Standard & Working Days)
+   =================================================================== */
+.info-row-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: -60px;
+  padding: 4px 0;
+}
+
+.kpi-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #555;
+  background: #f8f9fa;
+  padding: 4px 20px;
+  border-radius: 20px;
+  border: 1px solid #e9ecef;
+}
+.kpi-header-info span { white-space: nowrap; }
+.kpi-header-info .divider { color: #dee2e6; }
+.kpi-header-info strong { color: #14213D; }
+.kpi-header-info .standard-value { color: #1976D2; }
+.kpi-header-info .working-days-value { color: #2e7d32; }
+
+@media (max-width: 768px) {
+  .header-row-flex { flex-direction: column; align-items: stretch; }
+  .report-toolbar { justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+  .info-row-center { justify-content: center; }
+  .kpi-header-info { flex-wrap: wrap; justify-content: center; padding: 4px 12px; font-size: 12px; }
+}
+
+/* ===================================================================
+   REPORT: Daily LB Input
+   =================================================================== */
+#view-daily-lb-input .report-table th,
+#view-daily-lb-input .report-table td {
+  padding: 3px 8px;
+  line-height: 1.2;
+}
+
+/* ===================================================================
+   REPORT: Total LB Report
+   =================================================================== */
+#view-total-lb .total-lb-table {
+  table-layout: fixed;
+  min-width: 920px;
+}
+#view-total-lb .total-lb-table th.row-label,
+#view-total-lb .total-lb-table td.row-label {
+  width: 20px;
+  text-align: center;
+  white-space: nowrap;
+}
+#view-total-lb .total-lb-table td { padding: 3px 6px; line-height: 0.7; }
+#view-total-lb .total-lb-table thead th { padding: 6px 6px; }
+#view-total-lb .total-lb-table tfoot td { background: #dcdcdc; font-weight: 700; }
+
+/* ===================================================================
+   REPORT: Chill Weight Report
+   =================================================================== */
+#view-chill-weight .chill-weight-table { table-layout: auto; }
+#view-chill-weight .chill-weight-table th:nth-child(1),
+#view-chill-weight .chill-weight-table td:nth-child(1),
+#view-chill-weight .chill-weight-table th:nth-child(4),
+#view-chill-weight .chill-weight-table td:nth-child(4) { width: 65px; }
+#view-chill-weight .chill-weight-table th:nth-child(2),
+#view-chill-weight .chill-weight-table td:nth-child(2),
+#view-chill-weight .chill-weight-table th:nth-child(5),
+#view-chill-weight .chill-weight-table td:nth-child(5) { width: 260px; text-align: left; }
+#view-chill-weight .chill-weight-table th:nth-child(3),
+#view-chill-weight .chill-weight-table td:nth-child(3),
+#view-chill-weight .chill-weight-table th:nth-child(6),
+#view-chill-weight .chill-weight-table td:nth-child(6) { width: 80px; }
+#view-chill-weight .chill-weight-table th,
+#view-chill-weight .chill-weight-table td { padding: 3px 6px; line-height: 0.9; }
 
 .chill-summary {
   margin-top: 12px;
@@ -525,118 +653,28 @@ button{font-family:var(--body); cursor:pointer;}
   font-weight: 700; background: #eef1f7;
   border-top: 2px solid #2c4a7c;
 }
+.item-name.highlight { color: #c0564a; font-weight: 600; }
 
 /* ===================================================================
-   REPORT: Daily LB Input  (#view-daily-lb-input)
+   REPORT: Dress Weight & Production Report (shared tables)
    =================================================================== */
-
-#view-daily-lb-input .report-table th,
-#view-daily-lb-input .report-table td {
-  padding: 3px 8px;   /* was 4px 3px (th) / 5px 8px (td) base default — adjust to taste */
-  line-height: 1.2;
-}
-
-
-/* ===================================================================
-   REPORT: Total LB Report  (#view-total-lb)
-   =================================================================== */
-
-#view-total-lb .total-lb-table {
-  table-layout: fixed;
-  min-width: 920px;   /* overrides the base 1000px so column widths are respected exactly */
-}
-
-/* ===== DATE COLUMN ===== */
-#view-total-lb .total-lb-table th.row-label,
-#view-total-lb .total-lb-table td.row-label {
-  width: 20px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-/* ===== Row padding / compact rows (31 days per table) ===== */
-#view-total-lb .total-lb-table td {
-  padding: 3px 6px;
-  line-height: 0.7;
-}
-#view-total-lb .total-lb-table thead th {
-  padding: 6px 6px;
-}
-#view-total-lb .total-lb-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-}
-
-/* ===================================================================
-   REPORT: Chill Weight Report  (#view-chill-weight)
-   Uses the shared "item list + summary" component at full width
-   (base .report-table sizing) — no extra overrides needed.
-   =================================================================== */
-#view-chill-weight .chill-weight-table {
-  table-layout: auto;
-}
-#view-chill-weight .chill-weight-table th:nth-child(1),
-#view-chill-weight .chill-weight-table td:nth-child(1),
-#view-chill-weight .chill-weight-table th:nth-child(4),
-#view-chill-weight .chill-weight-table td:nth-child(4) {
-  width: 65px;   /* Item Code (both columns) — narrowed */
-}
-#view-chill-weight .chill-weight-table th:nth-child(2),
-#view-chill-weight .chill-weight-table td:nth-child(2),
-#view-chill-weight .chill-weight-table th:nth-child(5),
-#view-chill-weight .chill-weight-table td:nth-child(5) {
-  width: 260px;   /* Item Name (both columns) — widened */
-}
-#view-chill-weight .chill-weight-table th:nth-child(3),
-#view-chill-weight .chill-weight-table td:nth-child(3),
-#view-chill-weight .chill-weight-table th:nth-child(6),
-#view-chill-weight .chill-weight-table td:nth-child(6) {
-  width: 80px;   /* Quantity (Kg) (both columns) — narrowed */
-}
-
-/* Compact row height */
-#view-chill-weight .chill-weight-table th,
-#view-chill-weight .chill-weight-table td {
-  padding: 3px 6px;
-  line-height: 0.9;
-}
-
-/* ===================================================================
-   REPORT: Dress Weight  (#view-dress-weight)
-   REPORT: Production Report  (#view-production-weight)
-   These two share the exact same Table 1 + Table 2 markup
-   (renderDressWeightTables_ is reused by both), so their layout
-   rules are combined here.
-   =================================================================== */
-
 #view-dress-weight .dress-farm-table,
-#view-production-weight .dress-farm-table {
-  table-layout: fixed;
-}
+#view-production-weight .dress-farm-table { table-layout: fixed; }
 #view-dress-weight .dress-farm-table th:nth-child(1),
 #view-dress-weight .dress-farm-table td:nth-child(1),
 #view-production-weight .dress-farm-table th:nth-child(1),
-#view-production-weight .dress-farm-table td:nth-child(1) {
-  width: 50px;   /* S/No */
-}
+#view-production-weight .dress-farm-table td:nth-child(1) { width: 50px; }
 #view-dress-weight .dress-farm-table th:nth-child(2),
 #view-dress-weight .dress-farm-table td:nth-child(2),
 #view-production-weight .dress-farm-table th:nth-child(2),
-#view-production-weight .dress-farm-table td:nth-child(2) {
-  width: 220px;   /* Farm Name */
-  text-align: left;
-}
+#view-production-weight .dress-farm-table td:nth-child(2) { width: 220px; text-align: left; }
 #view-dress-weight .dress-farm-table th:nth-child(3),
 #view-dress-weight .dress-farm-table td:nth-child(3),
 #view-production-weight .dress-farm-table th:nth-child(3),
-#view-production-weight .dress-farm-table td:nth-child(3) {
-  width: 80px;   /* No of Birds */
-}
+#view-production-weight .dress-farm-table td:nth-child(3) { width: 80px; }
 
 #view-dress-weight .chill-weight-table,
-#view-production-weight .chill-weight-table {
-  table-layout: fixed;
-}
+#view-production-weight .chill-weight-table { table-layout: fixed; }
 #view-dress-weight .chill-weight-table th:nth-child(1),
 #view-dress-weight .chill-weight-table td:nth-child(1),
 #view-dress-weight .chill-weight-table th:nth-child(4),
@@ -644,9 +682,7 @@ button{font-family:var(--body); cursor:pointer;}
 #view-production-weight .chill-weight-table th:nth-child(1),
 #view-production-weight .chill-weight-table td:nth-child(1),
 #view-production-weight .chill-weight-table th:nth-child(4),
-#view-production-weight .chill-weight-table td:nth-child(4) {
-  width: 70px;   /* Item Code (both columns) */
-}
+#view-production-weight .chill-weight-table td:nth-child(4) { width: 70px; }
 #view-dress-weight .chill-weight-table th:nth-child(2),
 #view-dress-weight .chill-weight-table td:nth-child(2),
 #view-dress-weight .chill-weight-table th:nth-child(5),
@@ -654,10 +690,7 @@ button{font-family:var(--body); cursor:pointer;}
 #view-production-weight .chill-weight-table th:nth-child(2),
 #view-production-weight .chill-weight-table td:nth-child(2),
 #view-production-weight .chill-weight-table th:nth-child(5),
-#view-production-weight .chill-weight-table td:nth-child(5) {
-  width: 150px;   /* Item Name (both columns) */
-  text-align: left;
-}
+#view-production-weight .chill-weight-table td:nth-child(5) { width: 150px; text-align: left; }
 #view-dress-weight .chill-weight-table th:nth-child(3),
 #view-dress-weight .chill-weight-table td:nth-child(3),
 #view-dress-weight .chill-weight-table th:nth-child(6),
@@ -665,16 +698,8 @@ button{font-family:var(--body); cursor:pointer;}
 #view-production-weight .chill-weight-table th:nth-child(3),
 #view-production-weight .chill-weight-table td:nth-child(3),
 #view-production-weight .chill-weight-table th:nth-child(6),
-#view-production-weight .chill-weight-table td:nth-child(6) {
-  width: 90px;   /* Quantity (Kg) (both columns) */
-}
-#view-chill-weighht .chill-weight-table td,
-#view-dress-weight .chill-weight-table td,
-#view-production-weight .chill-weight-table td {
-  line-height: 0.7;
-}
+#view-production-weight .chill-weight-table td:nth-child(6) { width: 90px; }
 
-/* Compact rows so Table 1 + Table 2 fit one printed page */
 #view-dress-weight .report-table th,
 #view-dress-weight .report-table td,
 #view-production-weight .report-table th,
@@ -694,11 +719,7 @@ button{font-family:var(--body); cursor:pointer;}
   font-size: 12px;
 }
 
-/* ===================================================================
-   REPORT: Production Report — extra section  (#view-production-weight)
-   Daily Easy Production Summary (Table 3 — unique to this report)
-   =================================================================== */
-
+/* Production Report - Easy section */
 #view-production-weight .easy-subsection { margin-top: 10px; }
 #view-production-weight .easy-subhead {
   font-weight: 700; font-size: 13px; margin: 6px 0 4px 6px;
@@ -708,7 +729,6 @@ button{font-family:var(--body); cursor:pointer;}
   padding: 6px 30px; font-size: 13.5px;
 }
 #view-production-weight .easy-net-weight-row span:last-child { font-weight: 700; }
-
 #view-production-weight .easy-product-table { table-layout: fixed; }
 #view-production-weight .easy-product-table th:nth-child(1),
 #view-production-weight .easy-product-table td:nth-child(1) { width: 100px; }
@@ -721,9 +741,8 @@ button{font-family:var(--body); cursor:pointer;}
 }
 
 /* ===================================================================
-   REPORT: Chill Weight vs Dress Weight  (#view-chil-vs-dress)
+   REPORT: Chill Weight vs Dress Weight
    =================================================================== */
-
 #view-chil-vs-dress .chill-vs-dress-table { table-layout: fixed; }
 #view-chil-vs-dress .chill-vs-dress-table th:nth-child(1),
 #view-chil-vs-dress .chill-vs-dress-table td:nth-child(1) { width: 90px; }
@@ -737,121 +756,67 @@ button{font-family:var(--body); cursor:pointer;}
 #view-chil-vs-dress .chill-vs-dress-table td:nth-child(5) { width: 110px; }
 #view-chil-vs-dress .chill-vs-dress-table th:nth-child(6),
 #view-chil-vs-dress .chill-vs-dress-table td:nth-child(6) { width: 90px; }
-
-#view-chil-vs-dress .diff-negative{color: #c0564a;}
-#view-chil-vs-dress .diff-positive{color: #2d6a6a;} 
-#view-chil-vs-dress .chill-vs-dress-table th:nth-child(2),
-#view-chil-vs-dress .chill-vs-dress-table td {line-height: 0.7;}
+#view-chil-vs-dress .diff-negative { color: #c0564a; }
+#view-chil-vs-dress .diff-positive { color: #2d6a6a; }
 
 /* ===================================================================
-   REPORT: Total Production Summary  (#view-total-production-summary)
+   REPORT: Total Production Summary
    =================================================================== */
-
-/* ---- Panel body: remove side padding so table sits flush ---- */
-#view-total-production-summary .panel-body {
-  padding: 14px 0;
-  overflow-x: auto;
-  max-width: 100%;
-}
-
+#view-total-production-summary .panel-body { padding: 14px 0; overflow-x: auto; }
 #view-total-production-summary .total-production-table {
   table-layout: fixed;
   min-width: 1600px;
   position: relative;
 }
-
-/* ---- Column widths ---- */
 #view-total-production-summary .total-production-table th:nth-child(1),
-#view-total-production-summary .total-production-table td:nth-child(1) {
-  width: 70px;
-}
+#view-total-production-summary .total-production-table td:nth-child(1) { width: 70px; }
 #view-total-production-summary .total-production-table th:nth-child(2),
-#view-total-production-summary .total-production-table td:nth-child(2) {
-  width: 240px;
-  text-align: left;
-}
+#view-total-production-summary .total-production-table td:nth-child(2) { width: 240px; text-align: left; }
 #view-total-production-summary .total-production-table th:not(:nth-child(1)):not(:nth-child(2)):not(:last-child),
-#view-total-production-summary .total-production-table td:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) {
-  width: 55px;
-}
+#view-total-production-summary .total-production-table td:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) { width: 55px; }
 #view-total-production-summary .total-production-table th:last-child,
-#view-total-production-summary .total-production-table td:last-child {
-  width: 75px;
-}
+#view-total-production-summary .total-production-table td:last-child { width: 75px; }
 
-/* ---- Sticky column 1: Item Code ---- */
+/* Sticky columns */
 #view-total-production-summary .total-production-table thead th:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 4;
-  background: #9a9a9a;
+  position: sticky; left: 0; z-index: 4; background: #9a9a9a;
 }
 #view-total-production-summary .total-production-table tbody td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  background: #f8f8f8;
+  position: sticky; left: 0; z-index: 2; background: #f8f8f8;
 }
 #view-total-production-summary .total-production-table tbody tr:nth-child(even) td:nth-child(1) {
   background: #ececec;
 }
-
-/* ---- Sticky column 2: Item Name ---- */
 #view-total-production-summary .total-production-table thead th:nth-child(2) {
-  position: sticky;
-  left: 70px;
-  z-index: 4;
-  background: #9a9a9a;
-  text-align: left;
+  position: sticky; left: 70px; z-index: 4; background: #9a9a9a; text-align: left;
 }
 #view-total-production-summary .total-production-table tbody td:nth-child(2) {
-  position: sticky;
-  left: 70px;
-  z-index: 2;
-  background: #f8f8f8;
-  text-align: left;
+  position: sticky; left: 70px; z-index: 2; background: #f8f8f8; text-align: left;
 }
 #view-total-production-summary .total-production-table tbody tr:nth-child(even) td:nth-child(2) {
   background: #ececec;
 }
-
-/* ---- Shadow on last sticky column ---- */
 #view-total-production-summary .total-production-table tbody td:nth-child(2),
 #view-total-production-summary .total-production-table thead th:nth-child(2) {
   box-shadow: 4px 0 6px -2px rgba(0,0,0,0.15);
 }
-
-/* ---- TFOOT: colspan="2" cell covers both sticky columns ---- */
 #view-total-production-summary .total-production-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-  border-top: 2px solid #2c4a7c;
+  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
 }
 #view-total-production-summary .total-production-table tfoot td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  background: #dcdcdc;
+  position: sticky; left: 0; z-index: 3; background: #dcdcdc;
   box-shadow: 4px 0 6px -2px rgba(0,0,0,0.15);
 }
-
-/* ---- Sunday/Saturday: only data cells (td), NOT headers ---- */
 #view-total-production-summary .total-production-table thead th.dow-sunday,
 #view-total-production-summary .total-production-table thead th.dow-saturday {
   background: #00245E !important;
   color: #fff !important;
 }
-
-/* ---- Panel overflow ---- */
-#view-total-production-summary .panel {
-  max-width: 100%;
-  overflow: hidden;
-}
+#view-total-production-summary .panel { max-width: 100%; overflow: hidden; }
 
 /* ===================================================================
-   REPORT: Sales Forecast vs Production  (#view-salesforecast-vs-production)
+   REPORT: Sales Forecast vs Production
    =================================================================== */
-
 #view-salesforecast-vs-production .sfp-table { table-layout: auto; }
 #view-salesforecast-vs-production .sfp-table th:nth-child(1),
 #view-salesforecast-vs-production .sfp-table td:nth-child(1) { width: 80px; }
@@ -865,23 +830,18 @@ button{font-family:var(--body); cursor:pointer;}
 #view-salesforecast-vs-production .sfp-table td:nth-child(5) { width: 100px; }
 #view-salesforecast-vs-production .sfp-table th:nth-child(6),
 #view-salesforecast-vs-production .sfp-table td:nth-child(6) { width: 220px; text-align: left; }
-
 #view-salesforecast-vs-production .diff-positive { color: #2d6a6a; font-weight: 600; }
 #view-salesforecast-vs-production .diff-negative { color: #c0564a; font-weight: 600; }
 
 /* ===================================================================
-   REPORT: LB Target vs Actual  (#view-lbtarget-vs-actual)
+   REPORT: LB Target vs Actual
    =================================================================== */
-
-#view-lbtarget-vs-actual .lta-table {
-  table-layout: auto;
-}
-/* ✅ ADD THIS — row height අඩු කරන්න */
+#view-lbtarget-vs-actual .lta-table { table-layout: auto; }
 #view-lbtarget-vs-actual .lta-table th,
 #view-lbtarget-vs-actual .lta-table td {
-  padding: 2px 4px;      /* was 5px 8px — compact */
-  line-height: 1;        /* was 1.2 — tight */
-  font-size: 11px;       /* was 12px — slightly smaller */
+  padding: 2px 4px;
+  line-height: 1;
+  font-size: 11px;
 }
 #view-lbtarget-vs-actual .lta-table th.row-label,
 #view-lbtarget-vs-actual .lta-table td.row-label {
@@ -889,76 +849,17 @@ button{font-family:var(--body); cursor:pointer;}
   text-align: center;
 }
 #view-lbtarget-vs-actual .lta-table th:not(.row-label):not(:last-child),
-#view-lbtarget-vs-actual .lta-table td:not(.row-label):not(:last-child) {
-  width: 90px;
-}
+#view-lbtarget-vs-actual .lta-table td:not(.row-label):not(:last-child) { width: 90px; }
 #view-lbtarget-vs-actual .lta-table th:last-child,
-#view-lbtarget-vs-actual .lta-table td:last-child {
-  width: 90px;
-}
+#view-lbtarget-vs-actual .lta-table td:last-child { width: 90px; }
 #view-lbtarget-vs-actual .lta-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-  border-top: 2px solid #2c4a7c;
+  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
 }
 
 /* ===================================================================
-   SIDEBAR — Collapsible KPI's / Reports sections (accordion)
+   REPORT: Production Target vs Actual
    =================================================================== */
-
-.nav-section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: #00afef;
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  font-weight: 600;
-  padding: 16px 12px 6px;
-  cursor: pointer;
-}
-.toggle-arrow {
-  transition: transform .2s ease;
-  font-size: 20px;
-}
-.nav-section-toggle.active .toggle-arrow {
-  transform: rotate(180deg);
-}
-
-.nav-collapse {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .25s ease;
-}
-.nav-collapse.open {
-  max-height: 2000px;   /* large enough to fit all items */
-}
-
-/* Reports section keeps its own internal scrollbar when open */
-#reportsCollapse.open {
-  overflow-y: auto;
-  max-height: 500px;   /* adjust to taste — how tall the Reports list can grow before scrolling */
-}
-
-/* ===================================================================
-   REPORT: Production Target vs Actual  (#view-productiontarget-vs-actual)
-   =================================================================== */
-
-/* ---- Panel body: remove side padding so table sits flush ---- */
-#view-productiontarget-vs-actual .panel-body {
-  padding: 14px 0;        /* ✅ left/right padding ain kara — table edge ekata */
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-/* ---- Table base ---- */
+#view-productiontarget-vs-actual .panel-body { padding: 14px 0; overflow-x: auto; }
 #view-productiontarget-vs-actual .pta-table {
   table-layout: fixed;
   min-width: 1800px;
@@ -970,181 +871,101 @@ button{font-family:var(--body); cursor:pointer;}
 #view-productiontarget-vs-actual .pta-table td {
   border-right: none;
   border-bottom: none;
+  line-height: 0.8;
 }
 #view-productiontarget-vs-actual .pta-table th:last-child,
-#view-productiontarget-vs-actual .pta-table td:last-child {
-  border-right: 1px solid #d0d0d0;
-}
+#view-productiontarget-vs-actual .pta-table td:last-child { border-right: 1px solid #d0d0d0; }
 #view-productiontarget-vs-actual .pta-table tbody tr:last-child td,
+#view-productiontarget-vs-actual .pta-table tfoot td { border-bottom: 1px solid #d0d0d0; }
 #view-productiontarget-vs-actual .pta-table tfoot td {
-  border-bottom: 1px solid #d0d0d0;
+  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
 }
-#view-productiontarget-vs-actual .pta-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-  border-top: 2px solid #2c4a7c;
-}
-#view-productiontarget-vs-actual .day-header-num {
-  font-weight: 700;
-  font-size: 12px;
-}
+#view-productiontarget-vs-actual .day-header-num { font-weight: 700; font-size: 12px; }
 #view-productiontarget-vs-actual .day-header-batch {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   font-weight: 400;
-  color: #444;
+  color: white;
   margin-top: 1px;
 }
+#view-productiontarget-vs-actual .pta-table thead th.dow-sunday,
+#view-productiontarget-vs-actual .pta-table thead th.dow-saturday {
+  background: #00245E !important;
+  color: #fff !important;
+}
+#view-productiontarget-vs-actual .panel { max-width: 100%; overflow: hidden; }
 
-/* ---- Sticky columns 1-4: THEAD (rowspan headers) ---- */
+/* Sticky columns 1-4 */
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 4;
-  background: #9a9a9a;
+  position: sticky; left: 0; z-index: 4; background: #9a9a9a;
 }
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(2) {
-  position: sticky;
-  left: 70px;
-  z-index: 4;
-  background: #9a9a9a;
-  text-align: left;
+  position: sticky; left: 70px; z-index: 4; background: #9a9a9a; text-align: left;
 }
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(3) {
-  position: sticky;
-  left: 290px;   /* 70 + 220 */
-  z-index: 4;
-  background: #9a9a9a;
+  position: sticky; left: 290px; z-index: 4; background: #9a9a9a;
 }
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(4) {
-  position: sticky;
-  left: 380px;   /* 70 + 220 + 90 */
-  z-index: 4;
-  background: #9a9a9a;
+  position: sticky; left: 380px; z-index: 4; background: #9a9a9a;
 }
-
-/* ---- Sticky columns 1-4: TBODY ---- */
 #view-productiontarget-vs-actual .pta-table tbody td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  background: #f8f8f8;
+  position: sticky; left: 0; z-index: 2; background: #f8f8f8;
 }
 #view-productiontarget-vs-actual .pta-table tbody tr:nth-child(even) td:nth-child(1) {
   background: #ececec;
 }
 #view-productiontarget-vs-actual .pta-table tbody td:nth-child(2) {
-  position: sticky;
-  left: 70px;
-  z-index: 2;
-  background: #f8f8f8;
-  text-align: left;
+  position: sticky; left: 70px; z-index: 2; background: #f8f8f8; text-align: left;
 }
 #view-productiontarget-vs-actual .pta-table tbody tr:nth-child(even) td:nth-child(2) {
   background: #ececec;
 }
 #view-productiontarget-vs-actual .pta-table tbody td:nth-child(3) {
-  position: sticky;
-  left: 290px;
-  z-index: 2;
-  background: #f8f8f8;
+  position: sticky; left: 290px; z-index: 2; background: #f8f8f8;
 }
 #view-productiontarget-vs-actual .pta-table tbody tr:nth-child(even) td:nth-child(3) {
   background: #ececec;
 }
 #view-productiontarget-vs-actual .pta-table tbody td:nth-child(4) {
-  position: sticky;
-  left: 380px;
-  z-index: 2;
-  background: #f8f8f8;
+  position: sticky; left: 380px; z-index: 2; background: #f8f8f8;
 }
 #view-productiontarget-vs-actual .pta-table tbody tr:nth-child(even) td:nth-child(4) {
   background: #ececec;
 }
-
-/* ---- ✅ Sticky columns 1-4: TFOOT (total row) ---- */
 #view-productiontarget-vs-actual .pta-table tfoot td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  background: #dcdcdc;   /* tfoot default */
+  position: sticky; left: 0; z-index: 3; background: #dcdcdc;
 }
 #view-productiontarget-vs-actual .pta-table tfoot td:nth-child(2) {
-  position: sticky;
-  left: 70px;
-  z-index: 3;
-  background: #dcdcdc;
-  text-align: left;
+  position: sticky; left: 70px; z-index: 3; background: #dcdcdc; text-align: left;
 }
 #view-productiontarget-vs-actual .pta-table tfoot td:nth-child(3) {
-  position: sticky;
-  left: 290px;
-  z-index: 3;
-  background: #dcdcdc;
+  position: sticky; left: 290px; z-index: 3; background: #dcdcdc;
 }
 #view-productiontarget-vs-actual .pta-table tfoot td:nth-child(4) {
-  position: sticky;
-  left: 380px;
-  z-index: 3;
-  background: #dcdcdc;
+  position: sticky; left: 380px; z-index: 3; background: #dcdcdc;
 }
-
-/* ---- Shadow on last sticky column for clean separation ---- */
 #view-productiontarget-vs-actual .pta-table tbody td:nth-child(4),
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(4),
 #view-productiontarget-vs-actual .pta-table tfoot td:nth-child(4) {
   box-shadow: 4px 0 6px -2px rgba(0,0,0,0.15);
 }
 
-/* ---- Sunday/Saturday: only data cells (td), NOT headers ---- */
-#view-productiontarget-vs-actual .pta-table thead th.dow-sunday,
-#view-productiontarget-vs-actual .pta-table thead th.dow-saturday {
-  background: #00245E !important;
-  color: #fff !important;
-}
-
-/* ---- Panel overflow hidden so scrollbar stays inside ---- */
-#view-productiontarget-vs-actual .panel {
-  max-width: 100%;
-  overflow: hidden;
-}
-
 /* ===================================================================
-   REPORT: Easy & Giblet Stock  (#view-easy-&-giblet-stock)
+   REPORT: Easy & Giblet Stock
    =================================================================== */
-
-.egs-tables-wrap {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.egs-table-block {
-  flex: 1;
-  min-width: 320px;
-}
-.egs-table {
-  width: 100%;
-  min-width: 0;
-}
+.egs-tables-wrap { display: flex; gap: 20px; flex-wrap: wrap; }
+.egs-table-block { flex: 1; min-width: 320px; }
+.egs-table { width: 100%; min-width: 0; }
 .egs-table .egs-title {
   background: #2c4a7c;
   color: #fff;
   font-size: 14px;
   text-align: center;
 }
-.egs-table td, .egs-table th {
-  text-align: center;
-}
-
-@media print {
-  .egs-tables-wrap {
-    display: flex;
-    gap: 12px;
-  }
-}
+.egs-table td, .egs-table th { text-align: center; }
 
 /* ===================================================================
-   REPORT: Yield Report  (#view-yield-report)
+   REPORT: Yield Report
    =================================================================== */
 #view-yield-report .yield-table { table-layout: fixed; min-width: 0; width: 100%; }
 #view-yield-report .yield-table th.row-label,
@@ -1155,239 +976,103 @@ button{font-family:var(--body); cursor:pointer;}
 #view-yield-report .yield-table td { padding: 3px 4px; line-height: 0.9; font-size: 10.5px; }
 #view-yield-report .yield-table tfoot td { background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c; }
 
-
 /* ===================================================================
-   MONTHLY REPORTS — Sunday (red) / Saturday (gray) highlighting
+   REPORT: Day of Stock Available
    =================================================================== */
-
-/* Row-based (Total LB, Easy & Giblet Stock) */
-tr.dow-sunday td {
-  background: #fbdcdc !important;
-}
-tr.dow-saturday td {
-  background: #e2e2e2 !important;
-}
-
-/* Column-based (Total Production Summary, Production Target vs Actual) */
-td.dow-sunday, th.dow-sunday {
-  background: #fbdcdc !important;
-}
-td.dow-saturday, th.dow-saturday {
-  background: #e2e2e2 !important;
-}
-
-/* ===================================================================
-   REPORT: Day of Stock Available  (#view-Stock-Available)
-   =================================================================== */
-#view-Stock-Available .report-table {
-  table-layout: fixed;
-  min-width: 1000px;
-}
-#view-Stock-Available .report-table td.row-label {
-  width: 50px;
-}
-#view-Stock-Available .report-table td {
-  padding: 4px 6px;
-  font-size: 11.5px;
-}
- 
-/* Column 1 - Item Code */
+#view-Stock-Available .report-table { table-layout: fixed; min-width: 1000px; }
+#view-Stock-Available .report-table td.row-label { width: 50px; }
+#view-Stock-Available .report-table td { padding: 4px 6px; font-size: 11.5px; }
 #view-Stock-Available .report-table th:nth-child(1),
-#view-Stock-Available .report-table td:nth-child(1) {
-  width: 70px;
-}
-/* Column 2 - Item Name */
+#view-Stock-Available .report-table td:nth-child(1) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(2),
-#view-Stock-Available .report-table td:nth-child(2) {
-  width: 160px;
-  text-align: left;
-  white-space: normal;
-}
-/* Column 3 - Monthly Sales Plan (Kg) */
+#view-Stock-Available .report-table td:nth-child(2) { width: 160px; text-align: left; }
 #view-Stock-Available .report-table th:nth-child(3),
-#view-Stock-Available .report-table td:nth-child(3) {
-  width: 70px;
-}
-/* Column 4 - Daily to be Produced (kg) */
+#view-Stock-Available .report-table td:nth-child(3) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(4),
-#view-Stock-Available .report-table td:nth-child(4) {
-  width: 70px;
-}
-/* Column 5 - Available Stock as at [date] (kg) */
+#view-Stock-Available .report-table td:nth-child(4) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(5),
-#view-Stock-Available .report-table td:nth-child(5) {
-  width: 70px;
-}
-/* Column 6 - Days of Available */
+#view-Stock-Available .report-table td:nth-child(5) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(6),
-#view-Stock-Available .report-table td:nth-child(6) {
-  width: 70px;
-}
-/* Column 7 - Weight or weight range (g) */
+#view-Stock-Available .report-table td:nth-child(6) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(7),
-#view-Stock-Available .report-table td:nth-child(7) {
-  width: 150px;
-  white-space: normal;
-}
-/* Column 8 - Production Plan */
+#view-Stock-Available .report-table td:nth-child(7) { width: 150px; }
 #view-Stock-Available .report-table th:nth-child(8),
-#view-Stock-Available .report-table td:nth-child(8) {
-  width: 70px;
-}
-/* Column 9 - Live Weight */
+#view-Stock-Available .report-table td:nth-child(8) { width: 70px; }
 #view-Stock-Available .report-table th:nth-child(9),
-#view-Stock-Available .report-table td:nth-child(9) {
-  width: 80px;
-}
-/* Column 10 - No of Pieces (per pack) */
+#view-Stock-Available .report-table td:nth-child(9) { width: 80px; }
 #view-Stock-Available .report-table th:nth-child(10),
-#view-Stock-Available .report-table td:nth-child(10) {
-  width: 80px;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#view-Stock-Available .report-table td:nth-child(10) { width: 80px; }
 
 /* ===================================================================
-   KPI 01 — Bay Mortality Rate %  (#view-kpi-01)
+   REPORT: All Division Consumable Reports
    =================================================================== */
-/* ===================================================================
-   SHARED: Header row flex for ALL reports with Year/Month filters
-   =================================================================== */
-.sticky-report-header .header-row-flex {
+.division-btn-wrap {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 16px;
 }
-.sticky-report-header .header-row-flex .view-head {
-  margin-bottom: 0;
-}
-.sticky-report-header .header-row-flex .report-toolbar {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  justify-content: flex-end;
-  flex-shrink: 0;
-}
-
-
-#view-kpi-01 .kpi-bay-mortality-table {
-  table-layout: auto;
-  min-width: 0;
-}
-#view-kpi-01 .kpi-bay-mortality-table td.row-label {
-  width: 220px;
-  background: #f0f0f0;
+.division-btn {
+  border: 1px solid #2c4a7c;
+  background: #fff;
+  color: #2c4a7c;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13.5px;
   font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
 }
-#view-kpi-01 .kpi-bay-mortality-table td {
-  text-align: center;
-  padding: 6px 4px;
-  width: 100px;
-}
-#view-kpi-01 .kpi-table-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
+.division-btn:hover { background: #eef1f7; }
+.division-btn.active { background: #2c4a7c; color: #fff; }
+.division-btn.active:hover { background: #234069; }
 
-/* Color bands based on deviation from the 0.05% standard */
-#view-kpi-01 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-01 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-01 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-01 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
+#view-all-division-consumable .consumable-table { table-layout: auto; min-width: 1100px; }
+#view-all-division-consumable .consumable-table th.row-label,
+#view-all-division-consumable .consumable-table td.row-label { width: 300px; text-align: left; }
+#view-all-division-consumable .consumable-table th:not(.row-label),
+#view-all-division-consumable .consumable-table td:not(.row-label) { width: 55px; }
 
-/* Date row — navy background, bold larger text */
-#view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td {
+/* ===================================================================
+   REPORT: Send Notifications
+   =================================================================== */
+.notif-kpi-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 16px;
+}
+.notif-kpi-tab {
+  border: 1px solid #2c4a7c;
+  background: #fff;
+  color: #2c4a7c;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+.notif-kpi-tab:hover { background: #eef1f7; }
+.notif-kpi-tab.active { background: #2c4a7c; color: #fff; }
+
+.notif-table { min-width: 0; width: 100%; margin-bottom: 20px; }
+.btn-notif-send {
+  border: 1px solid #2c4a7c;
   background: #2c4a7c;
   color: #fff;
-  font-weight: 700;
-  font-size: 14px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
 }
-#view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td.row-label {
-  background: #2c4a7c;
-  color: #fff;
-}
+.btn-notif-send:disabled { background: #ccc; border-color: #ccc; cursor: not-allowed; }
+
+/* ===================================================================
+   KPI VIEWS — Shared styles
+   =================================================================== */
 
 .kpi-cards-wrap {
   display: flex;
@@ -1403,14 +1088,13 @@ td.dow-saturday, th.dow-saturday {
   color: #000000;
   box-shadow: 0 3px 6px rgba(0,0,0,.2);
 }
-.kpi-card-label { font-family: arial; font-size: 20px; font-weight: 600; opacity: 0.9; text-align: center; margin-top: -10px;}
+.kpi-card-label { font-family: arial; font-size: 20px; font-weight: 600; opacity: 0.9; text-align: center; margin-top: -10px; }
 .kpi-card-range { font-size: 14px; opacity: 0.85; margin-top: 4px; text-align: center; }
-
 .kpi-card-bottom-row {
   display: flex;
   justify-content: center;
   align-items: baseline;
-  gap: 50px;   /* controls the exact space between count and percentage */
+  gap: 50px;
   margin-top: 10px;
 }
 .kpi-card-count { font-size: 36px; font-weight: 700; }
@@ -1418,9 +1102,9 @@ td.dow-saturday, th.dow-saturday {
 .kpi-card-pct { font-size: 26px; font-weight: 700; }
 
 .kpi-card-green  { background: rgb(179, 253, 179); border-top: 5px solid green; }
-.kpi-card-yellow { background: rgb(252, 252, 174); border-top: 5px solid rgb(203, 203, 3);}
-.kpi-card-orange { background: rgb(255, 228, 179); border-top: 5px solid orange;}
-.kpi-card-red    { background: rgb(252, 176, 176); border-top: 5px solid red;}
+.kpi-card-yellow { background: rgb(252, 252, 174); border-top: 5px solid rgb(203, 203, 3); }
+.kpi-card-orange { background: rgb(255, 228, 179); border-top: 5px solid orange; }
+.kpi-card-red    { background: rgb(252, 176, 176); border-top: 5px solid red; }
 
 .kpi-chart-panel {
   margin: 20px 0 20px 0;
@@ -1431,265 +1115,48 @@ td.dow-saturday, th.dow-saturday {
   border-top: 5px solid navy;
 }
 
+.kpi-table-scroll { overflow-x: auto; max-width: 100%; }
 
-/* ===================================================================
-   KPI 02 — Birds Unloading Rate %  (width sync from start)
-   =================================================================== */
-#view-kpi-02 .header-row-flex {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-#view-kpi-02 .header-row-flex .view-head { margin-bottom: 10px; }
-#view-kpi-02 .header-row-flex .report-toolbar {
-  margin-bottom: 0;
-  justify-content: flex-end;
-}
+/* ============================================================
+   KPI TABLES — Auto Width (all KPI tables)
+   ============================================================ */
 
-#view-kpi-02 .kpi-birds-unloading-table {
-  table-layout: auto;
-  min-width: 0;
-}
-#view-kpi-02 .kpi-birds-unloading-table td.row-label {
-  width: 220px;
-  background: #f0f0f0;
-  font-weight: 600;
-}
-#view-kpi-02 .kpi-birds-unloading-table td {
-  text-align: center;
-  padding: 6px 4px;
-  width: 100px;
-}
-#view-kpi-02 .kpi-table-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-/* Date row — navy background */
-#view-kpi-02 .kpi-birds-unloading-table tbody tr:first-child td {
-  background: #2c4a7c;
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-}
-#view-kpi-02 .kpi-birds-unloading-table tbody tr:first-child td.row-label {
-  background: #2c4a7c;
-  color: #fff;
-}
-
-/* Color bands */
-#view-kpi-02 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-02 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-02 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-02 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
-
-/* Chart panel — fixed height, full width stretch */
-#view-kpi-02 .kpi-chart-panel { margin-top: 18px; padding: 12px 8px; background: #f0f0f0; }
-#view-kpi-02 .kpi-chart-panel .panel-body {
-  padding-left: 0;
-  padding-right: 0;
-  height: 120px;           /* ✅ Height eka meken control karanna */
-  position: relative;
-}
-#view-kpi-02 .kpi-chart-panel canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-
-/* ===================================================================
-   KPI 05 — Dressed Yield %
-   =================================================================== */
-#view-kpi-05 .kpi-table-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-#view-kpi-05 .kpi-dressed-yield-table {
-  table-layout: auto;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-#view-kpi-05 .kpi-dressed-yield-table thead th {
-  background: #00245E;
-  color: #fff;
-  font-weight: bold;
-  padding: 8px 10px;
-  text-align: center;
-  border: 1px solid #7a7a7a;
-}
-#view-kpi-05 .kpi-dressed-yield-table td {
-  padding: 6px 10px;
-  text-align: center;
-  border: 1px solid #d0d0d0;
-  font-size: 13px;
-}
-#view-kpi-05 .kpi-dressed-yield-table tbody tr:nth-child(even) {
-  background: #ececec;
-}
-#view-kpi-05 .kpi-dressed-yield-table tbody tr:nth-child(odd) {
-  background: #f8f8f8;
-}
-#view-kpi-05 .kpi-dressed-yield-table td.row-label {
-  font-weight: 600;
-  background: #f0f0f0;
-  width: 80px;
-}
-
-/* Color bands for Yield % */
-#view-kpi-05 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-05 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-05 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-05 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
-
-/* Total row */
-#view-kpi-05 .kpi-dressed-yield-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-  border-top: 2px solid #2c4a7c;
-}
-
-/* ===================================================================
-   KPI 06 — Chill Loss %
-   =================================================================== */
-#view-kpi-06 .kpi-table-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
+#view-kpi-01 .kpi-bay-mortality-table,
+#view-kpi-03 .kpi-dressed-yield-table,
+#view-kpi-04 .kpi-dressed-yield-table,
+#view-kpi-05 .kpi-dressed-yield-table,
 #view-kpi-06 .kpi-dressed-yield-table {
   table-layout: auto;
-  border-collapse: separate;
-  border-spacing: 0;
+  min-width: 0;
+  width: 100%;
+  border-collapse: collapse;
 }
-#view-kpi-06 .kpi-dressed-yield-table thead th {
-  background: #00245E;
-  color: #fff;
-  font-weight: bold;
-  padding: 8px 10px;
-  text-align: center;
-  border: 1px solid #7a7a7a;
-}
-#view-kpi-06 .kpi-dressed-yield-table td {
-  padding: 6px 10px;
-  text-align: center;
-  border: 1px solid #d0d0d0;
-  font-size: 13px;
-}
-#view-kpi-06 .kpi-dressed-yield-table tbody tr:nth-child(even) {
-  background: #ececec;
-}
-#view-kpi-06 .kpi-dressed-yield-table tbody tr:nth-child(odd) {
-  background: #f8f8f8;
-}
+
+#view-kpi-01 .kpi-bay-mortality-table td.row-label,
+#view-kpi-03 .kpi-dressed-yield-table td.row-label,
+#view-kpi-04 .kpi-dressed-yield-table td.row-label,
+#view-kpi-05 .kpi-dressed-yield-table td.row-label,
 #view-kpi-06 .kpi-dressed-yield-table td.row-label {
-  font-weight: 600;
+  width: auto;
   background: #f0f0f0;
-  width: 80px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 10px;
 }
 
-/* Color bands for Chill Loss % */
-#view-kpi-06 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-06 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-06 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-06 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
-
-/* Total row */
-#view-kpi-06 .kpi-dressed-yield-table tfoot td {
-  background: #dcdcdc;
-  font-weight: 700;
-  border-top: 2px solid #2c4a7c;
+#view-kpi-01 .kpi-bay-mortality-table td,
+#view-kpi-03 .kpi-dressed-yield-table td,
+#view-kpi-04 .kpi-dressed-yield-table td,
+#view-kpi-05 .kpi-dressed-yield-table td,
+#view-kpi-06 .kpi-dressed-yield-table td {
+  text-align: center;
+  padding: 4px 6px;
+  width: auto;
+  white-space: nowrap;
 }
 
-.kpi-view-toggle{display:flex; gap:6px; margin-bottom:10px;}
-.kpi-toggle-btn{
-  border:1px solid #2c4a7c; background:#fff; color:#2c4a7c;
-  padding:6px 14px; border-radius:6px; font-size:12.5px; font-weight:600;
-  cursor:pointer; transition:.15s;
-}
-.kpi-toggle-btn.active{background:#2c4a7c; color:#fff;}
-.kpi-toggle-btn:hover{background:#eef1f7;}
-.kpi-toggle-btn.active:hover{background:#234069;}
-
-
-/* ===================================================================
-   KPI 04 — Packing Line Efficiency %
-   =================================================================== */
-#view-kpi-04 .kpi-table-scroll { overflow-x: auto; max-width: 100%; }
-#view-kpi-04 .kpi-dressed-yield-table { table-layout: auto; border-collapse: separate; border-spacing: 0; }
-#view-kpi-04 .kpi-dressed-yield-table thead th {
-  background: #00245E; color: #fff; font-weight: bold; padding: 8px 10px;
-  text-align: center; border: 1px solid #7a7a7a;
-}
-#view-kpi-04 .kpi-dressed-yield-table td {
-  padding: 6px 10px; text-align: center; border: 1px solid #d0d0d0; font-size: 13px;
-}
-#view-kpi-04 .kpi-dressed-yield-table tbody tr:nth-child(even) { background: #ececec; }
-#view-kpi-04 .kpi-dressed-yield-table tbody tr:nth-child(odd) { background: #f8f8f8; }
-#view-kpi-04 .kpi-dressed-yield-table td.row-label { font-weight: 600; background: #f0f0f0; width: 80px; }
-
-#view-kpi-04 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-04 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-04 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-04 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
-
-#view-kpi-04 .kpi-dressed-yield-table tfoot td {
-  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
-}
-
-/* ===================================================================
-   KPI 03 — Bird Input Efficiency %
-   =================================================================== */
-#view-kpi-03 .kpi-table-scroll { overflow-x: auto; max-width: 100%; }
-#view-kpi-03 .kpi-dressed-yield-table { table-layout: auto; border-collapse: separate; border-spacing: 0; }
-#view-kpi-03 .kpi-dressed-yield-table thead th {
-  background: #00245E; color: #fff; font-weight: bold; padding: 8px 10px;
-  text-align: center; border: 1px solid #7a7a7a;
-}
-#view-kpi-03 .kpi-dressed-yield-table td {
-  padding: 6px 10px; text-align: center; border: 1px solid #d0d0d0; font-size: 13px;
-}
-#view-kpi-03 .kpi-dressed-yield-table tbody tr:nth-child(even) { background: #ececec; }
-#view-kpi-03 .kpi-dressed-yield-table tbody tr:nth-child(odd) { background: #f8f8f8; }
-#view-kpi-03 .kpi-dressed-yield-table td.row-label { font-weight: 600; background: #f0f0f0; width: 80px; }
-
-#view-kpi-03 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
-#view-kpi-03 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
-#view-kpi-03 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
-#view-kpi-03 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
-
-#view-kpi-03 .kpi-dressed-yield-table tfoot td {
-  background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
-}
-
-
-
-
-/* ===================================================================
-   KPI TABLES — Date header colors (Sunday/Saturday/Poya/Mercantile)
-   =================================================================== */
-
-.kpi-bay-mortality-table tr:first-child td.dow-sunday,
-.kpi-dressed-yield-table tr:first-child td.dow-sunday {
-  background: #f4b6b6 !important;
-}
-.kpi-bay-mortality-table tr:first-child td.dow-saturday,
-.kpi-dressed-yield-table tr:first-child td.dow-saturday {
-  background: #d0d0d0 !important;
-}
-.kpi-bay-mortality-table tr:first-child td.date-poya,
-.kpi-dressed-yield-table tr:first-child td.date-poya {
-  background: #fff2b2 !important;
-}
-.kpi-bay-mortality-table tr:first-child td.date-mercantile,
-.kpi-dressed-yield-table tr:first-child td.date-mercantile {
-}
-
-
-/* ===================================================================
-   KPI 03 / 04 / 05 / 06 — Date row navy background (match KPI 01)
-   =================================================================== */
+/* KPI Tables - date row navy background */
+#view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td,
 #view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td,
 #view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td,
 #view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td,
@@ -1697,12 +1164,294 @@ td.dow-saturday, th.dow-saturday {
   background: #2c4a7c;
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
+
+#view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td.row-label,
 #view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-06 .kpi-dressed-yield-table tbody tr:first-child td.row-label {
   background: #2c4a7c;
   color: #fff;
+}
+
+/* KPI Color bands */
+#view-kpi-01 .kpi-green,
+#view-kpi-03 .kpi-green,
+#view-kpi-04 .kpi-green,
+#view-kpi-05 .kpi-green,
+#view-kpi-06 .kpi-green { background: #66f182; color: #1b5e20; font-weight: 600; }
+#view-kpi-01 .kpi-yellow,
+#view-kpi-03 .kpi-yellow,
+#view-kpi-04 .kpi-yellow,
+#view-kpi-05 .kpi-yellow,
+#view-kpi-06 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
+#view-kpi-01 .kpi-orange,
+#view-kpi-03 .kpi-orange,
+#view-kpi-04 .kpi-orange,
+#view-kpi-05 .kpi-orange,
+#view-kpi-06 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
+#view-kpi-01 .kpi-red,
+#view-kpi-03 .kpi-red,
+#view-kpi-04 .kpi-red,
+#view-kpi-05 .kpi-red,
+#view-kpi-06 .kpi-red { background: #f48080; color: #7a1414; font-weight: 600; }
+
+/* KPI Toggle buttons */
+.kpi-view-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+.kpi-toggle-btn {
+  border: 1px solid #2c4a7c;
+  background: #fff;
+  color: #2c4a7c;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+.kpi-toggle-btn.active { background: #2c4a7c; color: #fff; }
+.kpi-toggle-btn:hover { background: #eef1f7; }
+.kpi-toggle-btn.active:hover { background: #234069; }
+
+/* ===================================================================
+   DASHBOARD
+   =================================================================== */
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #f8faff 0%, #eef2f9 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(20, 33, 61, 0.08);
+}
+.dash-header-left h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0 0 4px 0; }
+.dash-subtitle { color: #6b7a8f; font-size: 14px; margin: 0; }
+
+.dash-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.filter-group { display: flex; flex-direction: column; gap: 2px; }
+.filter-group label { font-size: 11px; font-weight: 600; color: #6b7a8f; text-transform: uppercase; letter-spacing: 0.5px; }
+.filter-group select {
+  padding: 6px 12px;
+  border: 1.5px solid #dce1e9;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  font-weight: 500;
+  color: #14213D;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  min-width: 100px;
+}
+.filter-group select:focus { border-color: #2c4a7c; outline: none; }
+
+.btn-refresh {
+  padding: 8px 16px;
+  background: #2c4a7c;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 16px;
+}
+.btn-refresh:hover { background: #1a3560; transform: translateY(-1px); }
+
+.dash-view-toggle {
+  display: flex;
+  gap: 6px;
+  background: #f0f2f6;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  width: fit-content;
+}
+.dash-view-btn {
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7a8f;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.dash-view-btn:hover { color: #14213D; }
+.dash-view-btn.active {
+  background: white;
+  color: #14213D;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* KPI Cards */
+.dash-kpi-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (max-width: 1200px) { .dash-kpi-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .dash-kpi-cards { grid-template-columns: repeat(2, 1fr); } }
+
+.dash-kpi-card {
+  background: white;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.dash-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+.dash-kpi-card .card-icon { font-size: 22px; margin-bottom: 6px; }
+.dash-kpi-card .card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7a8f; margin-bottom: 4px; }
+.dash-kpi-card .card-value { font-size: 28px; font-weight: 700; color: #14213D; line-height: 1.2; }
+.dash-kpi-card .card-value .unit { font-size: 16px; font-weight: 500; color: #6b7a8f; margin-left: 2px; }
+.dash-kpi-card .card-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  margin-top: 6px;
+}
+.dash-kpi-card .card-status.good { background: #e8f5e9; color: #2e7d32; }
+.dash-kpi-card .card-status.caution { background: #fff8e1; color: #f57f17; }
+.dash-kpi-card .card-status.warning { background: #fff3e0; color: #e65100; }
+.dash-kpi-card .card-status.critical { background: #ffebee; color: #c62828; }
+.dash-kpi-card .card-status.no-data { background: #f5f5f5; color: #9e9e9e; }
+.dash-kpi-card .card-trend { font-size: 12px; font-weight: 600; margin-left: 8px; }
+.dash-kpi-card .card-trend.up { color: #2e7d32; }
+.dash-kpi-card .card-trend.down { color: #c62828; }
+.dash-kpi-card .card-bar { width: 100%; height: 4px; background: #e9ecef; border-radius: 4px; margin-top: 10px; overflow: hidden; }
+.dash-kpi-card .card-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+
+/* Charts Grid */
+.dash-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 28px;
+}
+@media (max-width: 1200px) { .dash-charts-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .dash-charts-grid { grid-template-columns: 1fr; } }
+
+.dash-chart-card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px 18px 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+}
+.dash-chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+.dash-chart-card .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.dash-chart-card .chart-title { font-size: 14px; font-weight: 600; color: #14213D; display: flex; align-items: center; gap: 6px; }
+.dash-chart-card .chart-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: #f0f2f6; color: #6b7a8f; }
+.dash-chart-card .chart-container { position: relative; height: 260px; }
+.dash-chart-card .chart-container canvas {width: 100% !important; height: 100% !important;}
+
+
+/* Summary Table */
+.dash-summary-section {
+  background: white;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.dash-summary-section h3 { font-size: 16px; font-weight: 600; color: #14213D; margin: 0 0 14px 0; }
+.dash-summary-table-wrap { overflow-x: auto; }
+.dash-summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dash-summary-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #6b7a8f;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid #e9ecef;
+}
+.dash-summary-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f6; color: #14213D; }
+.dash-summary-table tr:hover td { background: #f8faff; }
+
+.dash-summary-table .status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.dash-summary-table .status-dot.good { background: #2e7d32; }
+.dash-summary-table .status-dot.caution { background: #f57f17; }
+.dash-summary-table .status-dot.warning { background: #e65100; }
+.dash-summary-table .status-dot.critical { background: #c62828; }
+.dash-summary-table .status-dot.no-data { background: #9e9e9e; }
+
+.dash-loading { text-align: center; padding: 40px; color: #6b7a8f; }
+.dash-loading .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e9ecef;
+  border-top-color: #2c4a7c;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.dash-no-data { text-align: center; padding: 30px; color: #6b7a8f; font-size: 14px; }
+.dash-no-data .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
+
+/* ===================================================================
+   NOTIFICATIONS - Chart Height
+   =================================================================== */
+
+/* Notifications chart container */
+#view-notify-kpi-01 .kpi-chart-panel .panel-body,
+#view-notify-kpi-02 .kpi-chart-panel .panel-body,
+#view-notify-kpi-03 .kpi-chart-panel .panel-body,
+#view-notify-kpi-04 .kpi-chart-panel .panel-body,
+#view-notify-kpi-05 .kpi-chart-panel .panel-body,
+#view-notify-kpi-06 .kpi-chart-panel .panel-body {
+  height: 150px !important;   /* 👈 අවශ්‍ය ප්‍රමාණයට වෙනස් කරන්න */
+  padding: 4px 8px !important;
+}
+
+/* Notifications chart canvas */
+#view-notify-kpi-01 .kpi-chart-panel canvas,
+#view-notify-kpi-02 .kpi-chart-panel canvas,
+#view-notify-kpi-03 .kpi-chart-panel canvas,
+#view-notify-kpi-04 .kpi-chart-panel canvas,
+#view-notify-kpi-05 .kpi-chart-panel canvas,
+#view-notify-kpi-06 .kpi-chart-panel canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Notifications chart panel - reduce padding */
+#view-notify-kpi-01 .kpi-chart-panel,
+#view-notify-kpi-02 .kpi-chart-panel,
+#view-notify-kpi-03 .kpi-chart-panel,
+#view-notify-kpi-04 .kpi-chart-panel,
+#view-notify-kpi-05 .kpi-chart-panel,
+#view-notify-kpi-06 .kpi-chart-panel {
+  padding: 8px 8px !important;
+  margin: 12px 0 12px 0 !important;
 }

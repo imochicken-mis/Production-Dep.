@@ -1725,3 +1725,163 @@ function aggregateToWeeks_(dailyRecords, valueKey) {
       value: buckets[wk].count > 0 ? buckets[wk].sum / buckets[wk].count : 0,
     }));
 }
+
+
+// ===================================================================
+// KPI 01 — Daily Bay Mortality % Trend: Daily/Weekly toggle helper
+// Weekly view = average of daily % values within each week-of-month
+// ===================================================================
+function computeKpi01TrendBuckets_(days, viewMode) {
+  const withData = days.filter((d) => d.hasData && d.totalBirds !== null);
+
+  if (viewMode === "daily") {
+    return withData.map((d) => ({ label: String(d.day).padStart(2, "0"), pct: d.pct }));
+  }
+
+  // weekly: 7-day chunks within the month, averaged
+  const buckets = {};
+  withData.forEach((d) => {
+    const weekNum = Math.floor((d.day - 1) / 7) + 1;
+    if (!buckets[weekNum]) buckets[weekNum] = { sum: 0, count: 0 };
+    buckets[weekNum].sum += d.pct;
+    buckets[weekNum].count += 1;
+  });
+
+  return Object.keys(buckets)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((wk) => {
+      const b = buckets[wk];
+      return { label: `Week ${wk}`, pct: b.count > 0 ? b.sum / b.count : 0 };
+    });
+}
+
+// ===================================================================
+// ALL DIVISION CONSUMABLE REPORTS — 6 divisions, same table shape
+// (Material Name rows × day columns), master list per division
+// defines rows, data sheet columns = material names.
+// ===================================================================
+
+const CONSUMABLE_DIVISIONS_ = {
+  lb:       { label: "Live Bird & Slaughtering", masterSheet: "MasterConsumableLB",       dataSheet: "DataLBConsumable" },
+  ev:       { label: "EV",                       masterSheet: "MasterConsumableEV",       dataSheet: "DataEVConsumable" },
+  packing1: { label: "Packing 01",                masterSheet: "MasterConsumablePacking", dataSheet: "DataPackingConsumable" },
+  packing2: { label: "Packing 02",                masterSheet: "MasterConsumablePacking2",dataSheet: "DataPacking2Consumable" },
+  easy:     { label: "Easy",                      masterSheet: "MasterConsumableEasy",     dataSheet: "DataEasyConsumable" },
+  fbp:      { label: "Final bulk packing",        masterSheet: "MasterConsumableFBP",      dataSheet: "DataFBPConsumable" },
+};
+
+async function buildConsumableReport_(divisionKey, year, month) {
+  const config = CONSUMABLE_DIVISIONS_[divisionKey];
+  const [masterRows, dataRows] = await Promise.all([
+    Api.list(config.masterSheet),
+    Api.list(config.dataSheet),
+  ]);
+
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const monthRows = dataRows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  // valueByItemDay[itemName][day] = summed value from the wide-format data sheet
+  const valueByItemDay = {};
+  masterRows.forEach((m) => {
+    valueByItemDay[m["Item Name"]] = {};
+  });
+
+  monthRows.forEach((row) => {
+    const day = Number(String(row.Date).split("-")[2]);
+    masterRows.forEach((m) => {
+      const itemName = m["Item Name"];
+      const v = Number(row[itemName]) || 0;
+      valueByItemDay[itemName][day] = (valueByItemDay[itemName][day] || 0) + v;
+    });
+  });
+
+  const items = masterRows.map((m) => {
+    const itemName = m["Item Name"];
+    const unit = m.Unit || "";
+    const values = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      values.push((valueByItemDay[itemName] && valueByItemDay[itemName][d]) || 0);
+    }
+    return { itemName, unit, values };
+  });
+
+  const columnTotals = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    columnTotals.push(items.reduce((s, i) => s + i.values[d - 1], 0));
+  }
+
+  return { divisionKey, label: config.label, year, month, daysInMonth, items, columnTotals };
+}
+
+// ===================================================================
+// SEND NOTIFICATIONS — Out-of-standard days per KPI, grouped by status
+// ===================================================================
+
+const NOTIFICATION_KPI_CONFIGS_ = {
+  "kpi-01": {
+    label: "KPI 01",
+    buildYearData: buildBayMortalityYearData_,
+    colorClass: bayMortalityColorClass_,
+    valueField: "pct",
+    valueLabel: "Bay Mortality %",
+  },
+  "kpi-02": {
+    label: "KPI 02",
+    buildYearData: null, // Coming soon
+    colorClass: null,
+    valueField: null,
+    valueLabel: "Unloading Rate %",
+  },
+  "kpi-03": {
+    label: "KPI 03",
+    buildYearData: buildBirdInputYearData_,
+    colorClass: birdInputColorClass_,
+    valueField: "pct",
+    valueLabel: "Slaughter Efficiency %",
+  },
+  "kpi-04": {
+    label: "KPI 04",
+    buildYearData: buildPackingEfficiencyYearData_,
+    colorClass: packingEfficiencyColorClass_,
+    valueField: "pct",
+    valueLabel: "Packing Efficiency %",
+  },
+  "kpi-05": {
+    label: "KPI 05",
+    buildYearData: buildDressedYieldYearData_,
+    colorClass: dressedYieldColorClass_,
+    valueField: "yieldPct",
+    valueLabel: "Dressed Yield %",
+  },
+  "kpi-06": {
+    label: "KPI 06",
+    buildYearData: buildChillLossYearData_,
+    colorClass: chillLossColorClass_,
+    valueField: "chillLossPct",
+    valueLabel: "Chill Loss %",
+  },
+};
+
+async function buildNotificationData_(kpiKey, year, month) {
+  const config = NOTIFICATION_KPI_CONFIGS_[kpiKey];
+  if (!config || !config.buildYearData) {
+    return { available: false, label: config ? config.label : kpiKey };
+  }
+
+  const yearDays = await config.buildYearData(year);
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const monthDays = yearDays.filter((r) => r.hasData && r.date.startsWith(monthPrefix));
+
+  const buckets = { caution: [], warning: [], critical: [] };
+  monthDays.forEach((r) => {
+    const cls = config.colorClass(r[config.valueField]);
+    const entry = { date: r.date, value: r[config.valueField] };
+    if (cls === "kpi-yellow") buckets.caution.push(entry);
+    else if (cls === "kpi-orange") buckets.warning.push(entry);
+    else if (cls === "kpi-red") buckets.critical.push(entry);
+  });
+
+  return { available: true, label: config.label, valueLabel: config.valueLabel, buckets };
+}

@@ -28,8 +28,8 @@
   </button>
     <img src="images/logo.png" alt="Company logo" class="company-logo2">
     <div class="brand">
-      <span class="brand-name">Imo Chicken & Agro (Pvt) Ltd</span>
       <span class="brand-subtitle">Production Department</span>
+      <span class="brand-name">Imo Chicken & Agro (Pvt) Ltd</span>
     </div>
     <nav class="nav">
 
@@ -39,7 +39,7 @@
     <span class="toggle-arrow">▾</span>
   </button>
   <div class="nav-collapse open" id="kpiCollapse">
-    <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span>KPI Dashboard</button>
+    <button class="nav-item active" data-view="dashboard-new"><span class="ico">📊</span>KPI Overview Dashboard</button>
     <button class="nav-item" data-view="kpi-01"><span class="ico"></span>01. Live Bird Bay Mortality Rate %</button>
     <button class="nav-item" data-view="kpi-02"><span class="ico"></span>02. Birds Unloading Rate</button>
     <button class="nav-item" data-view="kpi-03"><span class="ico"></span>03. Slaughter Line Efficiency %</button>
@@ -67,8 +67,22 @@
     <button class="nav-item" data-view="easy-&-giblet-stock"><span class="ico"></span>11. Easy & Giblet Stock</button>
     <button class="nav-item" data-view="Stock-Available"><span class="ico"></span>12. Day of Stock Available</button>
     <button class="nav-item" data-view="yield-report"><span class="ico"></span>13. Yield Report</button> 
-    <button class="nav-item" data-view="Division-Consumable"><span class="ico"></span>14. All Division Consumable Reports</button>
+    <button class="nav-item" data-view="all-division-consumable-reports"><span class="ico"></span>14. All Division Consumable Reports</button>
   </div>
+    
+  <!-- Notifications collapsible section -->
+<button class="nav-section-toggle" id="notificationsToggle">
+  <span class="section-label-text">Notifications</span>
+  <span class="toggle-arrow">▾</span>
+</button>
+<div class="nav-collapse" id="notificationsCollapse">
+  <button class="nav-item" data-view="notify-kpi-01"><span class="ico"></span>KPI 01</button>
+  <button class="nav-item" data-view="notify-kpi-02"><span class="ico"></span>KPI 02</button>
+  <button class="nav-item" data-view="notify-kpi-03"><span class="ico"></span>KPI 03</button>
+  <button class="nav-item" data-view="notify-kpi-04"><span class="ico"></span>KPI 04</button>
+  <button class="nav-item" data-view="notify-kpi-05"><span class="ico"></span>KPI 05</button>
+  <button class="nav-item" data-view="notify-kpi-06"><span class="ico"></span>KPI 06</button>
+</div>
 
 </nav>
     <div class="sidebar-foot">
@@ -88,46 +102,89 @@
   <!-- Main content -->
   <main class="content">
 
-    <!-- DASHBOARD (placeholder — charts/summaries added in later steps) -->
-    <section class="view active" id="view-dashboard">
-      <div class="sticky-report-header">
-      <div class="header-row-flex">
-      <div class="view-head">
-        <h1>Production Department KPI's Overview</h1>
-        <p class="sub">- </p>
-      </div>
-      </div>
-      <div class="panel">
-        <div class="panel-body">
-          <p class="hint-01">Comming Soon...</p>
+    <!-- content එක තුළ, අනෙකුත් views එක්ක -->
+<section class="view active" id="view-dashboard-new">
+  
+  <!-- Header -->
+  <div class="dash-header">
+    <div class="dash-header-left">
+      <h1>📈 KPI Performance Dashboard</h1>
+      <p class="dash-subtitle">Real-time KPI performance trends — 6 key metrics at a glance</p>
+    </div>
+    <div class="dash-header-right">
+      <div class="dash-filters">
+        <div class="filter-group">
+          <label for="dashNewYear">Year</label>
+          <select id="dashNewYear"></select>
         </div>
+        <div class="filter-group">
+          <label for="dashNewMonth">Month</label>
+          <select id="dashNewMonth">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        <button class="btn-refresh" id="dashNewRefreshBtn">⟳ Refresh</button>
       </div>
-      </div>
-    </section>
+    </div>
+  </div>
+
+  <!-- View Toggle Buttons -->
+  <div class="dash-view-toggle">
+    <button class="dash-view-btn" data-view="quarterly">📊 Quarterly</button>
+    <button class="dash-view-btn active" data-view="monthly">📅 Monthly</button>
+    <button class="dash-view-btn" data-view="weekly">📆 Weekly</button>
+  </div>
+
+  <!-- KPI Summary Cards -->
+  <div class="dash-kpi-cards" id="dashNewCards"></div>
+
+  <!-- Charts Grid - 6 Charts -->
+  <div class="dash-charts-grid" id="dashNewCharts"></div>
+
+  <!-- Summary Table -->
+  <div class="dash-summary-section">
+    <h3>📋 Monthly KPI Summary</h3>
+    <div class="dash-summary-table-wrap" id="dashNewSummary"></div>
+  </div>
+
+</section>
 
     <!-- KPI 01 — BAY MORTALITY RATE % -->
 <section class="view" id="view-kpi-01">
   <div class="sticky-report-header">
-  <div class="header-row-flex">
-    <div class="view-head">
-      <h1>KPI 01 — Bay Mortality Rate %</h1>
-      <p class="sub">Daily bay mortality rate — filter by year and month.</p>
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 01 — Bay Mortality Rate %</h1>
+        <p class="sub">Daily bay mortality rate — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="kpi01Year">Year:</label>
+        <select id="kpi01Year"></select>
+        <label for="kpi01Month">Month:</label>
+        <select id="kpi01Month">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
     </div>
-    <div class="report-toolbar">
-      <label for="kpi01Year">Year:</label>
-      <select id="kpi01Year"></select>
-      <label for="kpi01Month">Month:</label>
-      <select id="kpi01Month">
-        <option value="1">January</option><option value="2">February</option>
-        <option value="3">March</option><option value="4">April</option>
-        <option value="5">May</option><option value="6">June</option>
-        <option value="7">July</option><option value="8">August</option>
-        <option value="9">September</option><option value="10">October</option>
-        <option value="11">November</option><option value="12">December</option>
-      </select>
+    <!-- Info row - Center aligned (Standard & Working Days) -->
+    <div class="info-row-center" id="kpi01InfoRow">
+      <div class="kpi-header-info">
+        <span>📊 Standard: <strong id="kpi01Standard">0.05%</strong></span>
+        <span class="divider">|</span>
+        <span>📅 Working Days: <strong id="kpi01WorkingDays">26</strong></span>
+      </div>
     </div>
   </div>
-</div>
 
   <div class="panel">
     <div class="panel-body" id="kpi01Panel">
@@ -162,7 +219,7 @@
 
   <div class="panel">
     <div class="panel-body" id="kpi02Panel">
-      <p class="hint-01">COMMING SOON...</p>
+      <p class="hint-01">🚧 Data Not Available </p>
     </div>
   </div>
 </section>
@@ -172,7 +229,7 @@
   <div class="sticky-report-header">
     <div class="header-row-flex">
       <div class="view-head">
-        <h1>KPI 03 — Slaughter Line Efficiency Rate %</h1>
+        <h1>KPI 03 — Slaughter Line Efficiency %</h1>
         <p class="sub">Slaughter Line Efficiency rate — filter by year and month.</p>
       </div>
       <div class="report-toolbar">
@@ -189,11 +246,18 @@
         </select>
       </div>
     </div>
+    <div class="info-row-center" id="kpi03InfoRow">
+      <div class="kpi-header-info">
+        <span>📊 Standard: <strong class="standard-value">95%</strong></span>
+        <span class="divider">|</span>
+        <span>📅 Working Days: <strong class="working-days-value" id="kpi03WorkingDays">-</strong></span>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
     <div class="panel-body" id="kpi03Panel">
-      <p class="hint-01">COMMING SOON...</p>
+      <p class="hint">COMMING SOON...</p>
     </div>
   </div>
 </section>
@@ -220,11 +284,18 @@
         </select>
       </div>
     </div>
+    <div class="info-row-center" id="kpi04InfoRow">
+      <div class="kpi-header-info">
+        <span>📊 Standard: <strong class="standard-value">95%</strong></span>
+        <span class="divider">|</span>
+        <span>📅 Working Days: <strong class="working-days-value" id="kpi04WorkingDays">-</strong></span>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
     <div class="panel-body" id="kpi04Panel">
-      <p class="hint-01">COMMING SOON...</p>
+      <p class="hint">COMMING SOON...</p>
     </div>
   </div>
 </section>
@@ -249,6 +320,13 @@
           <option value="9">September</option><option value="10">October</option>
           <option value="11">November</option><option value="12">December</option>
         </select>
+      </div>
+    </div>
+    <div class="info-row-center" id="kpi05InfoRow">
+      <div class="kpi-header-info">
+        <span>📊 Standard: <strong class="standard-value">79%</strong></span>
+        <span class="divider">|</span>
+        <span>📅 Working Days: <strong class="working-days-value" id="kpi05WorkingDays">-</strong></span>
       </div>
     </div>
   </div>
@@ -280,6 +358,13 @@
           <option value="9">September</option><option value="10">October</option>
           <option value="11">November</option><option value="12">December</option>
         </select>
+      </div>
+    </div>
+    <div class="info-row-center" id="kpi06InfoRow">
+      <div class="kpi-header-info">
+        <span>📊 Standard: <strong class="standard-value">2%</strong></span>
+        <span class="divider">|</span>
+        <span>📅 Working Days: <strong class="working-days-value" id="kpi06WorkingDays">-</strong></span>
       </div>
     </div>
   </div>
@@ -847,6 +932,235 @@
   <div class="report-actions">
     <button class="btn-report-action" id="yieldCsvBtn">⬇ Download CSV</button>
     <button class="btn-report-action" id="yieldPdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- ALL DIVISION CONSUMABLE REPORTS -->
+<section class="view" id="view-all-division-consumable-reports">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>All Division Consumable Reports</h1>
+        <p class="sub">Material consumption by division — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="consumableMonth">Month:</label>
+        <select id="consumableMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="consumableYear">Year:</label>
+        <select id="consumableYear"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="consumableButtonsWrap"></div>
+
+  <div class="print-header" id="consumablePrintHeader">
+    <img src="images/logo.png" alt="Company logo" class="print-logo">
+    <div class="print-header-text">
+      <div class="print-company">Imo Chicken & Agro (Pvt) Ltd</div>
+      <div class="print-report-title" id="consumablePrintDivision">Live Bird & Slaughtering</div>
+    </div>
+    <div class="print-meta">
+      <div><span>Month:</span> <span id="consumablePrintMonth"></span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body" id="consumablePanel">
+      <p class="hint">Select year and month to load the report.</p>
+    </div>
+  </div>
+
+  <div class="report-actions">
+    <button class="btn-report-action" id="consumableCsvBtn">⬇ Download CSV</button>
+    <button class="btn-report-action" id="consumablePdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 01 -->
+<section class="view" id="view-notify-kpi-01">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 01 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Bay Mortality — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth01">Month:</label>
+        <select id="notifyMonth01">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear01">Year:</label>
+        <select id="notifyYear01"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel01">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 02 -->
+<section class="view" id="view-notify-kpi-02">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 02 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Birds Unloading — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth02">Month:</label>
+        <select id="notifyMonth02">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear02">Year:</label>
+        <select id="notifyYear02"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel02">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 03 -->
+<section class="view" id="view-notify-kpi-03">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 03 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Slaughter Efficiency — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth03">Month:</label>
+        <select id="notifyMonth03">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear03">Year:</label>
+        <select id="notifyYear03"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel03">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 04 -->
+<section class="view" id="view-notify-kpi-04">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 04 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Packing Efficiency — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth04">Month:</label>
+        <select id="notifyMonth04">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear04">Year:</label>
+        <select id="notifyYear04"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel04">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 05 -->
+<section class="view" id="view-notify-kpi-05">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 05 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Dressed Yield — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth05">Month:</label>
+        <select id="notifyMonth05">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear05">Year:</label>
+        <select id="notifyYear05"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel05">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NOTIFY KPI 06 -->
+<section class="view" id="view-notify-kpi-06">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>KPI 06 — Notifications</h1>
+        <p class="sub">Out-of-standard days for Chill Loss — filter by year and month.</p>
+      </div>
+      <div class="report-toolbar">
+        <label for="notifyMonth06">Month:</label>
+        <select id="notifyMonth06">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <label for="notifyYear06">Year:</label>
+        <select id="notifyYear06"></select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-body" id="notifyPanel06">
+      <p class="hint">Select year and month to load notifications.</p>
+    </div>
   </div>
 </section>
 
