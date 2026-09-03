@@ -19,6 +19,24 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
 });
 
 // ===================================================================
+// ROLE-BASED ACCESS CONTROL — hide nav buttons not in AllowedTabs
+// ===================================================================
+function applyAllowedTabsFilter_() {
+  if (!currentUser || !currentUser.allowedTabs || currentUser.allowedTabs.length === 0) {
+    return; // no restriction — show everything (e.g. Admin with empty AllowedTabs = full access)
+  }
+
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    const view = btn.dataset.view;
+    if (!currentUser.allowedTabs.includes(view)) {
+      btn.style.display = "none";
+    }
+  });
+}
+
+applyAllowedTabsFilter_();
+
+// ===================================================================
 // NAVIGATION
 // ===================================================================
 const navItems = document.querySelectorAll(".nav-item");
@@ -83,6 +101,12 @@ reportsToggle.addEventListener("click", () => toggleSection("reports"));
 notificationsToggle.addEventListener("click", () => toggleSection("notifications"));
 
 function showView(key) {
+  // Block navigation to a view the user isn't allowed to see
+  if (currentUser && currentUser.allowedTabs && currentUser.allowedTabs.length > 0
+      && !currentUser.allowedTabs.includes(key)) {
+    alert("You don't have permission to access this section.");
+    return;
+  }
   navItems.forEach((b) => b.classList.toggle("active", b.dataset.view === key));
   views.forEach((v) => v.classList.toggle("active", v.id === `view-${key}`));
   viewTitle.textContent = document.querySelector(`.nav-item[data-view="${key}"]`).textContent.trim();
@@ -134,6 +158,12 @@ function showView(key) {
     statusEl.textContent = "connected";
   } catch {
     statusEl.textContent = "not connected";
+  }
+  if (currentUser && currentUser.allowedTabs && currentUser.allowedTabs.length > 0) {
+  const firstAllowed = currentUser.allowedTabs[0];
+  showView(firstAllowed);
+  } else {
+  showView("dashboard-new"); // default for unrestricted users
   }
 })();
 
@@ -3920,7 +3950,7 @@ function renderBirdInputTable_(report) {
   const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
   const pctCells = report.days.map((d) => {
     if (!d.hasData) return `<td></td>`;
-    const cls = birdInputColorClass_(d.pct);
+    const cls = slaughterEfficiencyColorClass_(d.pct);
     return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
   }).join("");
 
@@ -4084,7 +4114,7 @@ function computeKpi03GoodDaysBuckets_(yearDays, viewMode) {
     for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
     withData.forEach((r) => {
       buckets[r.month].total += 1;
-      if (birdInputColorClass_(r.pct) === "kpi-green") buckets[r.month].good += 1;
+      if (slaughterEfficiencyColorClass_(r.pct) === "kpi-green") buckets[r.month].good += 1;
     });
     return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
       const b = buckets[m];
@@ -4098,7 +4128,7 @@ function computeKpi03GoodDaysBuckets_(yearDays, viewMode) {
     const weekNum = Math.ceil(r.dayOfYear / 7);
     if (!buckets[weekNum]) buckets[weekNum] = { total: 0, good: 0 };
     buckets[weekNum].total += 1;
-    if (birdInputColorClass_(r.pct) === "kpi-green") buckets[weekNum].good += 1;
+    if (slaughterEfficiencyColorClass_(r.pct) === "kpi-green") buckets[weekNum].good += 1;
   });
   return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
     const b = buckets[wk];
@@ -4174,7 +4204,7 @@ let kpi03StatusView_ = "weekly";
 
 function computeKpi03StatusSeries_(yearDays, viewMode) {
   const withData = yearDays.filter((r) => r.hasData);
-  const classify = (r) => birdInputColorClass_(r.pct);
+  const classify = (r) => slaughterEfficiencyColorClass_(r.pct);
 
   if (viewMode === "monthly") {
     const buckets = {};
@@ -4273,7 +4303,8 @@ async function renderBirdInputEfficiencyKpi() {
   panel.innerHTML = `<p class="hint">Loading…</p>`;
 
   try {
-    const report = await buildBirdInputEfficiencyKpi(year, month);
+    // ✅ buildSlaughterEfficiencyKpi වෙනුවට buildSlaughterEfficiencyKpi භාවිතා කරන්න
+    const report = await buildSlaughterEfficiencyKpi(year, month);
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
     const std = KPI_BIRD_INPUT_STANDARD_;
@@ -4308,7 +4339,8 @@ async function renderBirdInputEfficiencyKpi() {
     kpi03GoodDaysView_ = "weekly";
     setupKpi03GoodDaysToggle_();
 
-    const yearDays = await buildBirdInputYearData_(year);
+    // ✅ buildBirdInputYearData_ වෙනුවට buildSlaughterEfficiencyYearData_ භාවිතා කරන්න
+    const yearDays = await buildSlaughterEfficiencyYearData_(year);
     window.currentKpi03YearDays_ = yearDays;
     renderKpi03GoodDaysChart_(yearDays);
 
@@ -4661,7 +4693,7 @@ async function fetchAllKpiDataNew(year, month) {
   const results = {};
   const kpiBuilders = {
     "kpi-01": buildBayMortalityKpi,
-    "kpi-03": buildBirdInputEfficiencyKpi,
+    "kpi-03": buildSlaughterEfficiencyKpi,
     "kpi-04": buildPackingEfficiencyKpi,
     "kpi-05": buildDressedYieldKpi,
     "kpi-06": buildChillLossKpi,
@@ -4695,7 +4727,7 @@ async function fetchAllKpiYearDataNew(year) {
   const results = {};
   const yearBuilders = {
     "kpi-01": buildBayMortalityYearData_,
-    "kpi-03": buildBirdInputYearData_,
+    "kpi-03": buildSlaughterEfficiencyYearData_,
     "kpi-04": buildPackingEfficiencyYearData_,
     "kpi-05": buildDressedYieldYearData_,
     "kpi-06": buildChillLossYearData_,
@@ -5198,57 +5230,7 @@ document.addEventListener("DOMContentLoaded", function() {
   initDashboardNew();
 });
 
-// ===================================================================
-// KPI NOTIFICATIONS — Individual KPI notification views
-// ===================================================================
-
-const NOTIFY_KPI_CONFIG = {
-  "01": { 
-    kpiKey: "kpi-01", 
-    label: "Bay Mortality", 
-    valueLabel: "Bay Mortality %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-  "02": { 
-    kpiKey: "kpi-02", 
-    label: "Birds Unloading", 
-    valueLabel: "Unloading Rate %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-  "03": { 
-    kpiKey: "kpi-03", 
-    label: "Slaughter Efficiency", 
-    valueLabel: "Slaughter Efficiency %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-  "04": { 
-    kpiKey: "kpi-04", 
-    label: "Packing Efficiency", 
-    valueLabel: "Packing Efficiency %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-  "05": { 
-    kpiKey: "kpi-05", 
-    label: "Dressed Yield", 
-    valueLabel: "Dressed Yield %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-  "06": { 
-    kpiKey: "kpi-06", 
-    label: "Chill Loss", 
-    valueLabel: "Chill Loss %",
-    mail01: "manager@company.com",
-    mail02: "supervisor@company.com"
-  },
-};
-
 let notificationChartInstances = {};
-let notifySentStatus = {};
 
 // ===================================================================
 // Initialize each KPI notification view
@@ -5318,7 +5300,7 @@ async function renderNotifyKpi(num) {
     const totalCritical = data.buckets.critical.length;
     const totalIssues = totalCaution + totalWarning + totalCritical;
 
-    // Summary cards
+    // 👇 SUMMARY CARDS - එකතු කරන්න
     const summaryHtml = `
       <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
         <div style="background:#fff3e0;padding:12px 20px;border-radius:8px;border-left:4px solid #d4a017;flex:1;min-width:120px;">
@@ -5340,27 +5322,12 @@ async function renderNotifyKpi(num) {
       </div>
     `;
 
-    // Mail recipients info
-    const mailInfoHtml = `
-      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;background:#f5f5f5;padding:8px 16px;border-radius:6px;border:1px solid #e0e0e0;">
-        <div style="font-size:13px;color:#555;">
-          <span style="font-weight:600;">📧 Mail 01:</span> 
-          <span style="color:#1976D2;">${config.mail01 || 'Not configured'}</span>
-        </div>
-        <div style="font-size:13px;color:#555;">
-          <span style="font-weight:600;">📧 Mail 02:</span> 
-          <span style="color:#1976D2;">${config.mail02 || 'Not configured'}</span>
-        </div>
-      </div>
-    `;
+    const cautionHtml = renderNotifyStatusTable_("Caution", data.buckets.caution, "caution");
+    const warningHtml = renderNotifyStatusTable_("Warning", data.buckets.warning, "warning");
+    const criticalHtml = renderNotifyStatusTable_("Critical", data.buckets.critical, "critical");
 
-    // Tables - Caution, Warning, Critical
-    const cautionHtml = renderNotifyStatusTable_("Caution", data.buckets.caution, config.kpiKey, "caution");
-    const warningHtml = renderNotifyStatusTable_("Warning", data.buckets.warning, config.kpiKey, "warning");
-    const criticalHtml = renderNotifyStatusTable_("Critical", data.buckets.critical, config.kpiKey, "critical");
-
-    // ⬇️ Order: Summary → Mail Info → Tables → Chart (පහළින්)
     panel.innerHTML = `
+      ${summaryHtml}
       ${cautionHtml}
       ${warningHtml}
       ${criticalHtml}
@@ -5372,7 +5339,8 @@ async function renderNotifyKpi(num) {
     `;
 
     renderNotifyChart(num, data);
-    wireNotifySendButtons_();
+    
+    
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load: ${err.message}</p>`;
   }
@@ -5382,7 +5350,7 @@ async function renderNotifyKpi(num) {
 // Render notification status table
 // ===================================================================
 
-function renderNotifyStatusTable_(title, entries, kpiKey, statusKey) {
+function renderNotifyStatusTable_(title, entries, statusKey) {
   if (entries.length === 0) {
     return `
       <div style="background:#e8f5e9;padding:8px 14px;border-radius:4px;margin:6px 0;border-left:3px solid #4CAF50;">
@@ -5399,17 +5367,18 @@ function renderNotifyStatusTable_(title, entries, kpiKey, statusKey) {
   };
 
   const rows = entries.map((e) => {
-    const rowId = `${kpiKey}_${statusKey}_${e.date}`;
-    const mail01Sent = notifySentStatus[`${rowId}_mail01`] || false;
-    const mail02Sent = notifySentStatus[`${rowId}_mail02`] || false;
-    
+    const deliveryDisplay = e.sent
+      ? `<span style="color:#2e7d32;font-weight:bold;">✅ Sent</span>`
+      : `<span style="color:#9e9e9e;">Pending</span>`;
+    const responseDisplay = e.response
+      ? escapeNotificationHtml_(e.response).replace(/\n/g, '<br>')
+      : `<span style="color:#9e9e9e;">—</span>`;
+
     return `<tr>
       <td style="font-weight:500;text-align:center;padding:3px 4px;font-size:12px;">${formatDateDMY_(e.date)}</td>
       <td style="font-weight:600;color:${statusColors[statusKey] || '#333'};text-align:center;padding:3px 4px;font-size:12px;">${e.value.toFixed(2)}%</td>
-      <td style="text-align:center;font-weight:500;color:${mail01Sent ? '#2e7d32' : '#ccc'};padding:3px 4px;font-size:12px;">${mail01Sent ? '✅' : '—'}</td>
-      <td style="text-align:center;font-weight:500;color:${mail02Sent ? '#2e7d32' : '#ccc'};padding:3px 4px;font-size:12px;">${mail02Sent ? '✅' : '—'}</td>
-      <td style="text-align:center;color:#ccc;padding:3px 4px;font-size:12px;">—</td>
-      <td style="text-align:center;color:#ccc;padding:3px 4px;font-size:12px;">—</td>
+      <td style="text-align:center;padding:3px 4px;font-size:12px;font-weight:500;">${deliveryDisplay}</td>
+      <td style="padding:6px 8px;font-size:12px;line-height:1.4;white-space:normal;word-break:break-word;">${responseDisplay}</td>
     </tr>`;
   }).join("");
 
@@ -5422,17 +5391,24 @@ function renderNotifyStatusTable_(title, entries, kpiKey, statusKey) {
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
       <thead>
         <tr style="background:#f5f5f5;">
-          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Date</th>
-          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Out Figure</th>
-          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 01</th>
-          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 02</th>
-          <th style="width:120px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 01 Resp</th>
-          <th style="width:120px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Mail 02 Resp</th>
+          <th style="width:25px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Date</th>
+          <th style="width:15px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Out Figure</th>
+          <th style="width:30px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Email Status</th>
+          <th style="width:200px;text-align:center;padding:3px 4px;border:1px solid #e0e0e0;font-size:11px;">Response</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+function escapeNotificationHtml_(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ===================================================================
@@ -5582,51 +5558,6 @@ function renderNotifyChart(num, data) {
 }
 
 // ===================================================================
-// Wire send notification buttons
-// ===================================================================
-
-function wireNotifySendButtons_() {
-  document.querySelectorAll(".btn-notif-send:not([disabled])").forEach((btn) => {
-    btn.removeEventListener("click", handleNotifySend);
-    btn.addEventListener("click", handleNotifySend);
-  });
-}
-
-function handleNotifySend(e) {
-  const btn = e.currentTarget;
-  const rowId = btn.dataset.rowId;
-  const mailType = btn.dataset.mail || "mail01";
-  const statusKey = `${rowId}_${mailType}`;
-
-  // Show sending state
-  btn.textContent = "⏳";
-  btn.disabled = true;
-  btn.style.background = "#FFA000";
-
-  // Simulate sending
-  setTimeout(() => {
-    notifySentStatus[statusKey] = true;
-    btn.textContent = "✅";
-    btn.style.background = "#4CAF50";
-
-    const statusCell = document.querySelector(`.notif-status-cell[data-row-id="${statusKey}"]`);
-    if (statusCell) {
-      statusCell.textContent = "✅ Sent";
-      statusCell.style.color = "#2e7d32";
-    }
-
-    console.log(`✅ ${mailType} notification sent:`, {
-      kpi: btn.dataset.kpi,
-      status: btn.dataset.status,
-      date: btn.dataset.date,
-      value: btn.dataset.value,
-      rowId: rowId,
-      mail: mailType
-    });
-  }, 600);
-}
-
-// ===================================================================
 // Build notification data - uses existing KPI year data builders
 // ===================================================================
 
@@ -5638,11 +5569,36 @@ async function buildNotificationData_(kpiKey, year, month) {
 
   // Map KPI key to builder function
   const builderMap = {
-    "kpi-01": { builder: buildBayMortalityYearData_, colorClass: bayMortalityColorClass_, valueField: "pct" },
-    "kpi-03": { builder: buildBirdInputYearData_, colorClass: birdInputColorClass_, valueField: "pct" },
-    "kpi-04": { builder: buildPackingEfficiencyYearData_, colorClass: packingEfficiencyColorClass_, valueField: "pct" },
-    "kpi-05": { builder: buildDressedYieldYearData_, colorClass: dressedYieldColorClass_, valueField: "yieldPct" },
-    "kpi-06": { builder: buildChillLossYearData_, colorClass: chillLossColorClass_, valueField: "chillLossPct" },
+    "kpi-01": { 
+      builder: buildBayMortalityYearData_, 
+      colorClass: bayMortalityColorClass_, 
+      valueField: "pct",
+      sheetName: "Live_Bird_Bay_Mortality_Rate_%"
+    },
+    "kpi-03": { 
+    builder: buildSlaughterEfficiencyYearData_,  // ✅ නිවැරදි
+    colorClass: slaughterEfficiencyColorClass_,  // ✅ නිවැරදි
+    valueField: "pct",
+    sheetName: "Slaughter_Line_Efficiency_%"
+  },
+    "kpi-04": { 
+      builder: buildPackingEfficiencyYearData_, 
+      colorClass: packingEfficiencyColorClass_, 
+      valueField: "pct",
+      sheetName: "Packing_Line_Efficiency_%"
+    },
+    "kpi-05": { 
+      builder: buildDressedYieldYearData_,        // ✅ New
+      colorClass: dressedYieldColorClass_, 
+      valueField: "yieldPct",
+      sheetName: "Dressed_Yield_%"
+    },
+    "kpi-06": { 
+      builder: buildChillLossYearData_,           // ✅ New
+      colorClass: chillLossColorClass_, 
+      valueField: "chillLossPct",
+      sheetName: "Chill_Loss_%"
+    },
   };
 
   const config = builderMap[kpiKey];
@@ -5650,14 +5606,25 @@ async function buildNotificationData_(kpiKey, year, month) {
     return { available: false, label: kpiKey };
   }
 
-  const yearDays = await config.builder(year);
+  const [yearDays, sheetRows] = await Promise.all([
+    config.builder(year),
+    Api.list(config.sheetName)
+  ]);
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const monthDays = yearDays.filter((r) => r.hasData && r.date.startsWith(monthPrefix));
 
   const buckets = { caution: [], warning: [], critical: [] };
   monthDays.forEach((r) => {
     const cls = config.colorClass(r[config.valueField]);
-    const entry = { date: r.date, value: r[config.valueField] };
+    const sourceRows = sheetRows.filter(row => String(row.Date) === r.date);
+    const sent = sourceRows.length > 0 && sourceRows.every(row =>
+      String(row.Status || '').trim().toLowerCase() === 'sent'
+    );
+    const response = sourceRows
+      .map(row => String(row.Response2 || '').trim())
+      .filter(Boolean)
+      .join('\n\n');
+    const entry = { date: r.date, value: r[config.valueField], sent, response };
     if (cls === "kpi-yellow") buckets.caution.push(entry);
     else if (cls === "kpi-orange") buckets.warning.push(entry);
     else if (cls === "kpi-red") buckets.critical.push(entry);

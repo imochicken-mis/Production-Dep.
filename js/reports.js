@@ -1079,10 +1079,8 @@ async function buildBayMortalityYearData_(year) {
 // ===================================================================
 
 async function buildDressedYieldKpi(year, month) {
-  const [lbRows, fbpRows] = await Promise.all([
-    Api.list("DataLBSummary"),
-    Api.list("DataFBPProduction"),
-  ]);
+  // ✅ නව sheet එකෙන් data ගන්න
+  const rows = await Api.list("Dressed_Yield_%");
   const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
@@ -1091,17 +1089,17 @@ async function buildDressedYieldKpi(year, month) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
 
-    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
-    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
-
-    const liveWeight = lbDay.reduce((s, r) => s + (Number(r.Live_weight_to_plant) || 0), 0);
-    const dressedWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    
+    // ✅ නව column names භාවිතා කරන්න
+    const liveWeight = dayRows.reduce((s, r) => s + (Number(r["Live_Birds_Weight"]) || 0), 0);
+    const dressedWeight = dayRows.reduce((s, r) => s + (Number(r["Dress_Weight"]) || 0), 0);
     const yieldPct = liveWeight > 0 ? (dressedWeight / liveWeight) * 100 : 0;
 
     dateRows.push({
       day: d,
       date: dateStr,
-      hasData: lbDay.length > 0 || fbpDay.length > 0,
+      hasData: dayRows.length > 0,
       liveWeight,
       dressedWeight,
       yieldPct,
@@ -1113,14 +1111,18 @@ async function buildDressedYieldKpi(year, month) {
   const totalYieldPct = totalLiveWeight > 0 ? (totalDressedWeight / totalLiveWeight) * 100 : 0;
 
   return {
-  year,
-  month,
-  daysInMonth,
-  dateRows,
-  totals: { liveWeight: totalLiveWeight, dressedWeight: totalDressedWeight, yieldPct: totalYieldPct },
-  summary: buildDressedYieldSummary_(dateRows),
-  holidayMap,
-};
+    year,
+    month,
+    daysInMonth,
+    dateRows,
+    totals: { 
+      liveWeight: totalLiveWeight, 
+      dressedWeight: totalDressedWeight, 
+      yieldPct: totalYieldPct 
+    },
+    summary: buildDressedYieldSummary_(dateRows),
+    holidayMap,
+  };
 }
 
 // ===================================================================
@@ -1163,14 +1165,11 @@ function buildDressedYieldSummary_(dateRows) {
 }
 
 // ===================================================================
-// KPI 05 — Full year data (for Weekly/Monthly Good Days % trend)
+// KPI 05 — Dressed Yield % (Full Year Data)
 // ===================================================================
-async function buildDressedYieldYearData_(year) {
-  const [lbRows, fbpRows] = await Promise.all([
-    Api.list("DataLBSummary"),
-    Api.list("DataFBPProduction"),
-  ]);
 
+async function buildDressedYieldYearData_(year) {
+  const rows = await Api.list("Dressed_Yield_%");
   const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
 
   const allDays = [];
@@ -1180,19 +1179,17 @@ async function buildDressedYieldYearData_(year) {
     d.setDate(startOfYear.getDate() + i);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
-    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
-
-    const liveWeight = lbDay.reduce((s, r) => s + (Number(r.Live_weight_to_plant) || 0), 0);
-    const dressedWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
-    const yieldPct = liveWeight > 0 ? (dressedWeight / liveWeight) * 100 : 0;
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const liveWeight = dayRows.reduce((s, r) => s + (Number(r["Live_Birds_Weight"]) || 0), 0);
+    const dressWeight = dayRows.reduce((s, r) => s + (Number(r["Dress_Weight"]) || 0), 0);
+    const pct = liveWeight > 0 ? (dressWeight / liveWeight) * 100 : 0;
 
     allDays.push({
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: lbDay.length > 0 || fbpDay.length > 0,
-      yieldPct,
+      hasData: dayRows.length > 0,
+      yieldPct: pct,
     });
   }
 
@@ -1201,14 +1198,10 @@ async function buildDressedYieldYearData_(year) {
 
 // ===================================================================
 // KPI 06 — Chill Loss %
-// Chill Loss % = (Chill weight - Dress weight) / Chill weight * 100
 // ===================================================================
 
 async function buildChillLossKpi(year, month) {
-  const [chillRows, fbpRows] = await Promise.all([
-    Api.list("DataPackingChillWeight"),
-    Api.list("DataFBPProduction"),
-  ]);
+  const rows = await Api.list("Chill_Loss_%");
   const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
@@ -1216,19 +1209,17 @@ async function buildChillLossKpi(year, month) {
   const dateRows = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
-
-    const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
-    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
-
-    const chillWeight = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
-    const dressWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    
+    const chillWeight = dayRows.reduce((s, r) => s + (Number(r["Chill_weight"]) || 0), 0);
+    const dressWeight = dayRows.reduce((s, r) => s + (Number(r["Dress_weight"]) || 0), 0);
     const diff = chillWeight - dressWeight;
     const chillLossPct = chillWeight > 0 ? (diff / chillWeight) * 100 : 0;
 
     dateRows.push({
       day: d,
       date: dateStr,
-      hasData: chillDay.length > 0 || fbpDay.length > 0,
+      hasData: dayRows.length > 0,
       chillWeight,
       dressWeight,
       diff,
@@ -1293,15 +1284,11 @@ function buildChillLossSummary_(dateRows) {
 }
 
 // ===================================================================
-// KPI 06 — Full year data (for Weekly/Monthly Good Days % trend)
+// KPI 06 — Chill Loss % (Full Year Data)
 // ===================================================================
-async function buildChillLossYearData_(year) {
-  const [chillRows, fbpRows] = await Promise.all([
-    Api.list("DataPackingChillWeight"),
-    Api.list("DataFBPProduction"),
-  ]);
 
-  const yearPrefix = `${year}-`;
+async function buildChillLossYearData_(year) {
+  const rows = await Api.list("Chill_Loss_%");
   const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
 
   const allDays = [];
@@ -1311,20 +1298,17 @@ async function buildChillLossYearData_(year) {
     d.setDate(startOfYear.getDate() + i);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-    const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
-    const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
-
-    const chillWeight = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
-    const dressWeight = fbpDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
-    const diff = chillWeight - dressWeight;
-    const chillLossPct = chillWeight > 0 ? (diff / chillWeight) * 100 : 0;
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const chillWeight = dayRows.reduce((s, r) => s + (Number(r["Chill_weight"]) || 0), 0);
+    const dressWeight = dayRows.reduce((s, r) => s + (Number(r["Dress_weight"]) || 0), 0);
+    const pct = chillWeight > 0 ? ((chillWeight - dressWeight) / chillWeight) * 100 : 0;
 
     allDays.push({
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: chillDay.length > 0 || fbpDay.length > 0,
-      chillLossPct,
+      hasData: dayRows.length > 0,
+      chillLossPct: pct,
     });
   }
 
@@ -1436,60 +1420,55 @@ async function buildPackingEfficiencyYearData_(year) {
 }
 
 // ===================================================================
-// KPI 03 — Bird Input Efficiency %
-// Efficiency % = (Actual birds / Planned birds) * 100
-// Planned: DataProductionBirdReq ("Total (kg)")
-// Actual:  DataLBSummary ("No_of_birds_to_plant")
+// KPI 03 — Slaughter Line Efficiency %
 // ===================================================================
 
-const KPI_BIRD_INPUT_STANDARD_ = 95;   // ⚠️ confirm your actual standard %
+const KPI_BIRD_INPUT_STANDARD_ = 95; 
 
-async function buildBirdInputEfficiencyKpi(year, month) {
-  const [reqRows, lbRows] = await Promise.all([
-    Api.list("DataProductionBirdReq"),
-    Api.list("DataLBSummary"),
-  ]);
+async function buildSlaughterEfficiencyKpi(year, month) {
+  const rows = await Api.list("Slaughter_Line_Efficiency_%");
   const holidayMap = await getHolidayMap_();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
-  const reqMonth = reqRows.filter((r) => String(r.Date).startsWith(monthPrefix));
-  const lbMonth = lbRows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
   const days = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
-
-    const reqDay = reqMonth.filter((r) => String(r.Date) === dateStr);
-    const lbDay = lbMonth.filter((r) => String(r.Date) === dateStr);
-
-    const planned = reqDay.reduce((s, r) => s + (Number(r["Total (kg)"]) || 0), 0);
-    const actual = lbDay.reduce((s, r) => s + (Number(r.No_of_birds_to_plant) || 0), 0);
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    
+    const planned = dayRows.reduce((s, r) => s + (Number(r["Planned Birds"]) || 0), 0);
+    const actual = dayRows.reduce((s, r) => s + (Number(r["Actual Birds"]) || 0), 0);
     const pct = planned > 0 ? (actual / planned) * 100 : 0;
 
-    const hasData = reqDay.length > 0 || lbDay.length > 0;
-    days.push({ day: d, date: dateStr, hasData, planned: hasData ? planned : null, actual: hasData ? actual : null, pct: hasData ? pct : null });
+    days.push({
+      day: d,
+      date: dateStr,
+      hasData: dayRows.length > 0,
+      planned,
+      actual,
+      pct,
+    });
   }
 
-  return { year, month, days, summary: buildBirdInputSummary_(days),holidayMap };
+  return { 
+    year, 
+    month, 
+    days, 
+    summary: buildSlaughterEfficiencySummary_(days),
+    holidayMap 
+  };
 }
 
-function birdInputColorClass_(pct) {
-  const std = KPI_BIRD_INPUT_STANDARD_;
-  if (pct === null || pct === undefined) return "";
-  if (pct >= std) return "kpi-green";
-  if (pct >= std - 10) return "kpi-yellow";
-  if (pct >= std - 20) return "kpi-orange";
-  return "kpi-red";
-}
-
-function buildBirdInputSummary_(days) {
-  const std = KPI_BIRD_INPUT_STANDARD_;
+function buildSlaughterEfficiencySummary_(days) {
+  const std = 95;
   const withData = days.filter((d) => d.hasData);
   const totalDays = withData.length;
 
   const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
   withData.forEach((d) => {
-    const cls = birdInputColorClass_(d.pct);
+    const cls = d.pct >= std ? "kpi-green" : 
+                d.pct >= std - 10 ? "kpi-yellow" : 
+                d.pct >= std - 20 ? "kpi-orange" : "kpi-red";
     if (cls === "kpi-green") counts.green++;
     else if (cls === "kpi-yellow") counts.yellow++;
     else if (cls === "kpi-orange") counts.orange++;
@@ -1507,13 +1486,11 @@ function buildBirdInputSummary_(days) {
 }
 
 // ===================================================================
-// KPI 03 — Full year data (for Weekly/Monthly Good Days % + Status trend)
+// KPI 03 — Slaughter Line Efficiency % (Full Year Data)
 // ===================================================================
-async function buildBirdInputYearData_(year) {
-  const [reqRows, lbRows] = await Promise.all([
-    Api.list("DataProductionBirdReq"),
-    Api.list("DataLBSummary"),
-  ]);
+
+async function buildSlaughterEfficiencyYearData_(year) {
+  const rows = await Api.list("Slaughter_Line_Efficiency_%");
   const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
 
   const allDays = [];
@@ -1523,22 +1500,34 @@ async function buildBirdInputYearData_(year) {
     d.setDate(startOfYear.getDate() + i);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-    const reqDay = reqRows.filter((r) => String(r.Date) === dateStr);
-    const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
-    const planned = reqDay.reduce((s, r) => s + (Number(r["Total (kg)"]) || 0), 0);
-    const actual = lbDay.reduce((s, r) => s + (Number(r.No_of_birds_to_plant) || 0), 0);
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const planned = dayRows.reduce((s, r) => s + (Number(r["Planned Birds"]) || 0), 0);
+    const actual = dayRows.reduce((s, r) => s + (Number(r["Actual Birds"]) || 0), 0);
     const pct = planned > 0 ? (actual / planned) * 100 : 0;
 
     allDays.push({
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: reqDay.length > 0 || lbDay.length > 0,
-      pct,
+      hasData: dayRows.length > 0,
+      pct: pct,
     });
   }
 
   return allDays;
+}
+
+// ===================================================================
+// KPI 03 — Slaughter Line Efficiency Color Class
+// ===================================================================
+
+function slaughterEfficiencyColorClass_(pct) {
+  const std = 95;
+  if (pct === null || pct === undefined) return "";
+  if (pct >= std) return "kpi-green";
+  if (pct >= std - 10) return "kpi-yellow";
+  if (pct >= std - 20) return "kpi-orange";
+  return "kpi-red";
 }
 
 // ===================================================================
@@ -1836,8 +1825,8 @@ const NOTIFICATION_KPI_CONFIGS_ = {
   },
   "kpi-03": {
     label: "KPI 03",
-    buildYearData: buildBirdInputYearData_,
-    colorClass: birdInputColorClass_,
+    buildYearData: buildSlaughterEfficiencyYearData_,  // ✅ නිවැරදි
+    colorClass: slaughterEfficiencyColorClass_,        // ✅ නිවැරදි
     valueField: "pct",
     valueLabel: "Slaughter Efficiency %",
   },
