@@ -138,6 +138,7 @@ function showView(key) {
   if (key === "kpi-06") initChillLossKpi();
   if (key === "kpi-04") initPackingEfficiencyKpi();
   if (key === "kpi-03") initBirdInputEfficiencyKpi();
+  if (key === "kpi-02") initBirdUnloadKpi();
 
   // NEW: Notification views
   if (key === "notify-kpi-01") initNotifyKpi("01");
@@ -1730,7 +1731,6 @@ function updateKpiHeader(kpiKey, standard, workingDays) {
   const viewElement = document.getElementById(`view-${kpiKey}`);
   if (!viewElement) return;
 
-  // Update info row (center)
   const infoRow = viewElement.querySelector('.info-row-center');
   if (!infoRow) return;
 
@@ -1741,8 +1741,27 @@ function updateKpiHeader(kpiKey, standard, workingDays) {
     infoRow.appendChild(infoDiv);
   }
 
+  // ✅ KPI එක අනුව standard display එක වෙනස් කරන්න
+  let standardDisplay;
+  
+  if (kpiKey === 'kpi-01') {
+    standardDisplay = '0.05%';
+  } else if (kpiKey === 'kpi-02') {
+    standardDisplay = '4500 birds/hr';
+  } else if (kpiKey === 'kpi-03') {
+    standardDisplay = '95%';
+  } else if (kpiKey === 'kpi-04') {
+    standardDisplay = '95%';
+  } else if (kpiKey === 'kpi-05') {
+    standardDisplay = '79%';
+  } else if (kpiKey === 'kpi-06') {
+    standardDisplay = '2%';
+  } else {
+    standardDisplay = standard + '%';
+  }
+
   infoDiv.innerHTML = `
-    <span>📊 Standard: <strong class="standard-value">${standard}%</strong></span>
+    <span>📊 Standard: <strong class="standard-value">${standardDisplay}</strong></span>
     <span class="divider">|</span>
     <span>📅 Working Days: <strong class="working-days-value">${workingDays}</strong></span>
   `;
@@ -2205,6 +2224,429 @@ function countWorkingDaysInMonth_(year, month) {
   }
   return count;
 }
+}
+
+// ===================================================================
+// KPI 02 — Birds Unloading Rate
+// ===================================================================
+function initBirdUnloadKpi() {
+  const monthSelect = document.getElementById("kpi02Month");
+  const yearSelect = document.getElementById("kpi02Year");
+
+  if (!yearSelect || !monthSelect) return;
+  if (monthSelect.dataset.bound) return;
+  monthSelect.dataset.bound = "true";
+
+  const nowYear = new Date().getFullYear();
+  for (let y = nowYear - 3; y <= nowYear + 1; y++) {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    if (y === nowYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  monthSelect.value = new Date().getMonth() + 1;
+
+  monthSelect.addEventListener("change", renderBirdUnloadKpi);
+  yearSelect.addEventListener("change", renderBirdUnloadKpi);
+
+  renderBirdUnloadKpi();
+}
+
+function renderBirdUnloadTable_(report) {
+  const holidayMap = report.holidayMap || {};
+  const dateCells = report.dateRows.map((r) => {
+    const cls = getDateHeaderClass_(r.date, holidayMap);
+    return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
+  }).join("");
+  const receivedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.receivedBirds, 0) : ""}</td>`).join("");
+  const timeCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.unloadingTime, 1) : ""}</td>`).join("");
+  const rateCells = report.dateRows.map((r) => {
+    if (!r.hasData || r.receivedBirds === 0) return `<td></td>`;
+    const cls = birdUnloadColorClass_(r.rate);
+    return `<td class="${cls}">${formatNum_(r.rate, 0)}</td>`;
+  }).join("");
+
+  return `
+    <div class="kpi-table-scroll">
+      <table class="report-table kpi-dressed-yield-table">
+        <tbody>
+          <tr><td class="row-label">Date</td>${dateCells}</tr>
+          <tr><td class="row-label">Received Birds</td>${receivedCells}</tr>
+          <tr><td class="row-label">Unloading Time (hrs)</td>${timeCells}</tr>
+          <tr><td class="row-label">Rate (birds/hr)</td>${rateCells}</tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderBirdUnloadSummaryCards_(summary) {
+  const cards = summary.map((s) => `
+    <div class="kpi-card kpi-card-${s.key}">
+      <div class="kpi-card-label">${s.label}</div>
+      <div class="kpi-card-range">${s.range}</div>
+      <div class="kpi-card-bottom-row">
+        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+        <span class="kpi-card-pct">${s.pct}%</span>
+      </div>
+    </div>`).join("");
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+
+// ---- Main Daily/Weekly chart ----
+let kpi02ChartInstance_ = null;
+let kpi02MainChartView_ = "daily";
+
+const birdUnloadBandFill_ = {
+  id: "birdUnloadBandFill",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const t = KPI_BIRD_UNLOAD_THRESHOLDS_;
+
+    const yGreen = yScale.getPixelForValue(t.green);
+    const yYellow = yScale.getPixelForValue(t.yellow);
+    const yOrange = yScale.getPixelForValue(t.orange);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(76, 175, 80, 0.35)";
+    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, yGreen - chartArea.top);
+    ctx.fillStyle = "rgba(255, 213, 79, 0.4)";
+    ctx.fillRect(chartArea.left, yGreen, chartArea.right - chartArea.left, yYellow - yGreen);
+    ctx.fillStyle = "rgba(255, 152, 0, 0.35)";
+    ctx.fillRect(chartArea.left, yYellow, chartArea.right - chartArea.left, yOrange - yYellow);
+    ctx.fillStyle = "rgba(244, 67, 54, 0.3)";
+    ctx.fillRect(chartArea.left, yOrange, chartArea.right - chartArea.left, chartArea.bottom - yOrange);
+    ctx.restore();
+  },
+};
+
+function renderBirdUnloadChart_(report) {
+  const withData = report.dateRows.filter((r) => r.hasData && r.receivedBirds > 0);
+
+  let labels, actualValues, standardValues;
+  if (kpi02MainChartView_ === "weekly") {
+    const weekly = aggregateToWeeks_(withData, "rate");
+    labels = weekly.map((w) => w.label);
+    actualValues = weekly.map((w) => w.value);
+    standardValues = weekly.map(() => KPI_BIRD_UNLOAD_STANDARD_);
+  } else {
+    labels = withData.map((r) => String(r.day).padStart(2, "0"));
+    actualValues = withData.map((r) => r.rate);
+    standardValues = withData.map(() => KPI_BIRD_UNLOAD_STANDARD_);
+  }
+
+  if (kpi02ChartInstance_) kpi02ChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi02Chart").getContext("2d");
+  kpi02ChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Birds Unloading Rate",
+          data: actualValues,
+          borderColor: "#2c4a7c",
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          tension: 0.35,
+          fill: false,
+          pointRadius: kpi02MainChartView_ === "weekly" ? 4 : 1.5,
+          pointBackgroundColor: "#2c4a7c",
+        },
+        {
+          label: "Standard (4500)",
+          data: standardValues,
+          borderColor: "#c0564a",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [birdUnloadBandFill_],
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      animation: {
+        duration: 1200, easing: "easeOutQuart",
+        x: { type: "number", easing: "linear", duration: 1200, from: NaN, delay(ctx) {
+          if (ctx.type !== "data" || ctx.xStarted) return 0;
+          ctx.xStarted = true;
+          return ctx.index * 40;
+        }},
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: "Birds/Hour" } },
+        x: { title: { display: true, text: kpi02MainChartView_ === "weekly" ? "Week" : "Date" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi02MainChartView_ === "weekly" ? "Weekly Birds Unloading Rate Trend" : "Daily Birds Unloading Rate Trend",
+          font: { size: 16, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 12 },
+        },
+        legend: { position: "top" },
+        tooltip: {
+          mode: "index", intersect: false,
+          callbacks: {
+            afterBody(tooltipItems) {
+              const actual = tooltipItems.find((t) => t.dataset.label === "Birds Unloading Rate");
+              const standard = tooltipItems.find((t) => t.dataset.label === "Standard (4500)");
+              if (!actual || !standard) return "";
+              const gap = actual.parsed.y - standard.parsed.y;
+              const sign = gap >= 0 ? "+" : "";
+              return `Gap: ${sign}${gap.toFixed(0)}`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function setupKpi02MainChartToggle_(report) {
+  const dailyBtn = document.getElementById("kpi02MainViewDaily");
+  const weeklyBtn = document.getElementById("kpi02MainViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi02MainChartView_ = "daily";
+    dailyBtn.classList.add("active"); weeklyBtn.classList.remove("active");
+    renderBirdUnloadChart_(report);
+  };
+  weeklyBtn.onclick = () => {
+    kpi02MainChartView_ = "weekly";
+    weeklyBtn.classList.add("active"); dailyBtn.classList.remove("active");
+    renderBirdUnloadChart_(report);
+  };
+}
+
+function syncKpi02ChartWidthToTable_() {
+  const table = document.querySelector("#view-kpi-02 .kpi-dressed-yield-table");
+  const chartPanel = document.querySelector("#view-kpi-02 .kpi-chart-panel");
+  if (!table || !chartPanel) return;
+  requestAnimationFrame(() => {
+    chartPanel.style.maxWidth = `${table.getBoundingClientRect().width}px`;
+  });
+}
+
+// ---- Good Days % chart ----
+let kpi02GoodDaysChartInstance_ = null;
+let kpi02GoodDaysView_ = "weekly";
+
+function computeKpi02GoodDaysBuckets_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, good: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      if (birdUnloadColorClass_(r.rate) === "kpi-green") buckets[r.month].good += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m];
+      return { label: MONTH_SHORT_NAMES_[m - 1], pct: b.total > 0 ? (b.good / b.total) * 100 : 0, total: b.total, good: b.good };
+    });
+  }
+  const buckets = {};
+  withData.forEach((r) => {
+    const wk = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[wk]) buckets[wk] = { total: 0, good: 0 };
+    buckets[wk].total += 1;
+    if (birdUnloadColorClass_(r.rate) === "kpi-green") buckets[wk].good += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk];
+    return { label: `W${wk}`, pct: b.total > 0 ? (b.good / b.total) * 100 : 0, total: b.total, good: b.good };
+  });
+}
+
+function renderKpi02GoodDaysChart_(yearDays) {
+  const buckets = computeKpi02GoodDaysBuckets_(yearDays, kpi02GoodDaysView_);
+  if (kpi02GoodDaysChartInstance_) kpi02GoodDaysChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi02GoodDaysChart").getContext("2d");
+  kpi02GoodDaysChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: buckets.map((b) => b.label),
+      datasets: [{
+        label: "Good Days %", data: buckets.map((b) => b.pct),
+        borderColor: "#0da23a", backgroundColor: "#b3d5b5",
+        borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 4, pointBackgroundColor: "#2d6a6a",
+      }],
+    },
+    options: {
+      responsive: true, animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "Good Days %" } },
+        x: { title: { display: true, text: kpi02GoodDaysView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: kpi02GoodDaysView_ === "monthly" ? "Good Days % — Monthly" : "Good Days % — Weekly",
+          font: { size: 15, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 10 },
+        },
+        legend: { display: false },
+        tooltip: { callbacks: { afterLabel(item) { const b = buckets[item.dataIndex]; return `${b.good} of ${b.total} days good`; } } },
+      },
+    },
+  });
+}
+
+function setupKpi02GoodDaysToggle_() {
+  const weeklyBtn = document.getElementById("kpi02ViewWeekly");
+  const monthlyBtn = document.getElementById("kpi02ViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+  weeklyBtn.onclick = () => { kpi02GoodDaysView_ = "weekly"; weeklyBtn.classList.add("active"); monthlyBtn.classList.remove("active"); renderKpi02GoodDaysChart_(window.currentKpi02YearDays_ || []); };
+  monthlyBtn.onclick = () => { kpi02GoodDaysView_ = "monthly"; monthlyBtn.classList.add("active"); weeklyBtn.classList.remove("active"); renderKpi02GoodDaysChart_(window.currentKpi02YearDays_ || []); };
+}
+
+// ---- Caution/Warning/Critical combined chart ----
+let kpi02StatusChartInstance_ = null;
+let kpi02StatusView_ = "weekly";
+
+function computeKpi02StatusSeries_(yearDays, viewMode) {
+  const withData = yearDays.filter((r) => r.hasData);
+  const classify = (r) => birdUnloadColorClass_(r.rate);
+
+  if (viewMode === "monthly") {
+    const buckets = {};
+    for (let m = 1; m <= 12; m++) buckets[m] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    withData.forEach((r) => {
+      buckets[r.month].total += 1;
+      const cls = classify(r);
+      if (cls === "kpi-yellow") buckets[r.month].yellow += 1;
+      else if (cls === "kpi-orange") buckets[r.month].orange += 1;
+      else if (cls === "kpi-red") buckets[r.month].red += 1;
+    });
+    return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((m) => {
+      const b = buckets[m]; const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+      return { label: MONTH_SHORT_NAMES_[m - 1], total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+    });
+  }
+  const buckets = {};
+  withData.forEach((r) => {
+    const wk = Math.ceil(r.dayOfYear / 7);
+    if (!buckets[wk]) buckets[wk] = { total: 0, yellow: 0, orange: 0, red: 0 };
+    buckets[wk].total += 1;
+    const cls = classify(r);
+    if (cls === "kpi-yellow") buckets[wk].yellow += 1;
+    else if (cls === "kpi-orange") buckets[wk].orange += 1;
+    else if (cls === "kpi-red") buckets[wk].red += 1;
+  });
+  return Object.keys(buckets).map(Number).sort((a, b) => a - b).map((wk) => {
+    const b = buckets[wk]; const pct = (n) => (b.total > 0 ? (n / b.total) * 100 : 0);
+    return { label: `W${wk}`, total: b.total, caution: pct(b.yellow), warning: pct(b.orange), critical: pct(b.red) };
+  });
+}
+
+function renderKpi02StatusChart_(yearDays) {
+  const buckets = computeKpi02StatusSeries_(yearDays, kpi02StatusView_);
+  if (kpi02StatusChartInstance_) kpi02StatusChartInstance_.destroy();
+
+  const ctx = document.getElementById("kpi02StatusChart").getContext("2d");
+  kpi02StatusChartInstance_ = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: buckets.map((b) => b.label),
+      datasets: [
+        { label: "Caution %", data: buckets.map((b) => b.caution), borderColor: "#d4a017", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#d4a017" },
+        { label: "Warning %", data: buckets.map((b) => b.warning), borderColor: "#e07b00", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#e07b00" },
+        { label: "Critical %", data: buckets.map((b) => b.critical), borderColor: "#c0392b", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.35, fill: false, pointRadius: 3, pointBackgroundColor: "#c0392b" },
+      ],
+    },
+    options: {
+      responsive: true, interaction: { mode: "index", intersect: false },
+      animation: { duration: 900, easing: "easeOutQuart" },
+      scales: {
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "% of Days" } },
+        x: { title: { display: true, text: kpi02StatusView_ === "monthly" ? "Month" : "Week" } },
+      },
+      plugins: {
+        title: { display: true, text: `Caution / Warning / Critical Days % — ${kpi02StatusView_ === "monthly" ? "Monthly" : "Weekly"}`, font: { size: 15, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 10 } },
+        legend: { position: "top" }, tooltip: { mode: "index", intersect: false },
+      },
+    },
+  });
+}
+
+function setupKpi02StatusToggle_() {
+  const weeklyBtn = document.getElementById("kpi02StatusViewWeekly");
+  const monthlyBtn = document.getElementById("kpi02StatusViewMonthly");
+  if (!weeklyBtn || !monthlyBtn) return;
+  weeklyBtn.onclick = () => { kpi02StatusView_ = "weekly"; weeklyBtn.classList.add("active"); monthlyBtn.classList.remove("active"); renderKpi02StatusChart_(window.currentKpi02YearDays_ || []); };
+  monthlyBtn.onclick = () => { kpi02StatusView_ = "monthly"; monthlyBtn.classList.add("active"); weeklyBtn.classList.remove("active"); renderKpi02StatusChart_(window.currentKpi02YearDays_ || []); };
+}
+
+// ---- Main render orchestration ----
+async function renderBirdUnloadKpi() {
+  const year = document.getElementById("kpi02Year").value;
+  const month = document.getElementById("kpi02Month").value;
+  const panel = document.getElementById("kpi02Panel");
+  panel.innerHTML = `<p class="hint">Loading…</p>`;
+
+  try {
+    const report = await buildBirdUnloadKpi(year, month);
+
+    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const std = 4500;
+    updateKpiHeader("kpi-02", std, workingDays);
+
+    panel.innerHTML =
+      renderBirdUnloadSummaryCards_(report.summary) +
+      `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi02MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+            <button type="button" id="kpi02MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi02Chart" height="90"></canvas></div>
+      </div>` +
+      renderBirdUnloadTable_(report) +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi02ViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi02ViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi02GoodDaysChart" height="50"></canvas></div>
+      </div>` +
+      `<div class="panel kpi-chart-panel" style="margin-top:16px;">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi02StatusViewWeekly" class="kpi-toggle-btn active">Weekly</button>
+            <button type="button" id="kpi02StatusViewMonthly" class="kpi-toggle-btn">Monthly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi02StatusChart" height="50"></canvas></div>
+      </div>`;
+
+    renderBirdUnloadChart_(report);
+    syncKpi02ChartWidthToTable_();
+    kpi02MainChartView_ = "daily";
+    setupKpi02MainChartToggle_(report);
+
+    kpi02GoodDaysView_ = "weekly";
+    setupKpi02GoodDaysToggle_();
+    const yearDays = await buildBirdUnloadYearData_(year);
+    window.currentKpi02YearDays_ = yearDays;
+    renderKpi02GoodDaysChart_(yearDays);
+
+    kpi02StatusView_ = "weekly";
+    setupKpi02StatusToggle_();
+    renderKpi02StatusChart_(yearDays);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
+  }
 }
 
 // ===================================================================
@@ -4447,19 +4889,21 @@ function renderConsumableTable_(report) {
       const dateStr = `${report.year}-${String(report.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       return `<td class="${getDayOfWeekClass_(dateStr)}">${formatNum_(v, "auto")}</td>`;
     }).join("");
-    return `<tr><td class="row-label">${item.itemName}</td>${cells}</tr>`;
+    const rowTotal = item.values.reduce((s, v) => s + v, 0);
+    return `<tr><td class="row-label">${item.itemName}</td>${cells}<td class="total-cell">${formatNum_(rowTotal, "auto")}</td></tr>`;
   }).join("");
 
   const totalCells = report.columnTotals.map((v) => `<td>${formatNum_(v, "auto")}</td>`).join("");
+  const grandTotal = report.columnTotals.reduce((s, v) => s + v, 0);
 
   return `
     <table class="report-table consumable-table">
       <thead>
-        <tr><th class="row-label">Material Name</th>${dayHeaders}</tr>
+        <tr><th class="row-label">Material Name</th>${dayHeaders}<th class="total-col">Total</th></tr>
       </thead>
       <tbody>${rows}</tbody>
       <tfoot>
-        <tr class="bold-row"><td class="row-label">Total &gt;&gt;&gt;</td>${totalCells}</tr>
+        <tr class="bold-row"><td class="row-label">Total &gt;&gt;&gt;</td>${totalCells}<td class="total-cell">${formatNum_(grandTotal, "auto")}</td></tr>
       </tfoot>
     </table>
   `;
@@ -4467,12 +4911,15 @@ function renderConsumableTable_(report) {
 
 function downloadConsumableCsv_(report) {
   const dayHeaders = Array.from({ length: report.daysInMonth }, (_, i) => String(i + 1).padStart(2, "0"));
-  let csv = ["Material Name", ...dayHeaders].map((v) => `"${v}"`).join(",") + "\n";
+  let csv = ["Material Name", ...dayHeaders, "Total"].map((v) => `"${v}"`).join(",") + "\n";
 
   report.items.forEach((item) => {
-    csv += [item.itemName, ...item.values].map((v) => `"${v}"`).join(",") + "\n";
+    const rowTotal = item.values.reduce((s, v) => s + v, 0);
+    csv += [item.itemName, ...item.values, rowTotal].map((v) => `"${v}"`).join(",") + "\n";
   });
-  csv += ["Total", ...report.columnTotals].map((v) => `"${v}"`).join(",") + "\n";
+
+  const grandTotal = report.columnTotals.reduce((s, v) => s + v, 0);
+  csv += ["Total", ...report.columnTotals, grandTotal].map((v) => `"${v}"`).join(",") + "\n";
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -4512,8 +4959,8 @@ const KPI_CONFIG_NEW = {
     label: "Birds Unloading",
     shortLabel: "Live Birds Unloading",
     icon: "🚚",
-    unit: "%",
-    standard: 95,
+    unit: "birds/hr",
+    standard: 4500,
     isLowerBetter: false,
     color: "#3498DB",
     bgColor: "rgba(52, 152, 219, 0.12)",
@@ -4640,10 +5087,15 @@ function extractKpiDataNew(report, kpiKey) {
     };
   }
   
-  // KPI-02 - Coming soon
-  if (kpiKey === "kpi-02") {
-    return { values: [], dates: [], hasData: false };
-  }
+  // KPI-02
+if (kpiKey === "kpi-02" && report.dateRows) {
+  const valid = report.dateRows.filter(d => d && d.hasData === true && d.receivedBirds > 0);
+  return {
+    values: valid.map(d => (d.rate !== undefined && d.rate !== null) ? Number(d.rate) : null).filter(v => v !== null),
+    dates: valid.map(d => d.day || 0),
+    hasData: valid.length > 0
+  };
+}
   
   // KPI-03
   if (kpiKey === "kpi-03" && report.days) {
@@ -4693,6 +5145,7 @@ async function fetchAllKpiDataNew(year, month) {
   const results = {};
   const kpiBuilders = {
     "kpi-01": buildBayMortalityKpi,
+    "kpi-02": buildBirdUnloadKpi,
     "kpi-03": buildSlaughterEfficiencyKpi,
     "kpi-04": buildPackingEfficiencyKpi,
     "kpi-05": buildDressedYieldKpi,
@@ -4717,6 +5170,7 @@ async function fetchAllKpiDataNew(year, month) {
 // ===================================================================
 const KPI_PCT_FIELD_ = {
   "kpi-01": "pct",
+  "kpi-02":"rate",
   "kpi-03": "pct",
   "kpi-04": "pct",
   "kpi-05": "yieldPct",
@@ -4727,6 +5181,7 @@ async function fetchAllKpiYearDataNew(year) {
   const results = {};
   const yearBuilders = {
     "kpi-01": buildBayMortalityYearData_,
+    "kpi-02": buildBirdUnloadYearData_,
     "kpi-03": buildSlaughterEfficiencyYearData_,
     "kpi-04": buildPackingEfficiencyYearData_,
     "kpi-05": buildDressedYieldYearData_,
@@ -4993,20 +5448,6 @@ function renderAllCharts(yearData, viewMode) {
   const keys = ["kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-05", "kpi-06"];
 
   keys.forEach(key => {
-    // KPI-02 has no data yet
-    if (key === "kpi-02") {
-      const container = document.getElementById(`chart-container-${key}`);
-      if (container) {
-        container.innerHTML = `
-          <div class="dash-no-data">
-            <span class="emoji">🚧</span>
-            Data Not Available
-          </div>
-        `;
-      }
-      return;
-    }
-
     const yearDays = yearData[key] || [];
     const pctField = KPI_PCT_FIELD_[key];
     const aggregated = aggregateYearByViewMode_(yearDays, pctField, viewMode);

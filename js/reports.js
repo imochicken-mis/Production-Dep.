@@ -136,13 +136,14 @@ const CHILL_WEIGHT_LEFT_ = [
   { code: "01CW02", name: "Whole Chicken (L)" },
   { code: "01CW03", name: "Whole Chicken (XL)" },
   { code: "01CW06", name: "Half Chicken" },
-  { code: "", name: "Kitchen Item" },
   { code: "02CW01", name: "WOG (S)" },
+  { code: "02CW02", name: "WOG (M)" },
   { code: "02CW03", name: "WOG (L)" },
   { code: "02CW04", name: "WOG (XL)" },
   { code: "02CW05", name: "WOG (XXL)" },
   { code: "02CW09", name: "WOG (M) SP" },
   { code: "03CW01", name: "Skinless Whole Chicken (S)" },
+  { code: "03CW02", name: "Skinless Whole Chicken (M)" },
   { code: "03CW03", name: "Skinless Whole Chicken (L)" },
   { code: "03CW04", name: "Skinless Whole Chicken (XL)" },
   { code: "03CW05", name: "Skinless Whole Chicken (XXL)" },
@@ -151,7 +152,6 @@ const CHILL_WEIGHT_LEFT_ = [
   { code: "04CP02", name: "Skinon Breast" },
   { code: "04CP03", name: "Skinless Drumstick" },
   { code: "04CP04", name: "Skinon Drumstick" },
-  { code: "04CP05", name: "Skinon Drumstick SP" },
   { code: "04CP05", name: "Skinon Drumstick SP (100g)" },
   { code: "04CP06", name: "Skinless Thigh" },
   { code: "04CP07", name: "Skinless Thigh SP (100g)" },
@@ -159,15 +159,16 @@ const CHILL_WEIGHT_LEFT_ = [
   { code: "04CP09", name: "Skinless Leg" },
   { code: "04CP11", name: "Skinon Leg" },
   { code: "04CP12", name: "Skinless Back Quarter" },
+  { code: "04CP13", name: "Skinless Back Quarter SP" },
 ];
 
 const CHILL_WEIGHT_RIGHT_ = [
-  { code: "04CP13", name: "Skinless Back Quarter SP" },
   { code: "04CP14", name: "Skinon Back Quarter" },
   { code: "04CP16", name: "Whole Wing" },
   { code: "04CP17", name: "Winglet" },
   { code: "04CP19", name: "Chicken Lolipop" },
   { code: "04CP20", name: "Wing Tip 500g" },
+  { code: "04CP22", name: "Neck" },
   { code: "04CP23", name: "Bite Pieces 500g" },
   { code: "04CP24", name: "Liver 500g" },
   { code: "04CP25", name: "Liver 1 Kg" },
@@ -180,6 +181,7 @@ const CHILL_WEIGHT_RIGHT_ = [
   { code: "04CP32", name: "Kitchen Pack 500g" },
   { code: "04CP34", name: "Easy - Pet Food" },
   { code: "04CP34", name: "Production - Pet Food" },
+  { code: "04CP36", name: "Kitchen Item" },
   { code: "04CP37", name: "MDM Mat 500g" },
   { code: "04CP40", name: "Middle Wing" },
   { code: "04CP41", name: "Neck 500g" },
@@ -403,37 +405,38 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "01CW01", name: "Whole Chicken (S)" },
   { code: "01CW02", name: "Whole Chicken (L)" },
   { code: "01CW03", name: "Whole Chicken (XL)" },
-  { code: "01CW05", name: "Krosher Whole Chicken" },
   { code: "01CW06", name: "Half Chicken" },
-  { code: "02CW01", name: "Whole Chicken - Without Giblets (S)" },
-  { code: "02CW09", name: "Whole Chicken - Without Giblets (M) Special" },
-  { code: "02CW03", name: "Whole Chicken - Without Giblets (L)" },
-  { code: "02CW04", name: "Whole Chicken - Without Giblets (XL)" },
-  { code: "02CW05", name: "Whole Chicken - Without Giblets (XXL)" },
+  { code: "02CW01", name: "WOG (S)" },
+  { code: "02CW02", name: "WOG (M)" },
+  { code: "02CW03", name: "WOG (L)" },
+  { code: "02CW04", name: "WOG (XL)" },
+  { code: "02CW05", name: "WOG (XXL)" },
+  { code: "02CW09", name: "WOG (M) SP" },
   { code: "03CW01", name: "Skinless Whole Chicken (S)" },
-  { code: "03CW08", name: "Skinless Whole Chicken (M) Special" },
+  { code: "03CW02", name: "Skinless Whole Chicken (M)" },
   { code: "03CW03", name: "Skinless Whole Chicken (L)" },
   { code: "03CW04", name: "Skinless Whole Chicken (XL)" },
   { code: "03CW05", name: "Skinless Whole Chicken (XXL)" },
+  { code: "03CW08", name: "Skinless Whole Chicken (M) SP" },
   { code: "04CP01", name: "Skinless Breast" },
   { code: "04CP02", name: "Skinon Breast" },
   { code: "04CP03", name: "Skinless Drumstick" },
   { code: "04CP04", name: "Skinon Drumstick" },
-  { code: "04CP05", name: "Skinon Drumstick - Special" },
+  { code: "04CP05", name: "Skinon Drumstick SP (100g)" },
   { code: "04CP06", name: "Skinless Thigh" },
-  { code: "04CP07", name: "Skinless Thigh - Special" },
+  { code: "04CP07", name: "Skinless Thigh SP (100g)" },
   { code: "04CP08", name: "Skinon Thigh" },
   { code: "04CP09", name: "Skinless Leg" },
   { code: "04CP11", name: "Skinon Leg" },
   { code: "04CP12", name: "Skinless Back Quarter" },
-  { code: "04CP13", name: "Skinless Back Quarter - Special" },
+  { code: "04CP13", name: "Skinless Back Quarter SP" },
   { code: "04CP14", name: "Skinon Back Quarter" },
-  { code: "04CP16", name: "Whole Wings" },
+  { code: "04CP16", name: "Whole Wing" },
   { code: "04CP17", name: "Winglet" },
-  { code: "04CP19", name: "D. Winglet / Lolipop" },
-  { code: "04CP20", name: "Wing Tip" },
+  { code: "04CP19", name: "Chicken Lolipop" },
+  { code: "04CP20", name: "Wing Tip 500g" },
   { code: "04CP22", name: "Neck" },
-  { code: "04CP23", name: "Bite Pieces" },
+  { code: "04CP23", name: "Bite Pieces 500g" },
   { code: "04CP24", name: "Liver 500g" },
   { code: "04CP25", name: "Liver 1 Kg" },
   { code: "04CP26", name: "Gizzard 500g" },
@@ -442,17 +445,19 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "04CP29", name: "Curry Pieces 500g" },
   { code: "04CP30", name: "Soup Bone" },
   { code: "04CP31", name: "Thigh Bone" },
-  { code: "04CP32", name: "Kitchen Packed (500g)" },
-  { code: "04CP34", name: "Pet Food - Minced 500g" },
-  { code: "04CP40", name: "Middle Wing 500g" },
+  { code: "04CP32", name: "Kitchen Pack 500g" },
+  { code: "04CP34", name: "Easy - Pet Food" },
+  { code: "04CP34", name: "Production - Pet Food" },
+  { code: "04CP36", name: "Kitchen Item" },
+  { code: "04CP37", name: "MDM Mat 500g" },
+  { code: "04CP40", name: "Middle Wing" },
   { code: "04CP41", name: "Neck 500g" },
-  { code: "04CP37", name: "MDM Material 500g" },
   { code: "05CM01", name: "Skinless Boneless Breast" },
   { code: "05CM02", name: "Skinless Boneless Thigh" },
-  { code: "05CM03", name: "Chicken Skin - Loose Meat 5 Kg" },
+  { code: "05CM03", name: "Chicken Skin" },
   { code: "05CM04", name: "Chicken Fat" },
-  { code: "09EM09", name: "Easy Material" },
-  { code: "09GP09", name: "Giblet Production" },
+  { code: "09GP09", name: "Giblet Production"},
+  { code: "09EM09", name: "WIP(Easy Metirial)"},
   { code: "", name: "Giblet Use for Whole Chicken" },
   { code: "06CE01", name: "EASY 250g" },
   { code: "06CE02", name: "EASY 400g" },
@@ -1073,6 +1078,112 @@ async function buildBayMortalityYearData_(year) {
 
   return allDays;
 }
+
+// ===================================================================
+// KPI 02 — Birds Unloading Rate (birds/hour)
+// ===================================================================
+
+const KPI_BIRD_UNLOAD_STANDARD_ = 4500;
+const KPI_BIRD_UNLOAD_THRESHOLDS_ = { green: 4500, yellow: 4300, orange: 4100 };
+
+function birdUnloadColorClass_(rate) {
+  const t = KPI_BIRD_UNLOAD_THRESHOLDS_;
+  if (rate >= t.green) return "kpi-green";
+  if (rate >= t.yellow) return "kpi-yellow";
+  if (rate >= t.orange) return "kpi-orange";
+  return "kpi-red";
+}
+
+function buildBirdUnloadSummary_(dateRows) {
+  const t = KPI_BIRD_UNLOAD_THRESHOLDS_;
+  const withData = dateRows.filter((r) => r.hasData && r.receivedBirds > 0);
+  const totalDays = withData.length;
+
+  const counts = { green: 0, yellow: 0, orange: 0, red: 0 };
+  withData.forEach((r) => {
+    const cls = birdUnloadColorClass_(r.rate);
+    if (cls === "kpi-green") counts.green++;
+    else if (cls === "kpi-yellow") counts.yellow++;
+    else if (cls === "kpi-orange") counts.orange++;
+    else if (cls === "kpi-red") counts.red++;
+  });
+
+  const pct = (n) => (totalDays > 0 ? ((n / totalDays) * 100).toFixed(1) : "0.0");
+
+  return [
+    { key: "green", label: "Good", range: `≥ ${t.green}`, count: counts.green, pct: pct(counts.green) },
+    { key: "yellow", label: "Caution", range: `${t.yellow} – ${t.green}`, count: counts.yellow, pct: pct(counts.yellow) },
+    { key: "orange", label: "Warning", range: `${t.orange} – ${t.yellow}`, count: counts.orange, pct: pct(counts.orange) },
+    { key: "red", label: "Critical", range: `< ${t.orange}`, count: counts.red, pct: pct(counts.red) },
+  ];
+}
+
+async function buildBirdUnloadKpi(year, month) {
+  const rows = await Api.list("Birds_Unloading_Rate_%");
+  const holidayMap = await getHolidayMap_();
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+
+  const dateRows = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+
+    const receivedBirds = dayRows.reduce((s, r) => s + (Number(r.Received_Birds) || 0), 0);
+    const unloadingTime = dayRows.reduce((s, r) => s + (Number(r.Unloading_Time) || 0), 0);
+    const rate = unloadingTime > 0 ? receivedBirds / unloadingTime : 0;
+
+    dateRows.push({
+      day: d,
+      date: dateStr,
+      hasData: dayRows.length > 0,
+      receivedBirds,
+      unloadingTime,
+      rate,
+    });
+  }
+
+  const totalReceived = dateRows.reduce((s, r) => s + r.receivedBirds, 0);
+  const totalTime = dateRows.reduce((s, r) => s + r.unloadingTime, 0);
+  const totalRate = totalTime > 0 ? totalReceived / totalTime : 0;
+
+  return {
+    year, month, daysInMonth, dateRows,
+    totals: { receivedBirds: totalReceived, unloadingTime: totalTime, rate: totalRate },
+    summary: buildBirdUnloadSummary_(dateRows),
+    holidayMap,
+  };
+}
+
+async function buildBirdUnloadYearData_(year) {
+  const rows = await Api.list("Birds_Unloading_Rate_%");
+  const daysInYear = (Number(year) % 4 === 0 && Number(year) % 100 !== 0) || Number(year) % 400 === 0 ? 366 : 365;
+
+  const allDays = [];
+  const startOfYear = new Date(Number(year), 0, 1);
+  for (let i = 0; i < daysInYear; i++) {
+    const d = new Date(startOfYear);
+    d.setDate(startOfYear.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const dayRows = rows.filter((r) => String(r.Date) === dateStr);
+    const receivedBirds = dayRows.reduce((s, r) => s + (Number(r.Received_Birds) || 0), 0);
+    const unloadingTime = dayRows.reduce((s, r) => s + (Number(r.Unloading_Time) || 0), 0);
+    const rate = unloadingTime > 0 ? receivedBirds / unloadingTime : 0;
+
+    allDays.push({
+      date: dateStr,
+      month: d.getMonth() + 1,
+      dayOfYear: i + 1,
+      hasData: dayRows.length > 0 && receivedBirds > 0,
+      receivedBirds,
+      rate,
+    });
+  }
+
+  return allDays;
+}
+
 
 // ===================================================================
 // KPI 05 — Dressed Yield %

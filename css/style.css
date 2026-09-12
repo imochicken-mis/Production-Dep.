@@ -1032,6 +1032,8 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 #view-all-division-consumable .consumable-table td.row-label { width: 300px; text-align: left; }
 #view-all-division-consumable .consumable-table th:not(.row-label),
 #view-all-division-consumable .consumable-table td:not(.row-label) { width: 55px; }
+#view-all-division-consumable .consumable-table th.total-col,
+#view-all-division-consumable .consumable-table td.total-cell {width: 90px; }
 
 /* ===================================================================
    REPORT: Send Notifications
@@ -1122,6 +1124,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
    ============================================================ */
 
 #view-kpi-01 .kpi-bay-mortality-table,
+#view-kpi-02 .kpi-dressed-yield-table,
 #view-kpi-03 .kpi-dressed-yield-table,
 #view-kpi-04 .kpi-dressed-yield-table,
 #view-kpi-05 .kpi-dressed-yield-table,
@@ -1133,6 +1136,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 #view-kpi-01 .kpi-bay-mortality-table td.row-label,
+#view-kpi-02 .kpi-dressed-yield-table td.row-label,
 #view-kpi-03 .kpi-dressed-yield-table td.row-label,
 #view-kpi-04 .kpi-dressed-yield-table td.row-label,
 #view-kpi-05 .kpi-dressed-yield-table td.row-label,
@@ -1145,6 +1149,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 #view-kpi-01 .kpi-bay-mortality-table td,
+#view-kpi-02 .kpi-dressed-yield-table td,
 #view-kpi-03 .kpi-dressed-yield-table td,
 #view-kpi-04 .kpi-dressed-yield-table td,
 #view-kpi-05 .kpi-dressed-yield-table td,
@@ -1157,6 +1162,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 
 /* KPI Tables - date row navy background */
 #view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td,
+#view-kpi-02 .kpi-dressed-yield-table tbody tr:first-child td,
 #view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td,
 #view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td,
 #view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td,
@@ -1169,6 +1175,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 #view-kpi-01 .kpi-bay-mortality-table tbody tr:first-child td.row-label,
+#view-kpi-02 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-03 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-04 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
 #view-kpi-05 .kpi-dressed-yield-table tbody tr:first-child td.row-label,
@@ -1179,21 +1186,25 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 
 /* KPI Color bands */
 #view-kpi-01 .kpi-green,
+#view-kpi-02 .kpi-green,
 #view-kpi-03 .kpi-green,
 #view-kpi-04 .kpi-green,
 #view-kpi-05 .kpi-green,
 #view-kpi-06 .kpi-green { background: #66f182; color: #1b5e20; font-weight: 600; }
 #view-kpi-01 .kpi-yellow,
+#view-kpi-02 .kpi-yellow,
 #view-kpi-03 .kpi-yellow,
 #view-kpi-04 .kpi-yellow,
 #view-kpi-05 .kpi-yellow,
 #view-kpi-06 .kpi-yellow { background: #ffec8a; color: #7a5c00; font-weight: 600; }
 #view-kpi-01 .kpi-orange,
+#view-kpi-02 .kpi-orange,
 #view-kpi-03 .kpi-orange,
 #view-kpi-04 .kpi-orange,
 #view-kpi-05 .kpi-orange,
 #view-kpi-06 .kpi-orange { background: #fbb65c; color: #8a4b00; font-weight: 600; }
 #view-kpi-01 .kpi-red,
+#view-kpi-02 .kpi-red,
 #view-kpi-03 .kpi-red,
 #view-kpi-04 .kpi-red,
 #view-kpi-05 .kpi-red,
