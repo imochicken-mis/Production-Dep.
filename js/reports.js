@@ -771,10 +771,17 @@ async function buildProductionTargetVsActual(year, month) {
 
 const MATERIAL_STOCK_CONFIGS_ = {
   easy: {
-    title: "Easy Material",
-    inSheet: "DataFBPProduction", inCode: "09EM09", inCodeField: "Item_Code", inField: "Weight",
-    outSheet: "DataEasyProduction", outField: "Weight",
+  title: "Easy Material",
+  inSheet: "DataEasyMaterial",        // ⬅️ අලුත් sheet එක
+  inField: "Qty",                     // ⬅️ Qty column එකෙන්
+  // inCode / inCodeField දෙක අයින් කරන්න (අවශ්ය නැහැ)
+  outSheet: "DataEasyProduction", outField: "Weight",
+  outCodeField: "Item_Code",
+  outExcludeCode: "NET_WEIGHT",
+  balanceOverrides: {                 // ⬅️ අලුතින් එකතු කරන්න
+    "2026-08-25": 7286.55,
   },
+},
   giblet: {
     title: "Giblet Material",
     inSheet: "DataFBPProduction", inCode: "09GP09", inCodeField: "Item_Code", inField: "Weight",
@@ -788,7 +795,13 @@ async function buildMaterialStockLedger_(config, year, month) {
     Api.list(config.outSheet),
   ]);
 
-  const inFiltered = inRows.filter((r) => String(r[config.inCodeField]) === config.inCode);
+  const outRowsFiltered = config.outExcludeCode
+    ? outRows.filter((r) => String(r[config.outCodeField]) !== config.outExcludeCode)
+    : outRows;
+
+  const inFiltered = config.inCode
+  ? inRows.filter((r) => String(r[config.inCodeField]) === config.inCode)
+  : inRows;
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const monthStart = `${monthPrefix}01`;
 
@@ -796,9 +809,9 @@ async function buildMaterialStockLedger_(config, year, month) {
   const priorIn = inFiltered
     .filter((r) => String(r.Date) < monthStart)
     .reduce((s, r) => s + (Number(r[config.inField]) || 0), 0);
-  const priorOut = outRows
-    .filter((r) => String(r.Date) < monthStart)
-    .reduce((s, r) => s + (Number(r[config.outField]) || 0), 0);
+  const priorOut = outRowsFiltered                    // ⬅️ outRows → outRowsFiltered
+  .filter((r) => String(r.Date) < monthStart)
+  .reduce((s, r) => s + (Number(r[config.outField]) || 0), 0);
   const openingBalance = priorIn - priorOut;
 
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
@@ -810,10 +823,15 @@ async function buildMaterialStockLedger_(config, year, month) {
     const dayIn = inFiltered
       .filter((r) => String(r.Date) === dateStr)
       .reduce((s, r) => s + (Number(r[config.inField]) || 0), 0);
-    const dayOut = outRows
-      .filter((r) => String(r.Date) === dateStr)
-      .reduce((s, r) => s + (Number(r[config.outField]) || 0), 0);
+    const dayOut = outRowsFiltered                      // ⬅️ outRows → outRowsFiltered
+  .filter((r) => String(r.Date) === dateStr)
+  .reduce((s, r) => s + (Number(r[config.outField]) || 0), 0);
     runningBalance = runningBalance + dayIn - dayOut;
+
+  if (config.balanceOverrides && config.balanceOverrides[dateStr] !== undefined) {
+    runningBalance = config.balanceOverrides[dateStr];
+  }
+
     dateRows.push({ date: dateStr, in: dayIn, out: dayOut, balance: runningBalance });
   }
 
