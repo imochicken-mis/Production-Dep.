@@ -1022,7 +1022,7 @@ async function buildBayMortalityKpi(year, month) {
     const rec = byDay[d];
     days.push({
       day: d,
-      hasData: !!rec,
+      hasData: !!rec && (rec.totalBirds > 0 || rec.bayMortality > 0),
       date: dateStr,
       totalBirds: rec ? rec.totalBirds : null,
       bayMortality: rec ? rec.bayMortality : null,
@@ -1089,7 +1089,7 @@ async function buildBayMortalityYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0,
+      hasData: totalBirds > 0 || bayMortality > 0,
       pct,
     });
   }
@@ -1154,7 +1154,7 @@ async function buildBirdUnloadKpi(year, month) {
     dateRows.push({
       day: d,
       date: dateStr,
-      hasData: dayRows.length > 0,
+      hasData: receivedBirds > 0 || unloadingTime > 0,
       receivedBirds,
       unloadingTime,
       rate,
@@ -1193,7 +1193,7 @@ async function buildBirdUnloadYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0 && receivedBirds > 0,
+      hasData: receivedBirds > 0 || unloadingTime > 0,
       receivedBirds,
       rate,
     });
@@ -1228,7 +1228,7 @@ async function buildDressedYieldKpi(year, month) {
     dateRows.push({
       day: d,
       date: dateStr,
-      hasData: dayRows.length > 0,
+      hasData: liveWeight > 0 || dressedWeight > 0,
       liveWeight,
       dressedWeight,
       yieldPct,
@@ -1317,7 +1317,7 @@ async function buildDressedYieldYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0,
+      hasData: liveWeight > 0 || dressWeight > 0,
       yieldPct: pct,
     });
   }
@@ -1348,7 +1348,7 @@ async function buildChillLossKpi(year, month) {
     dateRows.push({
       day: d,
       date: dateStr,
-      hasData: dayRows.length > 0,
+      hasData: chillWeight > 0 || dressWeight > 0,
       chillWeight,
       dressWeight,
       diff,
@@ -1436,7 +1436,7 @@ async function buildChillLossYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0,
+      hasData: chillWeight > 0 || dressWeight > 0,
       chillLossPct: pct,
     });
   }
@@ -1474,7 +1474,7 @@ async function buildPackingEfficiencyKpi(year, month) {
     days.push({
       day: d,
       date: dateStr,
-      hasData: !!rec,
+      hasData: !!rec && (rec.planned > 0 || rec.actual > 0),
       planned: rec ? rec.planned : null,
       actual: rec ? rec.actual : null,
       pct: rec ? rec.pct : null,
@@ -1540,7 +1540,7 @@ async function buildPackingEfficiencyYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0,
+      hasData: planned > 0 || actual > 0,
       pct,
     });
   }
@@ -1572,7 +1572,7 @@ async function buildSlaughterEfficiencyKpi(year, month) {
     days.push({
       day: d,
       date: dateStr,
-      hasData: dayRows.length > 0,
+      hasData: planned > 0 || actual > 0,
       planned,
       actual,
       pct,
@@ -1638,7 +1638,7 @@ async function buildSlaughterEfficiencyYearData_(year) {
       date: dateStr,
       month: d.getMonth() + 1,
       dayOfYear: i + 1,
-      hasData: dayRows.length > 0,
+      hasData: planned > 0 || actual > 0,
       pct: pct,
     });
   }
