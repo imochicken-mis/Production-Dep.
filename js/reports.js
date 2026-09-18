@@ -708,26 +708,44 @@ async function buildLbTargetVsActual(year, month) {
 // ===================================================================
 
 async function buildProductionTargetVsActual(year, month) {
-  const [forecastRows, fbpRows] = await Promise.all([
-    Api.list("DataProductionForecast"),
+  const [targetRows, fbpRows] = await Promise.all([
+    Api.list("DailyTarget"),           // ⬅️ DataProductionForecast → DailyTarget
     Api.list("DataFBPProduction"),
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
-  const forecastMonth = forecastRows.filter((r) => String(r.Date).startsWith(monthPrefix));
-  const fbpMonth = fbpRows.filter((r) => String(r.Date).startsWith(monthPrefix));
-
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
-  // targetByCode[code][day] = sum, actualByCode[code][day] = sum
+  // ---------------------------------------------------------------
+  // DailyTarget structure (Api.list එකෙන් එන විදිහ):
+  //   targetRows[0]  = { Date: "Date", "01CW01": "Whole Chicken (S)", ... }  ← names row
+  //   targetRows[1+] = { Date: "2026-09-01", "01CW01": 120, ... }              ← actual data
+  // ---------------------------------------------------------------
+  const nameRow = targetRows[0] || {};
+  const itemCodes = Object.keys(nameRow).filter(k => k && k !== 'Date');
+
+  // Item list — DailyTarget sheet එකේ codes + names වලින්ම හදනවා
+  const items = itemCodes.map(code => ({
+    code,
+    name: String(nameRow[code] || ''),
+  }));
+
+  // Target data — names row එක skip කරන්න
+  const targetMonth = targetRows
+    .slice(1)
+    .filter(r => String(r.Date || '').startsWith(monthPrefix));
+
   const targetByCode = {};
-  forecastMonth.forEach((r) => {
-    const code = r.Code || "";
+  targetMonth.forEach((r) => {
     const day = Number(String(r.Date).split("-")[2]);
-    if (!targetByCode[code]) targetByCode[code] = {};
-    targetByCode[code][day] = (targetByCode[code][day] || 0) + (Number(r["Production Weight (Kg)"]) || 0);
+    itemCodes.forEach(code => {
+      if (!targetByCode[code]) targetByCode[code] = {};
+      targetByCode[code][day] = (targetByCode[code][day] || 0) + (Number(r[code]) || 0);
+    });
   });
 
+  // Actual — DataFBPProduction එකෙන් (කලින් වගේම)
+  const fbpMonth = fbpRows.filter(r => String(r.Date).startsWith(monthPrefix));
   const actualByCode = {};
   fbpMonth.forEach((r) => {
     const code = r.Item_Code || "";
@@ -736,7 +754,8 @@ async function buildProductionTargetVsActual(year, month) {
     actualByCode[code][day] = (actualByCode[code][day] || 0) + (Number(r.Weight) || 0);
   });
 
-  const items = TOTAL_PRODUCTION_ITEMS_.map((item) => {
+  // Items × days matrix එක
+  const resultItems = items.map((item) => {
     const targets = [];
     const actuals = [];
     let totalTarget = 0;
@@ -755,13 +774,18 @@ async function buildProductionTargetVsActual(year, month) {
   const dayTargetTotals = [];
   const dayActualTotals = [];
   for (let d = 1; d <= daysInMonth; d++) {
-    dayTargetTotals.push(items.reduce((s, i) => s + i.targets[d - 1], 0));
-    dayActualTotals.push(items.reduce((s, i) => s + i.actuals[d - 1], 0));
+    dayTargetTotals.push(resultItems.reduce((s, i) => s + i.targets[d - 1], 0));
+    dayActualTotals.push(resultItems.reduce((s, i) => s + i.actuals[d - 1], 0));
   }
   const grandTotalTarget = dayTargetTotals.reduce((s, v) => s + v, 0);
   const grandTotalActual = dayActualTotals.reduce((s, v) => s + v, 0);
 
-  return { year, month, daysInMonth, items, dayTargetTotals, dayActualTotals, grandTotalTarget, grandTotalActual };
+  return {
+    year, month, daysInMonth,
+    items: resultItems,
+    dayTargetTotals, dayActualTotals,
+    grandTotalTarget, grandTotalActual,
+  };
 }
 
 // ===================================================================
