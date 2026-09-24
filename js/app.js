@@ -489,6 +489,8 @@ async function renderDressWeightReport(dateStr) {
 }
 
 function renderDressWeightTables_(report) {
+  const hideGibletPetFood = report.hideGibletAndPetFood === true;   // 🆕
+
   // ---- Table 1 ----
   const farmRows = report.farms.map((f) => `
     <tr>
@@ -541,6 +543,20 @@ function renderDressWeightTables_(report) {
 
   const gibletDisplay = report.gibletUse > 0 ? formatNum_(report.gibletUse, 1) : "-";
 
+    // 🆕 Production Report එකේදී මේ rows 4ම hide කරනවා
+  const gibletRow  = hideGibletPetFood
+    ? ""
+    : `<div class="cw-row"><span>Giblet Use for Whole Chicken</span><span>${gibletDisplay}</span></div>`;
+  const petFoodRow = hideGibletPetFood
+    ? ""
+    : `<div class="cw-row"><span>Pet Food from the Easy</span><span>${formatNum_(report.petFood, 1)}</span></div>`;
+  const dressWeightRow = hideGibletPetFood
+    ? ""
+    : `<div class="cw-row cw-total"><span>Dress Weight</span><span>${formatNum_(report.dressWeight, 1)}</span></div>`;
+  const yieldPctRow = hideGibletPetFood
+    ? ""
+    : `<div class="cw-row cw-total"><span>Yeild %</span><span>${formatPct_(report.yieldPct)}</span></div>`;
+
   const table2 = `
     <h3 class="report-subhead">Daily Production Summary</h3>
     <table class="report-table chill-weight-table">
@@ -554,10 +570,10 @@ function renderDressWeightTables_(report) {
     </table>
     <div class="chill-summary">
       <div class="cw-row"><span>Total Finished Goods weight</span><span>${formatNum_(report.totalFinishedGoods, 1)}</span></div>
-      <div class="cw-row"><span>Giblet Use for Whole Chicken</span><span>${gibletDisplay}</span></div>
-      <div class="cw-row"><span>Pet Food from the Easy</span><span>${formatNum_(report.petFood, 1)}</span></div>
-      <div class="cw-row cw-total"><span>Dress Weight</span><span>${formatNum_(report.dressWeight, 1)}</span></div>
-      <div class="cw-row cw-total"><span>Yeild %</span><span>${formatPct_(report.yieldPct)}</span></div>
+      ${gibletRow}
+      ${petFoodRow}
+      ${dressWeightRow}
+      ${yieldPctRow}
     </div>`;
 
   return table1 + table2;
@@ -2723,6 +2739,7 @@ function renderPackingEfficiencySummaryCards_(summary) {
 }
 
 let kpi04ChartInstance_ = null;
+let kpi04MainView_ = "daily";
 
 const packingEfficiencyBandFill_ = {
   id: "packingEfficiencyBandFill",
@@ -2757,9 +2774,17 @@ const packingEfficiencyBandFill_ = {
 function renderPackingEfficiencyChart_(report) {
   const withData = report.days.filter((d) => d.hasData);
 
-  const labels = withData.map((d) => String(d.day).padStart(2, "0"));
-  const actualValues = withData.map((d) => d.pct);
-  const standardValues = withData.map(() => KPI_PACKING_EFFICIENCY_STANDARD_);
+  let labels, actualValues, standardValues;
+  if (kpi04MainView_ === "weekly") {
+    const weekly = aggregateToWeeks_(withData, "pct");
+    labels = weekly.map((w) => w.label);
+    actualValues = weekly.map((w) => w.value);
+    standardValues = weekly.map(() => KPI_PACKING_EFFICIENCY_STANDARD_);
+  } else {
+    labels = withData.map((d) => String(d.day).padStart(2, "0"));
+    actualValues = withData.map((d) => d.pct);
+    standardValues = withData.map(() => KPI_PACKING_EFFICIENCY_STANDARD_);
+  }
 
   if (kpi04ChartInstance_) {
     kpi04ChartInstance_.destroy();
@@ -2807,14 +2832,16 @@ function renderPackingEfficiencyChart_(report) {
           return ctx.index * 40;
         }},
       },
-      scales: {
+            scales: {
         y: { beginAtZero: true, title: { display: true, text: "Efficiency %" } },
-        x: { title: { display: true, text: "Date" } },
+        x: { title: { display: true, text: kpi04MainView_ === "weekly" ? "Week" : "Date" } },
       },
       plugins: {
         title: {
           display: true,
-          text: "Packing Line Efficiency % Trend",
+          text: kpi04MainView_ === "weekly"
+            ? "Weekly Packing Line Efficiency % Trend"
+            : "Daily Packing Line Efficiency % Trend",
           font: { size: 16, weight: "bold" },
           color: "#14213D",
           padding: { top: 4, bottom: 12 },
@@ -2837,6 +2864,25 @@ function renderPackingEfficiencyChart_(report) {
       },
     },
   });
+}
+
+function setupKpi04MainChartToggle_(report) {
+  const dailyBtn  = document.getElementById("kpi04MainViewDaily");
+  const weeklyBtn = document.getElementById("kpi04MainViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi04MainView_ = "daily";
+    dailyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderPackingEfficiencyChart_(report);
+  };
+  weeklyBtn.onclick = () => {
+    kpi04MainView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    dailyBtn.classList.remove("active");
+    renderPackingEfficiencyChart_(report);
+  };
 }
 
 function syncKpi04ChartWidthToTable_() {
@@ -3058,7 +3104,15 @@ async function renderPackingEfficiencyKpi() {
 
     panel.innerHTML =
       renderPackingEfficiencySummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi04Chart" height="90"></canvas></div></div>` +
+            `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi04MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+            <button type="button" id="kpi04MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi04Chart" height="90"></canvas></div>
+      </div>` +
       renderPackingEfficiencyTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -3080,6 +3134,8 @@ async function renderPackingEfficiencyKpi() {
       </div>`;
 
     renderPackingEfficiencyChart_(report);
+    kpi04MainView_ = "daily";
+    setupKpi04MainChartToggle_(report);
     syncKpi04ChartWidthToTable_();
 
     kpi04GoodDaysView_ = "weekly";
@@ -3203,6 +3259,7 @@ async function renderDressedYieldKpi() {
 // ===================================================================
 
 let kpi05ChartInstance_ = null;
+let kpi05MainView_ = "daily";
 
 const dressedYieldBandFill_ = {
   id: "dressedYieldBandFill",
@@ -3241,9 +3298,17 @@ const dressedYieldBandFill_ = {
 function renderDressedYieldChart_(report) {
   const withData = report.dateRows.filter((r) => r.hasData);
 
-  const labels = withData.map((r) => String(r.day).padStart(2, "0"));
-  const actualValues = withData.map((r) => r.yieldPct);
-  const standardValues = withData.map(() => KPI_DRESSED_YIELD_STANDARD_);
+  let labels, actualValues, standardValues;
+  if (kpi05MainView_ === "weekly") {
+    const weekly = aggregateToWeeks_(withData, "yieldPct");
+    labels = weekly.map((w) => w.label);
+    actualValues = weekly.map((w) => w.value);
+    standardValues = weekly.map(() => KPI_DRESSED_YIELD_STANDARD_);
+  } else {
+    labels = withData.map((r) => String(r.day).padStart(2, "0"));
+    actualValues = withData.map((r) => r.yieldPct);
+    standardValues = withData.map(() => KPI_DRESSED_YIELD_STANDARD_);
+  }
 
   if (kpi05ChartInstance_) {
     kpi05ChartInstance_.destroy();
@@ -3296,14 +3361,16 @@ function renderDressedYieldChart_(report) {
           beginAtZero: true,
           title: { display: true, text: "Dressed Yield %" },
         },
-        x: {
-          title: { display: true, text: "Date" },
+                x: {
+          title: { display: true, text: kpi05MainView_ === "weekly" ? "Week" : "Date" },
         },
       },
       plugins: {
         title: {
           display: true,
-          text: "Dressed Yield % Trend",
+          text: kpi05MainView_ === "weekly"
+            ? "Weekly Dressed Yield % Trend"
+            : "Daily Dressed Yield % Trend",
           font: { size: 16, weight: "bold" },
           color: "#14213D",
           padding: { top: 4, bottom: 12 },
@@ -3326,6 +3393,25 @@ function renderDressedYieldChart_(report) {
       },
     },
   });
+}
+
+function setupKpi05MainChartToggle_(report) {
+  const dailyBtn  = document.getElementById("kpi05MainViewDaily");
+  const weeklyBtn = document.getElementById("kpi05MainViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi05MainView_ = "daily";
+    dailyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderDressedYieldChart_(report);
+  };
+  weeklyBtn.onclick = () => {
+    kpi05MainView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    dailyBtn.classList.remove("active");
+    renderDressedYieldChart_(report);
+  };
 }
 
 function syncKpi05ChartWidthToTable_() {
@@ -3501,7 +3587,15 @@ async function renderDressedYieldKpi() {
 
     panel.innerHTML =
       renderDressedYieldSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div></div>` +
+            `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi05MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+            <button type="button" id="kpi05MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div>
+      </div>` +
       renderDressedYieldTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -3523,6 +3617,8 @@ async function renderDressedYieldKpi() {
   </div>`;
 
     renderDressedYieldChart_(report);
+    kpi05MainView_ = "daily";
+    setupKpi05MainChartToggle_(report);
     syncKpi05ChartWidthToTable_();
 
     kpi05GoodDaysView_ = "weekly";
@@ -3617,6 +3713,7 @@ function renderChillLossSummaryCards_(summary) {
 // ===================================================================
 
 let kpi06ChartInstance_ = null;
+let kpi06MainView_ = "daily";
 const KPI_CHILL_LOSS_STANDARD_ = 2;
 
 const chillLossBandFill_ = {
@@ -3656,9 +3753,17 @@ const chillLossBandFill_ = {
 function renderChillLossChart_(report) {
   const withData = report.dateRows.filter((r) => r.hasData);
 
-  const labels = withData.map((r) => String(r.day).padStart(2, "0"));
-  const actualValues = withData.map((r) => r.chillLossPct);
-  const standardValues = withData.map(() => KPI_CHILL_LOSS_STANDARD_);
+  let labels, actualValues, standardValues;
+  if (kpi06MainView_ === "weekly") {
+    const weekly = aggregateToWeeks_(withData, "chillLossPct");
+    labels = weekly.map((w) => w.label);
+    actualValues = weekly.map((w) => w.value);
+    standardValues = weekly.map(() => KPI_CHILL_LOSS_STANDARD_);
+  } else {
+    labels = withData.map((r) => String(r.day).padStart(2, "0"));
+    actualValues = withData.map((r) => r.chillLossPct);
+    standardValues = withData.map(() => KPI_CHILL_LOSS_STANDARD_);
+  }
 
   if (kpi06ChartInstance_) {
     kpi06ChartInstance_.destroy();
@@ -3711,14 +3816,16 @@ function renderChillLossChart_(report) {
           beginAtZero: true,
           title: { display: true, text: "Chill Loss %" },
         },
-        x: {
-          title: { display: true, text: "Date" },
+                x: {
+          title: { display: true, text: kpi06MainView_ === "weekly" ? "Week" : "Date" },
         },
       },
       plugins: {
         title: {
           display: true,
-          text: "Chill Loss % Trend",
+          text: kpi06MainView_ === "weekly"
+            ? "Weekly Chill Loss % Trend"
+            : "Daily Chill Loss % Trend",
           font: { size: 16, weight: "bold" },
           color: "#14213D",
           padding: { top: 4, bottom: 12 },
@@ -3741,6 +3848,25 @@ function renderChillLossChart_(report) {
       },
     },
   });
+}
+
+function setupKpi06MainChartToggle_(report) {
+  const dailyBtn  = document.getElementById("kpi06MainViewDaily");
+  const weeklyBtn = document.getElementById("kpi06MainViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi06MainView_ = "daily";
+    dailyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderChillLossChart_(report);
+  };
+  weeklyBtn.onclick = () => {
+    kpi06MainView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    dailyBtn.classList.remove("active");
+    renderChillLossChart_(report);
+  };
 }
 
 function syncKpi06ChartWidthToTable_() {
@@ -3768,7 +3894,15 @@ async function renderChillLossKpi() {
 
     panel.innerHTML =
       renderChillLossSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div></div>` +
+            `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi06MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+            <button type="button" id="kpi06MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div>
+      </div>` +
       renderChillLossTable_(report) +
             `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -3790,6 +3924,8 @@ async function renderChillLossKpi() {
       </div>`;
 
     renderChillLossChart_(report);
+    kpi06MainView_ = "daily";
+    setupKpi06MainChartToggle_(report);
     syncKpi06ChartWidthToTable_();
 
         kpi06GoodDaysView_ = "weekly";
@@ -4425,6 +4561,7 @@ function renderBirdInputSummaryCards_(summary) {
 }
 
 let kpi03ChartInstance_ = null;
+let kpi03MainView_ = "daily";
 
 const birdInputBandFill_ = {
   id: "birdInputBandFill",
@@ -4454,9 +4591,17 @@ const birdInputBandFill_ = {
 function renderBirdInputChart_(report) {
   const withData = report.days.filter((d) => d.hasData);
 
-  const labels = withData.map((d) => String(d.day).padStart(2, "0"));
-  const actualValues = withData.map((d) => d.pct);
-  const standardValues = withData.map(() => KPI_BIRD_INPUT_STANDARD_);
+  let labels, actualValues, standardValues;
+  if (kpi03MainView_ === "weekly") {
+    const weekly = aggregateToWeeks_(withData, "pct");
+    labels = weekly.map((w) => w.label);
+    actualValues = weekly.map((w) => w.value);
+    standardValues = weekly.map(() => KPI_BIRD_INPUT_STANDARD_);
+  } else {
+    labels = withData.map((d) => String(d.day).padStart(2, "0"));
+    actualValues = withData.map((d) => d.pct);
+    standardValues = withData.map(() => KPI_BIRD_INPUT_STANDARD_);
+  }
 
   if (kpi03ChartInstance_) kpi03ChartInstance_.destroy();
 
@@ -4502,14 +4647,16 @@ function renderBirdInputChart_(report) {
           return ctx.index * 40;
         }},
       },
-      scales: {
+            scales: {
         y: { beginAtZero: true, title: { display: true, text: "Efficiency %" } },
-        x: { title: { display: true, text: "Date" } },
+        x: { title: { display: true, text: kpi03MainView_ === "weekly" ? "Week" : "Date" } },
       },
       plugins: {
         title: {
           display: true,
-          text: "Bird Input Efficiency % Trend",
+          text: kpi03MainView_ === "weekly"
+            ? "Weekly Bird Input Efficiency % Trend"
+            : "Daily Bird Input Efficiency % Trend",
           font: { size: 16, weight: "bold" },
           color: "#14213D",
           padding: { top: 4, bottom: 12 },
@@ -4532,6 +4679,25 @@ function renderBirdInputChart_(report) {
       },
     },
   });
+}
+
+function setupKpi03MainChartToggle_(report) {
+  const dailyBtn  = document.getElementById("kpi03MainViewDaily");
+  const weeklyBtn = document.getElementById("kpi03MainViewWeekly");
+  if (!dailyBtn || !weeklyBtn) return;
+
+  dailyBtn.onclick = () => {
+    kpi03MainView_ = "daily";
+    dailyBtn.classList.add("active");
+    weeklyBtn.classList.remove("active");
+    renderBirdInputChart_(report);
+  };
+  weeklyBtn.onclick = () => {
+    kpi03MainView_ = "weekly";
+    weeklyBtn.classList.add("active");
+    dailyBtn.classList.remove("active");
+    renderBirdInputChart_(report);
+  };
 }
 
 function syncKpi03ChartWidthToTable_() {
@@ -4754,7 +4920,15 @@ async function renderBirdInputEfficiencyKpi() {
 
     panel.innerHTML =
       renderBirdInputSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel"><div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div></div>` +
+            `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar" style="padding:10px 14px 0;">
+          <div class="kpi-view-toggle">
+            <button type="button" id="kpi03MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+            <button type="button" id="kpi03MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
+          </div>
+        </div>
+        <div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div>
+      </div>` + 
       renderBirdInputTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
@@ -4776,6 +4950,8 @@ async function renderBirdInputEfficiencyKpi() {
       </div>`;
 
     renderBirdInputChart_(report);
+    kpi03MainView_ = "daily";              // 🆕 default reset
+    setupKpi03MainChartToggle_(report);    // 🆕 toggle setup
     syncKpi03ChartWidthToTable_();
 
     kpi03GoodDaysView_ = "weekly";
@@ -5030,6 +5206,86 @@ const KPI_CONFIG_NEW = {
     description: "Weight loss during chill process"
   }
 };
+
+// ===================================================================
+// Day-status colour mapping (reuses each KPI's existing colour class)
+// ===================================================================
+const KPI_DAY_STATUS_COLORS_ = {
+  good:     '#2e7d32',
+  caution:  '#d58b00',
+  warning:  '#e65100',
+  critical: '#c62828'
+};
+
+const KPI_CLASS_TO_STATUS_ = {
+  'kpi-green':  'good',
+  'kpi-yellow': 'caution',
+  'kpi-orange': 'warning',
+  'kpi-red':    'critical'
+};
+
+// Which colour class function to use per KPI
+const KPI_COLOR_FN_MAP_ = {
+  'kpi-01': () => bayMortalityColorClass_(),
+  'kpi-02': () => birdUnloadColorClass_(),
+  'kpi-03': () => slaughterEfficiencyColorClass_(),
+  'kpi-04': () => packingEfficiencyColorClass_(),
+  'kpi-05': () => dressedYieldColorClass_(),
+  'kpi-06': () => chillLossColorClass_(),
+};
+
+// Which array + value field to read from each monthly report
+const KPI_MONTH_FIELD_MAP_ = {
+  'kpi-01': { arr: 'days',     field: 'pct' },
+  'kpi-02': { arr: 'dateRows', field: 'rate' },
+  'kpi-03': { arr: 'days',     field: 'pct' },
+  'kpi-04': { arr: 'days',     field: 'pct' },
+  'kpi-05': { arr: 'dateRows', field: 'yieldPct' },
+  'kpi-06': { arr: 'dateRows', field: 'chillLossPct' }
+};
+
+// Resolve the actual colour-class function for a KPI key
+function getKpiColorFn_(kpiKey) {
+  switch (kpiKey) {
+    case 'kpi-01': return bayMortalityColorClass_;
+    case 'kpi-02': return birdUnloadColorClass_;
+    case 'kpi-03': return slaughterEfficiencyColorClass_;
+    case 'kpi-04': return packingEfficiencyColorClass_;
+    case 'kpi-05': return dressedYieldColorClass_;
+    case 'kpi-06': return chillLossColorClass_;
+    default:       return null;
+  }
+}
+
+// Count Good / Caution / Warning / Critical days for the selected month
+function computeMonthDayStatusCounts_(report, kpiKey) {
+  const counts = { good: 0, caution: 0, warning: 0, critical: 0, total: 0 };
+  if (!report) return counts;
+
+  const cfg = KPI_MONTH_FIELD_MAP_[kpiKey];
+  if (!cfg) return counts;
+
+  const rows = report[cfg.arr];
+  if (!Array.isArray(rows)) return counts;
+
+  const colorFn = getKpiColorFn_(kpiKey);
+  if (!colorFn) return counts;
+
+  rows.forEach((r) => {
+    if (!r || r.hasData !== true) return;
+    const val = r[cfg.field];
+    if (val === null || val === undefined || !isFinite(val)) return;
+
+    const cls = colorFn(val);
+    const status = KPI_CLASS_TO_STATUS_[cls];
+    if (status) {
+      counts[status] += 1;
+      counts.total  += 1;
+    }
+  });
+
+  return counts;
+}
 
 // ========== State ==========
 let dashNewState = {
@@ -5291,7 +5547,7 @@ function renderKpiCardsNew(data) {
     const trendClass = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "";
     
     html += `
-      <div class="dash-kpi-card" style="border-left: 4px solid ${config.color}">
+      <div class="dash-kpi-card" style="border-top: 4px solid ${config.color}">
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
         <div class="card-value">
@@ -5528,6 +5784,145 @@ function renderSummaryTable(data) {
   container.innerHTML = html;
 }
 
+// ===================================================================
+// Chart.js plugin — draws total days count in the doughnut centre
+// ===================================================================
+const pieCenterTextPlugin_ = {
+  id: 'pieCenterText',
+  afterDraw(chart) {
+    const { ctx, chartArea, data } = chart;
+    if (!chartArea) return;
+
+    const total = (data.datasets[0].data || []).reduce((s, v) => s + (Number(v) || 0), 0);
+    if (!total) return;
+
+    const centerX = (chartArea.left + chartArea.right) / 2;
+    const centerY = (chartArea.top + chartArea.bottom) / 2;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Number — larger, bold
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillStyle = '#14213D';
+    ctx.fillText(String(total), centerX, centerY - 6);
+
+    // Label — smaller, muted
+    ctx.font = '10px Arial, sans-serif';
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('days', centerX, centerY + 12);
+
+    ctx.restore();
+  }
+};
+
+// ===================================================================
+// Pie Charts — Good / Caution / Warning / Critical days per KPI
+// ===================================================================
+function renderKpiDayPieCharts_(data) {
+  const container = document.getElementById("dashNewPieCharts");
+  if (!container) return;
+
+  const keys = ["kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-05", "kpi-06"];
+
+  // Build card shells
+  let html = "";
+  keys.forEach((key) => {
+    const config = KPI_CONFIG_NEW[key];
+    html += `
+      <div class="dash-pie-card" style="border-bottom: 4px solid ${config.color}">
+        <div class="pie-card-header">
+          <span class="pie-card-icon">${config.icon}</span>
+          <span class="pie-card-title">${config.shortLabel}</span>
+        </div>
+        <div class="pie-chart-wrap">
+          <canvas id="pie-${key}"></canvas>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+
+  // Then draw each pie
+  keys.forEach((key) => renderSinglePieChart_(key, data[key]));
+}
+
+function renderSinglePieChart_(kpiKey, report) {
+  const canvas = document.getElementById(`pie-${kpiKey}`);
+  if (!canvas) return;
+
+  const counts = computeMonthDayStatusCounts_(report, kpiKey);
+
+  // Destroy previous instance
+  if (dashNewState.chartInstances[`pie-${kpiKey}`]) {
+    dashNewState.chartInstances[`pie-${kpiKey}`].destroy();
+    delete dashNewState.chartInstances[`pie-${kpiKey}`];
+  }
+
+  // If no days with data
+  if (counts.total === 0) {
+    canvas.parentElement.innerHTML =
+      `<div class="dash-pie-empty">No data for this month</div>`;
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+
+  const labels = ['Good', 'Caution', 'Warning', 'Critical'];
+  const values = [counts.good, counts.caution, counts.warning, counts.critical];
+  const colors = [
+    KPI_DAY_STATUS_COLORS_.good,
+    KPI_DAY_STATUS_COLORS_.caution,
+    KPI_DAY_STATUS_COLORS_.warning,
+    KPI_DAY_STATUS_COLORS_.critical
+  ];
+
+  dashNewState.chartInstances[`pie-${kpiKey}`] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    plugins: [pieCenterTextPlugin_],
+            options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      layout: {
+        padding: 0                    // ← padding අයින් කරන්න
+      },
+      animation: { duration: 800, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        title:  { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(20, 33, 61, 0.92)',
+          titleColor: '#ffffff',
+          bodyColor: '#ffffff',
+          padding: 8,
+          cornerRadius: 6,
+          callbacks: {
+            label: (ctx) => {
+              const val = ctx.parsed;
+              const pct = counts.total > 0
+                ? ((val / counts.total) * 100).toFixed(1)
+                : '0.0';
+              return ` ${ctx.label}: ${val} day${val !== 1 ? 's' : ''} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
 // ========== Main Render Function ==========
 async function renderDashboardNew() {
   const container = document.getElementById("dashNewCards");
@@ -5555,6 +5950,9 @@ async function renderDashboardNew() {
 
     // Render cards
     renderKpiCardsNew(data);
+
+    // 🆕 Render pie charts (monthly day-status counts)
+    renderKpiDayPieCharts_(data);
 
     // Render charts
     renderAllCharts(yearData, viewMode);

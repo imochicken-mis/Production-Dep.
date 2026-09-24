@@ -1238,9 +1238,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   gap: 16px;
   margin-bottom: 24px;
   padding: 20px 24px;
-  background: linear-gradient(135deg, #f8faff 0%, #eef2f9 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(20, 33, 61, 0.08);
+  background: rgb(244, 244, 244);
+  border: 1px solid white;
+  border-radius: 10px;
 }
 .dash-header-left h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0 0 4px 0; }
 .dash-subtitle { color: #6b7a8f; font-size: 14px; margin: 0; }
@@ -1465,4 +1465,70 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 #view-notify-kpi-06 .kpi-chart-panel {
   padding: 8px 8px !important;
   margin: 12px 0 12px 0 !important;
+}
+
+/* ===================================================================
+   Dashboard — KPI Day-Status Pie Charts (single row, compact)
+   =================================================================== */
+.dash-pie-wrap {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);   /* ← 6 in one row */
+  gap: 10px;
+  margin: 18px 0 8px 0;
+}
+
+@media (max-width: 1200px) {
+  .dash-pie-wrap { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  .dash-pie-wrap { grid-template-columns: repeat(2, 1fr); }
+}
+
+.dash-pie-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 8px 6px 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+}
+
+.pie-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #14213D;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.pie-card-icon {
+  font-size: 12px;
+}
+
+.pie-chart-wrap {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  aspect-ratio: 1 / 1;   /* ← square box — pie එක හැම පැත්තෙන්ම සමාන */
+  max-height: 160px;     /* ← card එක ලොකු වැඩි නොවෙන්න */
+  margin: 0 auto;
+}
+
+.dash-pie-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  font-size: 10px;
+  font-style: italic;
+  text-align: center;
+  padding: 4px;
 }

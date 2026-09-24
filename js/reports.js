@@ -37,6 +37,24 @@ function getBatchNo_(dateStr) {
   return String(year).slice(-2) + String(dayOfYear).padStart(3, "0");
 }
 
+// ===================================================================
+// ITEM KEY HELPER
+// Code "04CP34" (Pet Food) is shared by two items:
+//   - Easy - Pet Food
+//   - Production - Pet Food
+// For this code only, match by CODE + NAME so the two rows stay
+// separate. Every other code still matches by code only.
+// ===================================================================
+const DUAL_NAME_CODES_ = ["04CP34"];
+
+function getItemKey_(code, name) {
+  const c = String(code || "").trim();
+  if (DUAL_NAME_CODES_.includes(c)) {
+    return `${c}|${String(name || "").trim()}`;
+  }
+  return c;
+}
+
 // Fetches raw sheet data, then groups/aggregates in-browser
 async function buildReport(reportKey, dateStr) {
   const config = REPORTS_[reportKey];
@@ -204,17 +222,20 @@ async function buildChillWeightReport(dateStr) {
   const gibletDay = gibletRows.filter((r) => String(r.Date) === dateStr);
   const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
 
-  // Sum weight per item code (handles duplicate codes / multiple entries)
+    // Sum weight per item (code + name for 04CP34, code only for others)
   const weightByCode = {};
   chillDay.forEach((r) => {
-    const code = r.Item_Code || "";
-    weightByCode[code] = (weightByCode[code] || 0) + (Number(r.Weight) || 0);
+    const key = getItemKey_(r.Item_Code, r.Item_Name);
+    weightByCode[key] = (weightByCode[key] || 0) + (Number(r.Weight) || 0);
   });
 
-  const attachValues = (list) => list.map((item) => ({
-    ...item,
-    value: weightByCode[item.code] !== undefined ? weightByCode[item.code] : 0,
-  }));
+  const attachValues = (list) => list.map((item) => {
+    const key = getItemKey_(item.code, item.name);
+    return {
+      ...item,
+      value: weightByCode[key] !== undefined ? weightByCode[key] : 0,
+    };
+  });
 
   const left = attachValues(CHILL_WEIGHT_LEFT_);
   const right = attachValues(CHILL_WEIGHT_RIGHT_);
@@ -307,7 +328,6 @@ const EASY_PRODUCTION_ITEMS_ = [
   { code: "06CE02", name: "Imo Easy 400 g" },
   { code: "06CE03", name: "Imo Easy 700 g" },
   { code: "06CE05", name: "Imo Easy 5kg" },
-  { code: "04CP34", name: "Petfood" },
 ];
 
 async function buildProductionWeightReport(dateStr) {
@@ -336,8 +356,16 @@ async function buildProductionWeightReport(dateStr) {
     ? (totalEasyProductWeight / usedEasyMaterialNetWeight) * 100
     : 0;
 
+  // 🆕 Production Report එකට විතරක් — මේ items 2 table එකෙන් අයින් කරනවා
+  const HIDDEN_ITEM_CODES_ = ["09GP09", "09EM09"];
+  const left  = base.left.filter((i) => !HIDDEN_ITEM_CODES_.includes(i.code));
+  const right = base.right.filter((i) => !HIDDEN_ITEM_CODES_.includes(i.code));
+
   return {
-    ...base,   // date, batchNo, farms, farmTotals, left, right, totalFinishedGoods, gibletUse, petFood, dressWeight, yieldPct
+    ...base,
+    left,
+    right,
+    hideGibletAndPetFood: true,   // 🆕 renderer එකට signal එක
     usedEasyMaterialNetWeight, easyProducts, totalEasyProductWeight, easyYieldPct,
   };
 }
@@ -899,107 +927,150 @@ const YIELD_COLUMNS_ = [
 ];
 
 async function buildYieldReport(year, month) {
-  const [lbRows, renderingRows, chillRows, fgRows] = await Promise.all([
+  // -----------------------------------------------------------------
+  // Source sheets
+  //   DataLBSummary             → LB (birds / weight / mortality)
+  //   DataLBRendering           → Feather / Feet / Offal
+  //   DataPackingChillWeight    → Chill weight
+  //   DataFBPProduction         → FG weight (base)
+  //   DataEasyProduction        → FG weight (additional — NET_WEIGHT excluded)
+  // -----------------------------------------------------------------
+  const [lbRows, renderingRows, chillRows, fgRows, easyRows] = await Promise.all([
     Api.list("DataLBSummary"),
     Api.list("DataLBRendering"),
     Api.list("DataPackingChillWeight"),
     Api.list("DataFBPProduction"),
+    Api.list("DataEasyProduction"),
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
+  const sumField = (rows, key) =>
+    rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
   const dateRows = [];
+
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
 
-    const lbForDate = lbRows.filter((r) => String(r.Date) === dateStr);
-    const renderForDate = renderingRows.filter((r) => String(r.Date) === dateStr);
-    const chillForDate = chillRows.filter((r) => String(r.Date) === dateStr);
-    const fgForDate = fgRows.filter((r) => String(r.Date) === dateStr);
+    // Filter rows for this date (from each sheet)
+    const lbForDate      = lbRows.filter((r) => String(r.Date) === dateStr);
+    const renderForDate  = renderingRows.filter((r) => String(r.Date) === dateStr);
+    const chillForDate   = chillRows.filter((r) => String(r.Date) === dateStr);
+    const fgForDate      = fgRows.filter((r) => String(r.Date) === dateStr);
+    const easyForDate    = easyRows.filter((r) => String(r.Date) === dateStr);
 
-    if (!lbForDate.length && !renderForDate.length && !chillForDate.length && !fgForDate.length) {
+    // No data in ANY sheet for this date → empty row
+    if (!lbForDate.length && !renderForDate.length && !chillForDate.length
+        && !fgForDate.length && !easyForDate.length) {
       dateRows.push({ date: dateStr, hasData: false, metrics: {} });
       continue;
     }
 
-    const sumField = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
-
-    const birdsReceived   = sumField(lbForDate, "No_of_birds");
-    const transportMort   = sumField(lbForDate, "Transport_Mortality");
-    const bayMort         = sumField(lbForDate, "Bay_Mortality");
-    const rejectBirds     = sumField(lbForDate, "Number_of_Halal_rejected_birds") + sumField(lbForDate, "Number_of_other_rejected_birds");
-    const birdsToPlant    = sumField(lbForDate, "No_of_birds_to_plant");
+    // ---- LB metrics ----
+    const birdsReceived     = sumField(lbForDate, "No_of_birds");
+    const transportMort     = sumField(lbForDate, "Transport_Mortality");
+    const bayMort           = sumField(lbForDate, "Bay_Mortality");
+    const rejectBirds       = sumField(lbForDate, "Number_of_Halal_rejected_birds")
+                            + sumField(lbForDate, "Number_of_other_rejected_birds");
+    const birdsToPlant      = sumField(lbForDate, "No_of_birds_to_plant");
     const liveWeightToPlant = sumField(lbForDate, "Live_weight_to_plant");
-    const avgBodyWeight   = birdsToPlant > 0 ? liveWeightToPlant / birdsToPlant : 0;
+    const avgBodyWeight     = birdsToPlant > 0 ? liveWeightToPlant / birdsToPlant : 0;
 
-    const feather = sumField(renderForDate, "Feather");
-    const feet    = sumField(renderForDate, "Feet");
-    const offal   = sumField(renderForDate, "Offal");
-    const totalFFO = feather + feet + offal;
+    // ---- Rendering metrics ----
+    const feather   = sumField(renderForDate, "Feather");
+    const feet      = sumField(renderForDate, "Feet");
+    const offal     = sumField(renderForDate, "Offal");
+    const totalFFO  = feather + feet + offal;
+    const yieldBF   = liveWeightToPlant > 0
+      ? (liveWeightToPlant - totalFFO) / liveWeightToPlant
+      : 0;
 
-    const yieldBF = liveWeightToPlant > 0 ? (liveWeightToPlant - totalFFO) / liveWeightToPlant : 0;
-
+    // ---- Chill weight ----
     const chillWeight = sumField(chillForDate, "Weight");
-    const fgWeight = sumField(fgForDate, "Weight"); // ⚠️ confirm exact column name in DataFBPProduction
 
-    const finalYield = liveWeightToPlant > 0 ? fgWeight / liveWeightToPlant : 0;
-    const chillLoss = fgWeight > 0 ? (chillWeight-fgWeight) / fgWeight : 0;
-    const screwAbsorption = yieldBF - chillLoss;
+    // ---- FG Weight ----
+    // FG weight = FBP Production Weight + Easy Production Weight
+    //   → Easy Production වල "NET_WEIGHT" items exclude කරනවා
+    const fbpFgWeight  = sumField(fgForDate, "Weight");
+    const easyFgWeight = easyForDate
+      .filter((r) => String(r.Item_Code) !== "NET_WEIGHT")
+      .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+    const fgWeight = fbpFgWeight + easyFgWeight;
+
+    // ---- Derived yields ----
+    const finalYield       = liveWeightToPlant > 0 ? fgWeight / liveWeightToPlant : 0;
+    const chillLoss        = fgWeight > 0 ? (chillWeight - fgWeight) / fgWeight : 0;
+    const screwAbsorption  = yieldBF - chillLoss;
 
     dateRows.push({
       date: dateStr,
       hasData: true,
       metrics: {
-        No_of_birds: birdsReceived,
-        Transport_Mortality: transportMort,
-        Bay_Mortality: bayMort,
-        RejectBirds: rejectBirds,
-        No_of_birds_to_plant: birdsToPlant,
-        Live_weight_to_plant: liveWeightToPlant,
-        AvgBodyWeight: avgBodyWeight,
-        Feather: feather,
-        Feet: feet,
-        Offal: offal,
-        TotalFFO: totalFFO,
-        YieldBF: yieldBF,
-        ChillWeight: chillWeight,
-        FGWeight: fgWeight,
-        FinalYield: finalYield,
-        ChillLoss: chillLoss,
-        ScrewAbsorption: screwAbsorption,
+        No_of_birds:            birdsReceived,
+        Transport_Mortality:    transportMort,
+        Bay_Mortality:          bayMort,
+        RejectBirds:            rejectBirds,
+        No_of_birds_to_plant:   birdsToPlant,
+        Live_weight_to_plant:   liveWeightToPlant,
+        AvgBodyWeight:          avgBodyWeight,
+        Feather:                feather,
+        Feet:                   feet,
+        Offal:                  offal,
+        TotalFFO:               totalFFO,
+        YieldBF:                yieldBF,
+        ChillWeight:            chillWeight,
+        FGWeight:               fgWeight,
+        FinalYield:             finalYield,
+        ChillLoss:              chillLoss,
+        ScrewAbsorption:        screwAbsorption,
       },
     });
   }
 
-  // Totals — computed from summed raw values, NOT an average of daily percentages
+  // ===================================================================
+  // Totals — computed from summed raw values, NOT an average of daily %
+  // ===================================================================
   const dataRows = dateRows.filter((r) => r.hasData);
   const sum = (key) => dataRows.reduce((s, r) => s + (r.metrics[key] || 0), 0);
 
-  const tBirdsReceived = sum("No_of_birds");
-  const tTransportMort = sum("Transport_Mortality");
-  const tBayMort = sum("Bay_Mortality");
-  const tRejectBirds = sum("RejectBirds");
-  const tBirdsToPlant = sum("No_of_birds_to_plant");
-  const tLiveWeight = sum("Live_weight_to_plant");
-  const tAvgBodyWeight = tBirdsToPlant > 0 ? tLiveWeight / tBirdsToPlant : 0;
-  const tFeather = sum("Feather");
-  const tFeet = sum("Feet");
-  const tOffal = sum("Offal");
-  const tTotalFFO = tFeather + tFeet + tOffal;
-  const tYieldBF = tLiveWeight > 0 ? (tLiveWeight - tTotalFFO) / tLiveWeight : 0;
-  const tChillWeight = sum("ChillWeight");
-  const tFGWeight = sum("FGWeight");
-  const tFinalYield = tLiveWeight > 0 ? tFGWeight / tLiveWeight : 0;
-  const tChillLoss = tFGWeight > 0 ? tChillWeight / tFGWeight : 0;
-  const tScrewAbsorption = tYieldBF - tChillLoss;
+  const tBirdsReceived    = sum("No_of_birds");
+  const tTransportMort    = sum("Transport_Mortality");
+  const tBayMort          = sum("Bay_Mortality");
+  const tRejectBirds      = sum("RejectBirds");
+  const tBirdsToPlant     = sum("No_of_birds_to_plant");
+  const tLiveWeight       = sum("Live_weight_to_plant");
+  const tAvgBodyWeight    = tBirdsToPlant > 0 ? tLiveWeight / tBirdsToPlant : 0;
+  const tFeather          = sum("Feather");
+  const tFeet             = sum("Feet");
+  const tOffal            = sum("Offal");
+  const tTotalFFO         = tFeather + tFeet + tOffal;
+  const tYieldBF          = tLiveWeight > 0 ? (tLiveWeight - tTotalFFO) / tLiveWeight : 0;
+  const tChillWeight      = sum("ChillWeight");
+  const tFGWeight         = sum("FGWeight");
+  const tFinalYield       = tLiveWeight > 0 ? tFGWeight / tLiveWeight : 0;
+  const tChillLoss        = tFGWeight > 0 ? tChillWeight / tFGWeight : 0;
+  const tScrewAbsorption  = tYieldBF - tChillLoss;
 
   const totals = {
-    No_of_birds: tBirdsReceived, Transport_Mortality: tTransportMort, Bay_Mortality: tBayMort,
-    RejectBirds: tRejectBirds, No_of_birds_to_plant: tBirdsToPlant, Live_weight_to_plant: tLiveWeight,
-    AvgBodyWeight: tAvgBodyWeight, Feather: tFeather, Feet: tFeet, Offal: tOffal, TotalFFO: tTotalFFO,
-    YieldBF: tYieldBF, ChillWeight: tChillWeight, FGWeight: tFGWeight, FinalYield: tFinalYield,
-    ChillLoss: tChillLoss, ScrewAbsorption: tScrewAbsorption,
+    No_of_birds:            tBirdsReceived,
+    Transport_Mortality:    tTransportMort,
+    Bay_Mortality:          tBayMort,
+    RejectBirds:            tRejectBirds,
+    No_of_birds_to_plant:   tBirdsToPlant,
+    Live_weight_to_plant:   tLiveWeight,
+    AvgBodyWeight:          tAvgBodyWeight,
+    Feather:                tFeather,
+    Feet:                   tFeet,
+    Offal:                  tOffal,
+    TotalFFO:               tTotalFFO,
+    YieldBF:                tYieldBF,
+    ChillWeight:            tChillWeight,
+    FGWeight:               tFGWeight,
+    FinalYield:             tFinalYield,
+    ChillLoss:              tChillLoss,
+    ScrewAbsorption:        tScrewAbsorption,
   };
 
   return { year, month, dateRows, totals };
