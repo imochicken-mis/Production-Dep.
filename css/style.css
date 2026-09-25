@@ -1352,6 +1352,27 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .dash-kpi-card .card-bar { width: 100%; height: 4px; background: #e9ecef; border-radius: 4px; margin-top: 10px; overflow: hidden; }
 .dash-kpi-card .card-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
 
+.dash-kpi-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.dash-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
+}
+
+.dash-kpi-card:active {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.dash-kpi-card:focus {
+  outline: 2px solid #0b3475;
+  outline-offset: 2px;
+}
+
 /* Charts Grid */
 .dash-charts-grid {
   display: grid;

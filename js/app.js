@@ -660,34 +660,22 @@ function renderEasyProductionTable_(report) {
 
   return `
     <h3 class="report-subhead">Daily Easy Production Summary</h3>
-
-    <div class="easy-subsection">
-      <div class="easy-subhead">• Daily Easy Material Input Summery</div>
-      <div class="easy-net-weight-row">
-        <span>Used Easy Material Net Weight</span>
-        <span class="easy-net-weight-value">${formatNum_(report.usedEasyMaterialNetWeight, 1)}</span>
-      </div>
-    </div>
-
-    <div class="easy-subsection">
-      <div class="easy-subhead">• Daily Easy Product Output Summery</div>
-      <table class="report-table easy-product-table">
-        <thead>
-          <tr><th>Item Code</th><th>Product Name</th><th>Weight (Kg)</th></tr>
-        </thead>
-        <tbody>${productRows}</tbody>
-        <tfoot>
-          <tr class="bold-row">
-            <td colspan="2">Total Easy Product Weight</td>
-            <td>${formatNum_(report.totalEasyProductWeight, 1)}</td>
-          </tr>
-          <tr class="bold-row">
-            <td colspan="2">Yield (%)</td>
-            <td>${formatPct_(report.easyYieldPct)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+    <table class="report-table easy-product-table">
+      <thead>
+        <tr><th>Item Code</th><th>Product Name</th><th>Weight (Kg)</th></tr>
+      </thead>
+      <tbody>${productRows}</tbody>
+      <tfoot>
+        <tr class="bold-row">
+          <td colspan="2">Total Easy Product Weight</td>
+          <td>${formatNum_(report.totalEasyProductWeight, 1)}</td>
+        </tr>
+        <tr class="bold-row">
+          <td colspan="2">Yield (%)</td>
+          <td>${formatPct_(report.easyYieldPct)}</td>
+        </tr>
+      </tfoot>
+    </table>
   `;
 }
 
@@ -1910,9 +1898,12 @@ function renderBayMortalityChart_(report) {
   window.currentKpi01Report_ = report; // stash so the toggle can redraw without refetching
   const buckets = computeKpi01TrendBuckets_(report.days, kpi01TrendView_);
 
-  const labels = buckets.map((b) => b.label);
+    const labels = buckets.map((b) => b.label);
   const actualValues = buckets.map((b) => b.pct);
   const standardValues = buckets.map(() => KPI_BAY_MORTALITY_STANDARD_);
+
+  // 🆕 Tight Y-axis range
+  const yRange = computeKpiChartYRange_(actualValues, KPI_BAY_MORTALITY_STANDARD_);
 
   if (kpi01ChartInstance_) {
     kpi01ChartInstance_.destroy();
@@ -1964,8 +1955,10 @@ function renderBayMortalityChart_(report) {
     }},
   },
   scales: {
-    y: {
-      beginAtZero: true,
+        y: {
+      beginAtZero: false,
+      suggestedMin: yRange.suggestedMin,
+      suggestedMax: yRange.suggestedMax,
       title: { display: true, text: "Bay Mortality %" },
     },
     x: {
@@ -2353,6 +2346,8 @@ function renderBirdUnloadChart_(report) {
     standardValues = withData.map(() => KPI_BIRD_UNLOAD_STANDARD_);
   }
 
+    // 🆕 Tight Y-axis range
+  const yRange = computeKpiChartYRange_(actualValues, KPI_BIRD_UNLOAD_STANDARD_);
   if (kpi02ChartInstance_) kpi02ChartInstance_.destroy();
 
   const ctx = document.getElementById("kpi02Chart").getContext("2d");
@@ -2397,7 +2392,12 @@ function renderBirdUnloadChart_(report) {
         }},
       },
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: "Birds/Hour" } },
+                y: {
+          beginAtZero: false,
+          suggestedMin: yRange.suggestedMin,
+          suggestedMax: yRange.suggestedMax,
+          title: { display: true, text: "Birds/Hour" }
+        },
         x: { title: { display: true, text: kpi02MainChartView_ === "weekly" ? "Week" : "Date" } },
       },
       plugins: {
@@ -2786,6 +2786,8 @@ function renderPackingEfficiencyChart_(report) {
     standardValues = withData.map(() => KPI_PACKING_EFFICIENCY_STANDARD_);
   }
 
+    const yRange = computeKpiChartYRange_(actualValues, KPI_PACKING_EFFICIENCY_STANDARD_);
+
   if (kpi04ChartInstance_) {
     kpi04ChartInstance_.destroy();
   }
@@ -2833,7 +2835,12 @@ function renderPackingEfficiencyChart_(report) {
         }},
       },
             scales: {
-        y: { beginAtZero: true, title: { display: true, text: "Efficiency %" } },
+                y: {
+          beginAtZero: false,
+          suggestedMin: yRange.suggestedMin,
+          suggestedMax: yRange.suggestedMax,
+          title: { display: true, text: "Efficiency %" }
+        },
         x: { title: { display: true, text: kpi04MainView_ === "weekly" ? "Week" : "Date" } },
       },
       plugins: {
@@ -3310,6 +3317,8 @@ function renderDressedYieldChart_(report) {
     standardValues = withData.map(() => KPI_DRESSED_YIELD_STANDARD_);
   }
 
+    const yRange = computeKpiChartYRange_(actualValues, KPI_DRESSED_YIELD_STANDARD_);
+
   if (kpi05ChartInstance_) {
     kpi05ChartInstance_.destroy();
   }
@@ -3357,8 +3366,10 @@ function renderDressedYieldChart_(report) {
         }},
       },
       scales: {
-        y: {
-          beginAtZero: true,
+                y: {
+          beginAtZero: false,
+          suggestedMin: yRange.suggestedMin,
+          suggestedMax: yRange.suggestedMax,
           title: { display: true, text: "Dressed Yield %" },
         },
                 x: {
@@ -3765,6 +3776,8 @@ function renderChillLossChart_(report) {
     standardValues = withData.map(() => KPI_CHILL_LOSS_STANDARD_);
   }
 
+    const yRange = computeKpiChartYRange_(actualValues, KPI_CHILL_LOSS_STANDARD_);
+
   if (kpi06ChartInstance_) {
     kpi06ChartInstance_.destroy();
   }
@@ -3812,8 +3825,10 @@ function renderChillLossChart_(report) {
         }},
       },
       scales: {
-        y: {
-          beginAtZero: true,
+                y: {
+          beginAtZero: false,
+          suggestedMin: yRange.suggestedMin,
+          suggestedMax: yRange.suggestedMax,
           title: { display: true, text: "Chill Loss %" },
         },
                 x: {
@@ -4603,6 +4618,8 @@ function renderBirdInputChart_(report) {
     standardValues = withData.map(() => KPI_BIRD_INPUT_STANDARD_);
   }
 
+    const yRange = computeKpiChartYRange_(actualValues, KPI_BIRD_INPUT_STANDARD_);
+
   if (kpi03ChartInstance_) kpi03ChartInstance_.destroy();
 
   const ctx = document.getElementById("kpi03Chart").getContext("2d");
@@ -4648,7 +4665,12 @@ function renderBirdInputChart_(report) {
         }},
       },
             scales: {
-        y: { beginAtZero: true, title: { display: true, text: "Efficiency %" } },
+                y: {
+          beginAtZero: false,
+          suggestedMin: yRange.suggestedMin,
+          suggestedMax: yRange.suggestedMax,
+          title: { display: true, text: "Efficiency %" }
+        },
         x: { title: { display: true, text: kpi03MainView_ === "weekly" ? "Week" : "Date" } },
       },
       plugins: {
@@ -5546,8 +5568,13 @@ function renderKpiCardsNew(data) {
                         trend.direction === "down" ? `▼ ${trend.value.toFixed(1)}%` : "—";
     const trendClass = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "";
     
-    html += `
-      <div class="dash-kpi-card" style="border-top: 4px solid ${config.color}">
+        html += `
+      <div class="dash-kpi-card" 
+           data-kpi="${key}"
+           role="button"
+           tabindex="0"
+           title="Open ${config.label} KPI"
+           style="border-left: 4px solid ${config.color}">
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
         <div class="card-value">
@@ -5564,7 +5591,25 @@ function renderKpiCardsNew(data) {
     `;
   });
   
-  container.innerHTML = html;
+    container.innerHTML = html;
+
+  // 🆕 Click / keyboard handlers — අදාළ KPI tab එකට navigate කරන්න
+  container.querySelectorAll(".dash-kpi-card").forEach((card) => {
+    const kpiKey = card.dataset.kpi;
+    if (!kpiKey) return;
+
+    card.addEventListener("click", () => {
+      if (typeof showView === "function") showView(kpiKey);
+    });
+
+    // Keyboard accessibility — Enter / Space එකෙන් navigate
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (typeof showView === "function") showView(kpiKey);
+      }
+    });
+  });
 }
 
 // ========== Render Individual Chart ==========

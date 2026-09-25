@@ -38,6 +38,42 @@ function getBatchNo_(dateStr) {
 }
 
 // ===================================================================
+// Compute a tight Y-axis range for KPI main charts
+//   - Uses only actual data points + the standard line
+//   - Adds 15% padding above and below
+//   - Handles flat lines and negative values
+// ===================================================================
+function computeKpiChartYRange_(actualValues, standardValue) {
+  const clean = (actualValues || []).filter(
+    (v) => v !== null && v !== undefined && isFinite(v)
+  );
+  const std = (standardValue !== null && standardValue !== undefined && isFinite(standardValue))
+    ? Number(standardValue)
+    : null;
+
+  const all = std !== null ? [...clean, std] : clean;
+  if (!all.length) return { suggestedMin: undefined, suggestedMax: undefined };
+
+  let min = Math.min(...all);
+  let max = Math.max(...all);
+
+  // Flat line — give breathing room
+  if (min === max) {
+    const delta = Math.abs(min) * 0.1 || 1;
+    min -= delta;
+    max += delta;
+  }
+
+  const range = max - min;
+  const pad = range * 0.15;   // 15% padding
+
+  return {
+    suggestedMin: min - pad,
+    suggestedMax: max + pad
+  };
+}
+
+// ===================================================================
 // ITEM KEY HELPER
 // Code "04CP34" (Pet Food) is shared by two items:
 //   - Easy - Pet Food
@@ -242,8 +278,9 @@ async function buildChillWeightReport(dateStr) {
 
   const totalFinishedGoods = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
   const gibletUse = gibletDay.reduce((s, r) => s + (Number(r.Qty) || 0), 0);
-  const petFood = fbpDay
-    .filter((r) => String(r.Item_Code) === "04CP34")
+    const petFood = fbpDay
+    .filter((r) => String(r.Item_Code) === "04CP34" &&
+                   String(r.Item_Name || "").trim() === "Easy - Pet Food")
     .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
   const chillWeight = totalFinishedGoods - (gibletUse + petFood);
 
@@ -284,25 +321,29 @@ async function buildDressWeightReport(dateStr) {
     liveWeightToPlant: farms.reduce((s, f) => s + f.liveWeightToPlant, 0),
   };
 
-  // ---- Table 2: item weights from DataFBPProduction (reuses Chill Weight item list) ----
+    // ---- Table 2: item weights from DataFBPProduction ----
   const weightByCode = {};
   fbpDay.forEach((r) => {
-    const code = r.Item_Code || "";
-    weightByCode[code] = (weightByCode[code] || 0) + (Number(r.Weight) || 0);
+    const key = getItemKey_(r.Item_Code, r.Item_Name);
+    weightByCode[key] = (weightByCode[key] || 0) + (Number(r.Weight) || 0);
   });
 
-  const attachValues = (list) => list.map((item) => ({
-    ...item,
-    value: weightByCode[item.code] !== undefined ? weightByCode[item.code] : 0,
-  }));
+  const attachValues = (list) => list.map((item) => {
+    const key = getItemKey_(item.code, item.name);
+    return {
+      ...item,
+      value: weightByCode[key] !== undefined ? weightByCode[key] : 0,
+    };
+  });
 
   const left = attachValues(CHILL_WEIGHT_LEFT_);
   const right = attachValues(CHILL_WEIGHT_RIGHT_);
 
   const totalFinishedGoods = [...left, ...right].reduce((s, i) => s + i.value, 0);
   const gibletUse = gibletDay.reduce((s, r) => s + (Number(r.Qty) || 0), 0);
-  const petFood = fbpDay
-    .filter((r) => String(r.Item_Code) === "04CP34")
+    const petFood = fbpDay
+    .filter((r) => String(r.Item_Code) === "04CP34" &&
+                   String(r.Item_Name || "").trim() === "Easy - Pet Food")
     .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
 
   const dressWeight = totalFinishedGoods - (gibletUse + petFood);
@@ -356,16 +397,21 @@ async function buildProductionWeightReport(dateStr) {
     ? (totalEasyProductWeight / usedEasyMaterialNetWeight) * 100
     : 0;
 
-  // 🆕 Production Report එකට විතරක් — මේ items 2 table එකෙන් අයින් කරනවා
+    // 🆕 Production Report එකට විතරක් — මේ items 2 table එකෙන් අයින් කරනවා
   const HIDDEN_ITEM_CODES_ = ["09GP09", "09EM09"];
   const left  = base.left.filter((i) => !HIDDEN_ITEM_CODES_.includes(i.code));
   const right = base.right.filter((i) => !HIDDEN_ITEM_CODES_.includes(i.code));
+
+  // 🆕 Total Finished Goods — visible items වලින් විතරයි recalculate කරනවා
+  //     (09GP09 සහ 09EM09 values අයින් වෙලා)
+  const totalFinishedGoods = [...left, ...right].reduce((s, i) => s + i.value, 0);
 
   return {
     ...base,
     left,
     right,
-    hideGibletAndPetFood: true,   // 🆕 renderer එකට signal එක
+    totalFinishedGoods,        // ← base එකේ value එක override කරනවා
+    hideGibletAndPetFood: true,
     usedEasyMaterialNetWeight, easyProducts, totalEasyProductWeight, easyYieldPct,
   };
 }
@@ -384,23 +430,24 @@ async function buildChillVsDressReport(dateStr) {
   const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
   const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
 
-  const chillByCode = {};
+    const chillByCode = {};
   chillDay.forEach((r) => {
-    const code = r.Item_Code || "";
-    chillByCode[code] = (chillByCode[code] || 0) + (Number(r.Weight) || 0);
+    const key = getItemKey_(r.Item_Code, r.Item_Name);
+    chillByCode[key] = (chillByCode[key] || 0) + (Number(r.Weight) || 0);
   });
 
   const dressByCode = {};
   fbpDay.forEach((r) => {
-    const code = r.Item_Code || "";
-    dressByCode[code] = (dressByCode[code] || 0) + (Number(r.Weight) || 0);
+    const key = getItemKey_(r.Item_Code, r.Item_Name);
+    dressByCode[key] = (dressByCode[key] || 0) + (Number(r.Weight) || 0);
   });
 
   const allItems = [...CHILL_WEIGHT_LEFT_, ...CHILL_WEIGHT_RIGHT_];
 
   const items = allItems.map((item) => {
-  const chillWeight = chillByCode[item.code] !== undefined ? chillByCode[item.code] : 0;
-  const dressWeight = dressByCode[item.code] !== undefined ? dressByCode[item.code] : 0;
+  const key = getItemKey_(item.code, item.name);
+  const chillWeight = chillByCode[key] !== undefined ? chillByCode[key] : 0;
+  const dressWeight = dressByCode[key] !== undefined ? dressByCode[key] : 0;
   const difference = chillWeight - dressWeight;
   const differencePct = chillWeight > 0 ? (difference / chillWeight) * 100 : 0;
   return {
@@ -508,13 +555,14 @@ async function buildTotalProductionSummary(year, month) {
 
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
-  // weightByCode[itemCode][day] = summed weight — from DataFBPProduction (default source)
+    // weightByCode[itemKey][day] = summed weight
+  //   - itemKey = code for all items, except 04CP34 which is code + name
   const weightByCode = {};
   fbpMonth.forEach((r) => {
-    const code = r.Item_Code || "";
+    const key = getItemKey_(r.Item_Code, r.Item_Name);
     const day = Number(String(r.Date).split("-")[2]);
-    if (!weightByCode[code]) weightByCode[code] = {};
-    weightByCode[code][day] = (weightByCode[code][day] || 0) + (Number(r.Weight) || 0);
+    if (!weightByCode[key]) weightByCode[key] = {};
+    weightByCode[key][day] = (weightByCode[key][day] || 0) + (Number(r.Weight) || 0);
   });
 
   // gibletByDay[day] = summed Qty — from DataPackingGiblet, for "Giblet Use for Whole Chicken"
@@ -544,8 +592,9 @@ async function buildTotalProductionSummary(year, month) {
         v = gibletByDay[d] || 0;
       } else if (EASY_CODES_.includes(item.code)) {
         v = (easyByCode[item.code] && easyByCode[item.code][d]) || 0;
-      } else {
-        v = (weightByCode[item.code] && weightByCode[item.code][d]) || 0;
+            } else {
+        const key = getItemKey_(item.code, item.name);
+        v = (weightByCode[key] && weightByCode[key][d]) || 0;
       }
       values.push(v);
       rowTotal += v;
