@@ -251,7 +251,7 @@ async function buildChillWeightReport(dateStr) {
   const [chillRows, gibletRows, fbpRows] = await Promise.all([
     Api.list("DataPackingChillWeight"),
     Api.list("DataPackingGiblet"),
-    Api.list("DataFBPProduction"),
+    Api.list("DataPackingChillWeight"),
   ]);
 
   const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
