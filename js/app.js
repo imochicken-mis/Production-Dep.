@@ -1749,7 +1749,7 @@ function updateKpiHeader(kpiKey, standard, workingDays) {
   let standardDisplay;
   
   if (kpiKey === 'kpi-01') {
-    standardDisplay = '0.05%';
+    standardDisplay = '≤ 0.05%';
   } else if (kpiKey === 'kpi-02') {
     standardDisplay = '4500 birds/hr';
   } else if (kpiKey === 'kpi-03') {
@@ -1916,7 +1916,7 @@ function renderBayMortalityChart_(report) {
       labels,
       datasets: [
         {
-          label: "Actual Bay Mortality %",
+          label: "Actual %",
           data: actualValues,
           borderColor: "#2c4a7c",
           backgroundColor: "transparent",
@@ -1927,7 +1927,7 @@ function renderBayMortalityChart_(report) {
           pointBackgroundColor: "#2c4a7c",
         },
         {
-          label: "Standard (0.05%)",
+          label: "Standard (≤ 0.05%)",
           data: standardValues,
           borderColor: "#c0564a",
           borderWidth: 2,
@@ -1965,22 +1965,16 @@ function renderBayMortalityChart_(report) {
       title: { display: true, text: "Date" },
     },
   },
-  plugins: {
-          title: {
-        display: true,
-        text: kpi01TrendView_ === "weekly" ? "Weekly Bay Mortality % Trend" : "Daily Bay Mortality % Trend",
-        font: { size: 16, weight: "bold" },
-        color: "#14213D",
-        padding: { top: 4, bottom: 12 },
-      },
+    plugins: {
+    title: { display: false },
     legend: { position: "top" },
     tooltip: {
   mode: "index",
   intersect: false,
   callbacks: {
     afterBody(tooltipItems) {
-      const actual = tooltipItems.find((t) => t.dataset.label === "Actual Bay Mortality %");
-      const standard = tooltipItems.find((t) => t.dataset.label === "Standard (0.05%)");
+      const actual = tooltipItems.find((t) => t.dataset.label === "Actual %");
+      const standard = tooltipItems.find((t) => t.dataset.label === "Standard (≤ 0.05%)");
       if (!actual || !standard) return "";
       const gap = actual.parsed.y - standard.parsed.y;
       const sign = gap >= 0 ? "+" : "";
@@ -2009,16 +2003,20 @@ function setupKpi01TrendToggle_() {
   const weeklyBtn = document.getElementById("kpi01TrendViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi01TrendView_ = "daily";
     dailyBtn.classList.add("active");
     weeklyBtn.classList.remove("active");
+    const titleEl = document.getElementById("kpi01ChartTitle");
+    if (titleEl) titleEl.textContent = "Daily Bay Mortality % Trend";
     if (window.currentKpi01Report_) renderBayMortalityChart_(window.currentKpi01Report_);
   };
   weeklyBtn.onclick = () => {
     kpi01TrendView_ = "weekly";
     weeklyBtn.classList.add("active");
     dailyBtn.classList.remove("active");
+    const titleEl = document.getElementById("kpi01ChartTitle");
+    if (titleEl) titleEl.textContent = "Weekly Bay Mortality % Trend";
     if (window.currentKpi01Report_) renderBayMortalityChart_(window.currentKpi01Report_);
   };
 }
@@ -2170,12 +2168,13 @@ async function renderBayMortalityKpi() {
 
         panel.innerHTML =
   renderBayMortalitySummaryCards_(report.summary) +
-  `<div class="panel kpi-chart-panel">
-    <div class="chart-toolbar" style="padding:10px 14px 0;">
+    `<div class="panel kpi-chart-panel">
+    <div class="chart-toolbar">
       <div class="kpi-view-toggle">
         <button type="button" id="kpi01TrendViewDaily" class="kpi-toggle-btn active">Daily</button>
         <button type="button" id="kpi01TrendViewWeekly" class="kpi-toggle-btn">Weekly</button>
       </div>
+      <div class="kpi-chart-title" id="kpi01ChartTitle">Daily Bay Mortality % Trend</div>
     </div>
     <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div>
   </div>` +
@@ -2400,12 +2399,8 @@ function renderBirdUnloadChart_(report) {
         },
         x: { title: { display: true, text: kpi02MainChartView_ === "weekly" ? "Week" : "Date" } },
       },
-      plugins: {
-        title: {
-          display: true,
-          text: kpi02MainChartView_ === "weekly" ? "Weekly Birds Unloading Rate Trend" : "Daily Birds Unloading Rate Trend",
-          font: { size: 16, weight: "bold" }, color: "#14213D", padding: { top: 4, bottom: 12 },
-        },
+            plugins: {
+        title: { display: false },
         legend: { position: "top" },
         tooltip: {
           mode: "index", intersect: false,
@@ -2430,14 +2425,18 @@ function setupKpi02MainChartToggle_(report) {
   const weeklyBtn = document.getElementById("kpi02MainViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi02MainChartView_ = "daily";
     dailyBtn.classList.add("active"); weeklyBtn.classList.remove("active");
+    const t = document.getElementById("kpi02ChartTitle");
+    if (t) t.textContent = "Daily Birds Unloading Rate Trend";
     renderBirdUnloadChart_(report);
   };
   weeklyBtn.onclick = () => {
     kpi02MainChartView_ = "weekly";
     weeklyBtn.classList.add("active"); dailyBtn.classList.remove("active");
+    const t = document.getElementById("kpi02ChartTitle");
+    if (t) t.textContent = "Weekly Birds Unloading Rate Trend";
     renderBirdUnloadChart_(report);
   };
 }
@@ -2617,12 +2616,13 @@ async function renderBirdUnloadKpi() {
 
     panel.innerHTML =
       renderBirdUnloadSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar" style="padding:10px 14px 0;">
+            `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar">
           <div class="kpi-view-toggle">
             <button type="button" id="kpi02MainViewDaily" class="kpi-toggle-btn active">Daily</button>
             <button type="button" id="kpi02MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
           </div>
+          <div class="kpi-chart-title" id="kpi02ChartTitle">Daily Birds Unloading Rate Trend</div>
         </div>
         <div class="panel-body"><canvas id="kpi02Chart" height="90"></canvas></div>
       </div>` +
@@ -2843,16 +2843,8 @@ function renderPackingEfficiencyChart_(report) {
         },
         x: { title: { display: true, text: kpi04MainView_ === "weekly" ? "Week" : "Date" } },
       },
-      plugins: {
-        title: {
-          display: true,
-          text: kpi04MainView_ === "weekly"
-            ? "Weekly Packing Line Efficiency % Trend"
-            : "Daily Packing Line Efficiency % Trend",
-          font: { size: 16, weight: "bold" },
-          color: "#14213D",
-          padding: { top: 4, bottom: 12 },
-        },
+            plugins: {
+        title: { display: false },
         legend: { position: "top" },
         tooltip: {
           mode: "index",
@@ -2878,16 +2870,20 @@ function setupKpi04MainChartToggle_(report) {
   const weeklyBtn = document.getElementById("kpi04MainViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi04MainView_ = "daily";
     dailyBtn.classList.add("active");
     weeklyBtn.classList.remove("active");
+    const t = document.getElementById("kpi04ChartTitle");
+    if (t) t.textContent = "Daily Packing Line Efficiency % Trend";
     renderPackingEfficiencyChart_(report);
   };
   weeklyBtn.onclick = () => {
     kpi04MainView_ = "weekly";
     weeklyBtn.classList.add("active");
     dailyBtn.classList.remove("active");
+    const t = document.getElementById("kpi04ChartTitle");
+    if (t) t.textContent = "Weekly Packing Line Efficiency % Trend";
     renderPackingEfficiencyChart_(report);
   };
 }
@@ -3111,12 +3107,13 @@ async function renderPackingEfficiencyKpi() {
 
     panel.innerHTML =
       renderPackingEfficiencySummaryCards_(report.summary) +
-            `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar" style="padding:10px 14px 0;">
+                  `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar">
           <div class="kpi-view-toggle">
             <button type="button" id="kpi04MainViewDaily" class="kpi-toggle-btn active">Daily</button>
             <button type="button" id="kpi04MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
           </div>
+          <div class="kpi-chart-title" id="kpi04ChartTitle">Daily Packing Line Efficiency % Trend</div>
         </div>
         <div class="panel-body"><canvas id="kpi04Chart" height="90"></canvas></div>
       </div>` +
@@ -3376,16 +3373,8 @@ function renderDressedYieldChart_(report) {
           title: { display: true, text: kpi05MainView_ === "weekly" ? "Week" : "Date" },
         },
       },
-      plugins: {
-        title: {
-          display: true,
-          text: kpi05MainView_ === "weekly"
-            ? "Weekly Dressed Yield % Trend"
-            : "Daily Dressed Yield % Trend",
-          font: { size: 16, weight: "bold" },
-          color: "#14213D",
-          padding: { top: 4, bottom: 12 },
-        },
+            plugins: {
+        title: { display: false },
         legend: { position: "top" },
         tooltip: {
           mode: "index",
@@ -3411,16 +3400,20 @@ function setupKpi05MainChartToggle_(report) {
   const weeklyBtn = document.getElementById("kpi05MainViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi05MainView_ = "daily";
     dailyBtn.classList.add("active");
     weeklyBtn.classList.remove("active");
+    const t = document.getElementById("kpi05ChartTitle");
+    if (t) t.textContent = "Daily Dressed Yield % Trend";
     renderDressedYieldChart_(report);
   };
   weeklyBtn.onclick = () => {
     kpi05MainView_ = "weekly";
     weeklyBtn.classList.add("active");
     dailyBtn.classList.remove("active");
+    const t = document.getElementById("kpi05ChartTitle");
+    if (t) t.textContent = "Weekly Dressed Yield % Trend";
     renderDressedYieldChart_(report);
   };
 }
@@ -3598,12 +3591,13 @@ async function renderDressedYieldKpi() {
 
     panel.innerHTML =
       renderDressedYieldSummaryCards_(report.summary) +
-            `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar" style="padding:10px 14px 0;">
+                  `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar">
           <div class="kpi-view-toggle">
             <button type="button" id="kpi05MainViewDaily" class="kpi-toggle-btn active">Daily</button>
             <button type="button" id="kpi05MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
           </div>
+          <div class="kpi-chart-title" id="kpi05ChartTitle">Daily Dressed Yield % Trend</div>
         </div>
         <div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div>
       </div>` +
@@ -3835,16 +3829,8 @@ function renderChillLossChart_(report) {
           title: { display: true, text: kpi06MainView_ === "weekly" ? "Week" : "Date" },
         },
       },
-      plugins: {
-        title: {
-          display: true,
-          text: kpi06MainView_ === "weekly"
-            ? "Weekly Chill Loss % Trend"
-            : "Daily Chill Loss % Trend",
-          font: { size: 16, weight: "bold" },
-          color: "#14213D",
-          padding: { top: 4, bottom: 12 },
-        },
+            plugins: {
+        title: { display: false },
         legend: { position: "top" },
         tooltip: {
           mode: "index",
@@ -3870,16 +3856,20 @@ function setupKpi06MainChartToggle_(report) {
   const weeklyBtn = document.getElementById("kpi06MainViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi06MainView_ = "daily";
     dailyBtn.classList.add("active");
     weeklyBtn.classList.remove("active");
+    const t = document.getElementById("kpi06ChartTitle");
+    if (t) t.textContent = "Daily Chill Loss % Trend";
     renderChillLossChart_(report);
   };
   weeklyBtn.onclick = () => {
     kpi06MainView_ = "weekly";
     weeklyBtn.classList.add("active");
     dailyBtn.classList.remove("active");
+    const t = document.getElementById("kpi06ChartTitle");
+    if (t) t.textContent = "Weekly Chill Loss % Trend";
     renderChillLossChart_(report);
   };
 }
@@ -3909,12 +3899,13 @@ async function renderChillLossKpi() {
 
     panel.innerHTML =
       renderChillLossSummaryCards_(report.summary) +
-            `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar" style="padding:10px 14px 0;">
+                  `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar">
           <div class="kpi-view-toggle">
             <button type="button" id="kpi06MainViewDaily" class="kpi-toggle-btn active">Daily</button>
             <button type="button" id="kpi06MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
           </div>
+          <div class="kpi-chart-title" id="kpi06ChartTitle">Daily Chill Loss % Trend</div>
         </div>
         <div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div>
       </div>` +
@@ -4673,16 +4664,8 @@ function renderBirdInputChart_(report) {
         },
         x: { title: { display: true, text: kpi03MainView_ === "weekly" ? "Week" : "Date" } },
       },
-      plugins: {
-        title: {
-          display: true,
-          text: kpi03MainView_ === "weekly"
-            ? "Weekly Bird Input Efficiency % Trend"
-            : "Daily Bird Input Efficiency % Trend",
-          font: { size: 16, weight: "bold" },
-          color: "#14213D",
-          padding: { top: 4, bottom: 12 },
-        },
+            plugins: {
+        title: { display: false },
         legend: { position: "top" },
         tooltip: {
           mode: "index",
@@ -4708,16 +4691,20 @@ function setupKpi03MainChartToggle_(report) {
   const weeklyBtn = document.getElementById("kpi03MainViewWeekly");
   if (!dailyBtn || !weeklyBtn) return;
 
-  dailyBtn.onclick = () => {
+    dailyBtn.onclick = () => {
     kpi03MainView_ = "daily";
     dailyBtn.classList.add("active");
     weeklyBtn.classList.remove("active");
+    const t = document.getElementById("kpi03ChartTitle");
+    if (t) t.textContent = "Daily Bird Input Efficiency % Trend";
     renderBirdInputChart_(report);
   };
   weeklyBtn.onclick = () => {
     kpi03MainView_ = "weekly";
     weeklyBtn.classList.add("active");
     dailyBtn.classList.remove("active");
+    const t = document.getElementById("kpi03ChartTitle");
+    if (t) t.textContent = "Weekly Bird Input Efficiency % Trend";
     renderBirdInputChart_(report);
   };
 }
@@ -4942,12 +4929,13 @@ async function renderBirdInputEfficiencyKpi() {
 
     panel.innerHTML =
       renderBirdInputSummaryCards_(report.summary) +
-            `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar" style="padding:10px 14px 0;">
+                  `<div class="panel kpi-chart-panel">
+        <div class="chart-toolbar">
           <div class="kpi-view-toggle">
             <button type="button" id="kpi03MainViewDaily" class="kpi-toggle-btn active">Daily</button>
             <button type="button" id="kpi03MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
           </div>
+          <div class="kpi-chart-title" id="kpi03ChartTitle">Daily Bird Input Efficiency % Trend</div>
         </div>
         <div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div>
       </div>` + 
@@ -5574,7 +5562,7 @@ function renderKpiCardsNew(data) {
            role="button"
            tabindex="0"
            title="Open ${config.label} KPI"
-           style="border-left: 4px solid ${config.color}">
+           style="border-top: 4px solid ${config.color}">
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
         <div class="card-value">
