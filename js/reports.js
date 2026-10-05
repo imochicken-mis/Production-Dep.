@@ -1186,6 +1186,56 @@ function bayMortalityColorClass_(pct) {
   return "kpi-red";
 }
 
+// ===================================================================
+// SHARED — KPI status cards renderer (used by all 6 KPIs)
+//   - දකුණු පැත්තෙන් status-specific SVG icon
+//   - වම් පැත්තෙන් existing content (label, range, count, pct)
+// ===================================================================
+const KPI_STATUS_ICONS_ = {
+  green: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+         '<circle cx="12" cy="12" r="10"/>' +
+         '<path d="M8 12.5l2.5 2.5L16 9.5"/>' +
+         '</svg>',
+
+  yellow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M12 2.5L1.5 21h21z"/>' +
+          '<line x1="12" y1="9.5" x2="12" y2="14"/>' +
+          '<circle cx="12" cy="17.5" r="0.8" fill="currentColor"/>' +
+          '</svg>',
+
+  orange: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M12 2L2 12l10 10 10-10z"/>' +
+          '<line x1="12" y1="8" x2="12" y2="13"/>' +
+          '<circle cx="12" cy="16" r="0.8" fill="currentColor"/>' +
+          '</svg>',
+
+  red: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+       '<circle cx="12" cy="12" r="10"/>' +
+       '<line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/>' +
+       '<line x1="15.5" y1="8.5" x2="8.5" y2="15.5"/>' +
+       '</svg>'
+};
+
+function renderKpiStatusCards_(summary) {
+  const cards = summary.map((s) => {
+    const icon = KPI_STATUS_ICONS_[s.key] || '';
+    return `
+      <div class="kpi-card kpi-card-${s.key}">
+        <div class="kpi-card-content">
+          <div class="kpi-card-label">${s.label}</div>
+          <div class="kpi-card-range">${s.range}</div>
+          <div class="kpi-card-bottom-row">
+            <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
+            <span class="kpi-card-pct">${s.pct}%</span>
+          </div>
+        </div>
+        <div class="kpi-card-icon">${icon}</div>
+      </div>`;
+  }).join("");
+
+  return `<div class="kpi-cards-wrap">${cards}</div>`;
+}
+
 function buildBayMortalitySummary_(days) {
   const std = KPI_BAY_MORTALITY_STANDARD_;
   const withData = days.filter((d) => d.hasData);

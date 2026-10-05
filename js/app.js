@@ -1844,17 +1844,7 @@ function renderBayMortalityTable_(report) {
   `;
 }
 function renderBayMortalitySummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 let kpi01ChartInstance_ = null;
 
@@ -2289,16 +2279,7 @@ function renderBirdUnloadTable_(report) {
 }
 
 function renderBirdUnloadSummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 
 // ---- Main Daily/Weekly chart ----
@@ -2725,17 +2706,7 @@ function renderPackingEfficiencyTable_(report) {
 }
 
 function renderPackingEfficiencySummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 
 let kpi04ChartInstance_ = null;
@@ -3231,17 +3202,7 @@ function renderDressedYieldTable_(report) {
   `;
 }
 function renderDressedYieldSummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 async function renderDressedYieldKpi() {
   const year = document.getElementById("kpi05Year").value;
@@ -3701,17 +3662,7 @@ function renderChillLossTable_(report) {
 }
 
 function renderChillLossSummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 // ===================================================================
 // KPI 06 — Chill Loss % chart
@@ -4553,17 +4504,7 @@ function renderBirdInputTable_(report) {
 }
 
 function renderBirdInputSummaryCards_(summary) {
-  const cards = summary.map((s) => `
-    <div class="kpi-card kpi-card-${s.key}">
-      <div class="kpi-card-label">${s.label}</div>
-      <div class="kpi-card-range">${s.range}</div>
-      <div class="kpi-card-bottom-row">
-        <span class="kpi-card-count">${s.count} <span class="kpi-card-days">days</span></span>
-        <span class="kpi-card-pct">${s.pct}%</span>
-      </div>
-    </div>`).join("");
-
-  return `<div class="kpi-cards-wrap">${cards}</div>`;
+  return renderKpiStatusCards_(summary);
 }
 
 let kpi03ChartInstance_ = null;
@@ -5221,10 +5162,10 @@ const KPI_CONFIG_NEW = {
 // Day-status colour mapping (reuses each KPI's existing colour class)
 // ===================================================================
 const KPI_DAY_STATUS_COLORS_ = {
-  good:     '#2e7d32',
-  caution:  '#d58b00',
-  warning:  '#e65100',
-  critical: '#c62828'
+  good:     '#00de2c',
+  caution:  '#fcff2f',
+  warning:  '#fc941d',
+  critical: '#c11e1e'
 };
 
 const KPI_CLASS_TO_STATUS_ = {
@@ -5556,13 +5497,13 @@ function renderKpiCardsNew(data) {
                         trend.direction === "down" ? `▼ ${trend.value.toFixed(1)}%` : "—";
     const trendClass = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "";
     
-        html += `
+            html += `
       <div class="dash-kpi-card" 
            data-kpi="${key}"
            role="button"
            tabindex="0"
            title="Open ${config.label} KPI"
-           style="border-top: 4px solid ${config.color}">
+           style="border-left: 4px solid ${config.color}; background: linear-gradient(135deg, ${config.bgColor} 0%, #ffffff 55%);">
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
         <div class="card-value">
@@ -5864,7 +5805,7 @@ function renderKpiDayPieCharts_(data) {
   keys.forEach((key) => {
     const config = KPI_CONFIG_NEW[key];
     html += `
-      <div class="dash-pie-card" style="border-bottom: 4px solid ${config.color}">
+      <div class="dash-pie-card">
         <div class="pie-card-header">
           <span class="pie-card-icon">${config.icon}</span>
           <span class="pie-card-title">${config.shortLabel}</span>
