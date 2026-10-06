@@ -2132,19 +2132,23 @@ async function buildConsumableReport_(divisionKey, year, month) {
 // ===================================================================
 
 const NOTIFICATION_KPI_CONFIGS_ = {
-  "kpi-01": {
+    "kpi-01": {
     label: "KPI 01",
     buildYearData: buildBayMortalityYearData_,
     colorClass: bayMortalityColorClass_,
     valueField: "pct",
     valueLabel: "Bay Mortality %",
+    valueSuffix: "%",
+    valueDecimals: 2,
   },
-  "kpi-02": {
+    "kpi-02": {
     label: "KPI 02",
-    buildYearData: null, // Coming soon
-    colorClass: null,
-    valueField: null,
-    valueLabel: "Unloading Rate %",
+    buildYearData: buildBirdUnloadYearData_,
+    colorClass: birdUnloadColorClass_,
+    valueField: "rate",
+    valueLabel: "Unloading Rate (birds/hr)",
+    valueSuffix: "",                 // 🆕 % නෙවෙයි — හිස් suffix
+    valueDecimals: 0,                // 🆕 birds/hr → දශම නැහැ
   },
   "kpi-03": {
     label: "KPI 03",

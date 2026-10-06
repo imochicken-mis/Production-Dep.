@@ -1,5 +1,5 @@
 /* ===================================================================
-   PRODUCTION SYSTEM — GLOBAL STYLESHEET (cleaned)
+   PRODUCTION SYSTEM — GLOBAL STYLESHEET (cleaned + print fix)
    =================================================================== */
 
 /* ===================================================================
@@ -57,12 +57,13 @@ button { font-family: var(--body); cursor: pointer; }
   background: #ffffff;
   height: 100vh;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 .view { display: none; }
 .view.active { display: block; }
 .view-head { margin-bottom: 12px; }
-.view-head h1 { font-size: 24px; font-weight: 700; color: #14213D; margin: 0; }
-.view-head .sub { color: var(--muted); margin: 2px 0 0 0; font-size: 13px; }
+.view-head h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0; }
+.view-head .sub { color: var(--muted); margin: 2px 0 0 0; font-size: 16px; }
 
 .topbar {
   display: none;
@@ -225,7 +226,7 @@ button { font-family: var(--body); cursor: pointer; }
 .app-shell.sidebar-collapsed .sidebar-collapse-btn { left: -14px; }
 
 /* ===================================================================
-   4. SIDEBAR ACCORDION (Collapsible sections)
+   4. SIDEBAR ACCORDION
    =================================================================== */
 .nav-section-toggle {
   display: flex;
@@ -267,7 +268,7 @@ button { font-family: var(--body); cursor: pointer; }
   max-width: 100%;
 }
 .panel-body {
-  padding: 14px 18px;
+  padding: 6px 18px 14px 18px;    /* ⬅️ උඩ 14px → 6px */
   overflow-x: auto;
   max-width: 100%;
 }
@@ -445,18 +446,31 @@ button { font-family: var(--body); cursor: pointer; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: #ffffff;
-  padding-top: 28px;
-  padding-bottom: 20px;
   isolation: isolate;
   transform: translateZ(0);
+
+  /* 🆕 Full-bleed: content padding එකට එහාට යන්න */
+  margin-left: -32px;
+  margin-right: -32px;
+  width: calc(100% + 64px);
+  box-sizing: border-box;
+
+  padding: 5px;
+  background: #ffffff;
+  border: 3px solid #2c4a7c;
+  border-radius: 0;                 /* corners flat — full-bleed */
+  margin-bottom: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(44, 74, 124, 0.12);
 }
 
 .header-row-flex {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
+  flex-wrap: nowrap;                 /* ✅ default එකේ wrap වෙන්නේ නැහැ */
+  min-width: 0;
 }
 
 .report-toolbar {
@@ -595,27 +609,92 @@ button { font-family: var(--body); cursor: pointer; }
 .btn-report-action:hover { background: #2c4a7c; color: #fff; }
 
 /* ===================================================================
-   11. PRINT HEADER + PRINT STYLES
+   11. PRINT HEADER + PRINT STYLES (FIXED — no blank pages)
    =================================================================== */
 .print-header { display: none; }
 
 @media print {
-  body * { visibility: hidden; }
-  .panel, .panel *,
-  .print-header, .print-header * { visibility: visible; }
+  /* ============================================================
+     1) Reset page layout — remove fixed heights & scroll
+     ============================================================ */
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .app-shell {
+    display: block !important;
+    grid-template-columns: none !important;
+    min-height: 0 !important;
+  }
+  .content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+  }
 
+  /* ============================================================
+     2) Hide UI chrome (removes from flow — no blank pages)
+     ============================================================ */
+    .sidebar,
+  .topbar,
+  .report-toolbar,
+  .report-actions,
+  .view-head,
+  .info-row-center,
+  .kpi-header-info,
+  .kpi-header-grid,
+  .kpi-cards-wrap,
+  .kpi-chart-panel,
+  .chart-toolbar,
+  .division-btn-wrap,
+  .notif-kpi-tabs,
+  .dash-header,
+  .dash-kpi-cards,
+  .dash-pie-wrap,
+  .dash-charts-grid,
+  .dash-summary-section {
+    display: none !important;
+  }
+
+  /* ============================================================
+     3) Show only the active view
+     ============================================================ */
+  .view { display: none !important; }
+  .view.active { display: block !important; }
+
+  /* ============================================================
+     4) Sticky header — remove sticky positioning
+     ============================================================ */
+  .sticky-report-header {
+    position: static !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* ============================================================
+     5) Print header — inline at top, not absolute
+     ============================================================ */
   .print-header {
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: 16px;
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
     background: #2c4a7c;
     color: #fff;
     padding: 14px 20px;
     box-sizing: border-box;
     border-bottom: 4px solid #E3B23C;
+    margin: 0 0 12px 0 !important;
   }
   .print-logo { height: 40px; width: auto; }
   .print-header-text { flex: 1; }
@@ -624,21 +703,38 @@ button { font-family: var(--body); cursor: pointer; }
   .print-meta { font-size: 11px; text-align: right; line-height: 1.6; }
   .print-meta span:first-child { font-weight: 600; margin-right: 4px; }
 
+  /* ============================================================
+     6) Panel — static position, no border, no radius
+     ============================================================ */
   .panel {
-    position: absolute;
-    top: 80px; left: 0;
-    width: 100%;
-    border: none;
-    border-radius: 0;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
   }
-  .panel-body { padding: 0; }
-  .report-table { min-width: 0; border-radius: 0; }
+  .panel-body { padding: 0 !important; }
+  .report-table { min-width: 0 !important; border-radius: 0 !important; }
 
+  /* ============================================================
+     7) Page setup
+     ============================================================ */
   @page { margin: 10mm; }
 
-  #view-lbtarget-vs-actual .lta-table { min-width: 0; width: 100%; font-size: 8px; }
+  /* ============================================================
+     8) Per-view overrides
+     ============================================================ */
+  #view-lbtarget-vs-actual .lta-table {
+    min-width: 0; width: 100%; font-size: 8px;
+  }
   #view-lbtarget-vs-actual .lta-table th,
-  #view-lbtarget-vs-actual .lta-table td { padding: 2px 3px; line-height: 1; }
+  #view-lbtarget-vs-actual .lta-table td {
+    padding: 2px 3px; line-height: 1;
+  }
 
   #view-Stock-Available .report-table {
     min-width: 0; width: 100%; table-layout: fixed; font-size: 7px;
@@ -666,37 +762,456 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-dressed-yield-table tr:first-child td.date-poya { background: #fff2b2 !important; }
 
 /* ===================================================================
-   13. INFO ROW (Standard & Working Days banner)
+   KPI HEADER GRID — 6 columns × 2 rows
+   Row 1: Title | (merged Std/Act/Stat/WD — start here)
+   Row 2: Year | Month | (merged Std/Act/Stat/WD — end here)
    =================================================================== */
-.info-row-center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: -60px;
-  padding: 4px 0;
+.kpi-header-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1fr)   /* Col 1: Title (r1) / Year (r2) */
+    minmax(180px, 1.6fr)     /* Col 2: (blank r1) / Month (r2) */
+    minmax(110px, 1.2fr)     /* Col 3: Standard (rows 1-2) */
+    minmax(110px, 1.2fr)     /* Col 4: Actual (rows 1-2) */
+    minmax(130px, 1fr)   /* Col 5: Status (rows 1-2) */
+    minmax(130px, 0.8fr);  /* Col 6: Working Days (rows 1-2) */
+  grid-template-rows: auto auto;
+  gap: 0;
+  background: #ffffff;
+  border: none;                      /* 🆕 border අයින් කරා */
+  border-radius: 8px;                /* 🆕 outer frame එකට ගැලපෙන ලෙස */
+  overflow: hidden;
+  margin-bottom: 0;
+  box-shadow: none;                  /* 🆕 shadow අයින් කරා (frame එකේ shadow එක ඇති) */
+  width: 100%;
 }
-.kpi-header-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: #555;
-  background: #f8f9fa;
-  padding: 4px 20px;
-  border-radius: 20px;
-  border: 1px solid #e9ecef;
-}
-.kpi-header-info span { white-space: nowrap; }
-.kpi-header-info .divider { color: #dee2e6; }
-.kpi-header-info strong { color: #14213D; }
-.kpi-header-info .standard-value { color: #1976D2; }
-.kpi-header-info .working-days-value { color: #2e7d32; }
 
-@media (max-width: 768px) {
-  .header-row-flex { flex-direction: column; align-items: stretch; }
-  .report-toolbar { justify-content: center; flex-wrap: wrap; margin-top: 4px; }
-  .info-row-center { justify-content: center; }
-  .kpi-header-info { flex-wrap: wrap; justify-content: center; padding: 4px 12px; font-size: 12px; }
+/* Base cell */
+.kpi-grid-cell {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ---------- Row 1 & 2 placement ---------- */
+
+/* Title — col 1, row 1 only */
+.kpi-grid-title {
+  grid-column: 1 / 3;
+  grid-row: 1 / 2;
+}
+
+/* Standard — col 3, spans rows 1–2 */
+.kpi-header-grid > .kpi-grid-cell:nth-child(2) {
+  grid-column: 3 / 4;
+  grid-row: 1 / 2;
+}
+
+/* Actual — col 4, spans rows 1–2 */
+.kpi-header-grid > .kpi-grid-cell:nth-child(3) {
+  grid-column: 4 / 5;
+  grid-row: 1 / 2;
+}
+
+/* Status — col 5, spans rows 1–2 */
+.kpi-header-grid > .kpi-grid-cell:nth-child(4) {
+  grid-column: 5 / 6;
+  grid-row: 1 / 2;
+}
+
+/* Working Days — col 6, spans rows 1–2 */
+.kpi-header-grid > .kpi-grid-cell:nth-child(5) {
+  grid-column: 6 / 7;
+  grid-row: 1 / 2;
+  border-right: none;
+}
+
+/* Year — col 1, row 2 (compact, left-aligned) */
+.kpi-grid-year {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 10px 8px 10px 14px;
+  border-top: 1px solid #e4e8ee;
+}
+
+/* Month — col 2, row 2 (compact, left-aligned, tight to Year) */
+.kpi-grid-month {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 10px 14px 10px 4px;
+  border-top: 1px solid #e4e8ee;
+}
+
+/* 🆕 Bar — col 3 / 7, row 2 */
+.kpi-grid-bar {
+  grid-column: 3 / 7;
+  grid-row: 2 / 3;
+  padding: 10px 16px;
+  border-top: 1px solid #e4e8ee;
+  border-right: none;
+  display: flex;
+  align-items: center;
+}
+
+/* 🆕 Filter cells — label + select inline */
+.kpi-grid-filter .kpi-grid-label {
+  margin-bottom: 0;
+  font-size: 11px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+.kpi-grid-filter select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 140px;               /* ⬅️ 260px → 140px */
+  padding: 5px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-family: 'Calibri', sans-serif;
+  font-size: 13px;
+  background: #fff;
+  color: #14213D;
+  cursor: pointer;
+}
+.kpi-grid-filter select:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.15);
+}
+
+/* Col 1 — Title */
+.kpi-grid-title h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #14213D;
+  margin: 0;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kpi-grid-title .sub {
+  font-size: 14px;
+  color: #6c757d;
+  margin: 3px 0 0 0;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Common label + value */
+.kpi-grid-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 5px;
+}
+
+/* 🆕 Working Days label — smaller font than other labels */
+.kpi-header-grid > .kpi-grid-cell:nth-child(5) .kpi-grid-label {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+.kpi-grid-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #14213D;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-grid-value.kpi-std-value    { color: #1976D2; }
+.kpi-grid-value.kpi-actual-value { color: #c0392b; }
+.kpi-grid-value.kpi-status-value { font-size: 24px; }
+.kpi-grid-value.kpi-wd-value     { color: #2e7d32; font-size: 22px; font-weight: 800; }
+
+/* Col 5 — Year + Working Days */
+.kpi-grid-cell.kpi-grid-filter select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: 'Calibri', sans-serif;
+  font-size: 13.5px;
+  background: #fff;
+  color: #14213D;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+.kpi-grid-cell.kpi-grid-filter select:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.15);
+}
+
+/* ===================================================================
+   Responsive — 3 tiers
+   =================================================================== */
+
+/* 🔹 Tier 1: Laptop (≤ 1280px) — fonts get slightly smaller, no jump */
+@media (max-width: 1280px) {
+  .kpi-grid-cell { padding: 10px 10px; }
+  .kpi-grid-title h1 { font-size: 15px; }
+  .kpi-grid-value { font-size: 17px; }
+  .kpi-grid-value.kpi-status-value { font-size: 15px; }
+  .kpi-grid-value.kpi-wd-value { font-size: 19px; }
+}
+
+/* 🔹 Tier 2: Tablet (≤ 1024px) — 3 columns × 2 rows */
+@media (max-width: 1024px) {
+  .kpi-header-grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+  .kpi-grid-cell {
+    border-bottom: 1px solid #e4e8ee;
+  }
+  .kpi-grid-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    border-right: none;
+    border-bottom: 1px solid #e4e8ee;
+  }
+
+  /* Filters — full width on their own rows at the bottom */
+  .kpi-header-grid > .kpi-grid-cell:nth-last-child(2) {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    border-right: none;
+    border-bottom: 1px solid #e4e8ee;
+  }
+  .kpi-header-grid > .kpi-grid-cell:nth-last-child(1) {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    border-right: none;
+    border-bottom: none;
+  }
+}
+
+/* 🔹 Tier 3: Mobile (≤ 640px) — 1 column stack */
+@media (max-width: 640px) {
+  .kpi-header-grid {
+    grid-template-columns: 1fr;
+  }
+  .kpi-grid-cell {
+    border-right: none;
+    border-bottom: 1px solid #e4e8ee;
+    padding: 10px 14px;
+  }
+  .kpi-grid-cell:last-child { border-bottom: none; }
+  .kpi-grid-title h1 { white-space: normal; }
+  .kpi-grid-title .sub { white-space: normal; }
+
+  .kpi-header-grid > .kpi-grid-cell:nth-last-child(2),
+  .kpi-header-grid > .kpi-grid-cell:nth-last-child(1) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .kpi-grid-filter select { max-width: 100%; width: 100%; }
+}
+
+.kpi-header-info span { white-space: nowrap; }
+.kpi-header-info .divider {
+  color: #cbd5e1;
+  font-size: 18px;
+  font-weight: 300;
+}
+.kpi-header-info strong { color: #14213D; }
+
+/* Standard — largest & bold blue */
+.kpi-header-info .standard-value {
+  color: #1976D2;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+}
+
+/* Actual — bold red */
+.kpi-header-info .actual-value {
+  color: #c0392b;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+}
+
+/* Working Days — bold green */
+.kpi-header-info .working-days-value {
+  color: #2e7d32;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+}
+
+/* ===================================================================
+   Responsive — 3 tiers
+   =================================================================== */
+
+/* 🔹 Tier 1: Laptop / Large Tablet (≤ 1280px) — slightly smaller */
+@media (max-width: 1280px) {
+  .kpi-header-info {
+    gap: 12px;
+    font-size: 13.5px;
+    padding: 7px 16px;
+  }
+  .kpi-header-info .standard-value,
+  .kpi-header-info .working-days-value { font-size: 19px; }
+  .kpi-header-info .actual-value { font-size: 17px; }
+}
+
+/* 🔹 Tier 2: Tablet (≤ 1024px) — info row below title */
+@media (max-width: 1024px) {
+  .header-row-flex {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .header-row-flex .view-head {
+    flex: 1 1 100%;
+    margin-bottom: 8px;
+  }
+  .kpi-header-info {
+    flex: 1 1 auto;
+    order: 2;
+    gap: 10px;
+    font-size: 13px;
+    padding: 6px 14px;
+  }
+  .kpi-header-info .standard-value,
+  .kpi-header-info .working-days-value { font-size: 17px; }
+  .kpi-header-info .actual-value { font-size: 15px; }
+
+  .report-toolbar {
+    flex: 0 1 auto;
+    order: 3;
+    padding-bottom: 0;
+  }
+}
+
+/* 🔹 Tier 3: Mobile (≤ 640px) — everything stacks */
+@media (max-width: 640px) {
+  .header-row-flex {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-row-flex .view-head { flex: 1 1 auto; }
+  .kpi-header-info {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 6px 10px;
+    white-space: normal;
+  }
+  .kpi-header-info .divider { display: none; }     /* cleaner on mobile */
+  .kpi-header-info span { white-space: normal; }
+  .kpi-header-info .standard-value,
+  .kpi-header-info .working-days-value { font-size: 15px; }
+  .kpi-header-info .actual-value { font-size: 14px; }
+
+  .report-toolbar {
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    padding-bottom: 6px;
+  }
+  .report-toolbar label { font-size: 13px; }
+  .report-toolbar select,
+  .report-toolbar input[type="date"] { font-size: 13px; padding: 6px 10px; }
+  .batch-display { font-size: 12px; padding: 5px 10px; }
+}
+
+/* ===================================================================
+   STANDARD vs ACTUAL BAR — center = standard
+   =================================================================== */
+.kpi-bar-track {
+  position: relative;
+  width: 100%;
+  height: 26px;
+  background: linear-gradient(180deg, #f3f6fb 0%, #e8eef7 100%);
+  border-radius: 13px;
+  border: 1px solid #d5dde8;
+  overflow: hidden;
+}
+
+/* Fill — starts at center, extends toward actual */
+.kpi-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 50%;                        /* JS මගින් override වෙනවා */
+  width: 0%;
+  height: 100%;
+  transition: left 0.6s cubic-bezier(.2, .7, .3, 1),
+              width 0.6s cubic-bezier(.2, .7, .3, 1),
+              background 0.35s ease;
+  z-index: 1;
+  border-radius: 0;
+}
+
+/* Center marker — the standard reference line */
+.kpi-bar-center-mark {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background: #14213D;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* Standard label — sits centered on top of the mark */
+.kpi-bar-std-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Inter', 'Arial', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: #14213D;
+  background: #ffffff;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid #c8d4e3;
+  z-index: 4;
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  box-shadow: 0 1px 3px rgba(11, 52, 117, 0.10);
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid-bar {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    border-right: none;
+  }
+}
+@media (max-width: 640px) {
+  .kpi-bar-track { height: 22px; }
+  .kpi-bar-std-label { font-size: 9px; padding: 1px 5px; }
 }
 
 /* ===================================================================
@@ -750,7 +1265,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .item-name.highlight { color: #c0564a; font-weight: 600; }
 
 /* ===================================================================
-   17. REPORT — Dress Weight & Production (shared)
+   17. REPORT — Dress Weight & Production
    =================================================================== */
 #view-dress-weight .dress-farm-table,
 #view-production-weight .dress-farm-table { table-layout: fixed; }
@@ -871,7 +1386,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 #view-total-production-summary .total-production-table th:last-child,
 #view-total-production-summary .total-production-table td:last-child { width: 75px; }
 
-/* Sticky columns */
 #view-total-production-summary .total-production-table thead th:nth-child(1) {
   position: sticky; left: 0; z-index: 4; background: #9a9a9a;
 }
@@ -982,7 +1496,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 #view-productiontarget-vs-actual .panel { max-width: 100%; overflow: hidden; }
 
-/* Sticky columns 1-4 */
 #view-productiontarget-vs-actual .pta-table thead tr:first-child th:nth-child(1) {
   position: sticky; left: 0; z-index: 4; background: #9a9a9a;
 }
@@ -1143,7 +1656,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 .btn-notif-send:disabled { background: #ccc; border-color: #ccc; cursor: not-allowed; }
 
-/* Notifications chart container (compact height) */
 #view-notify-kpi-01 .kpi-chart-panel .panel-body,
 #view-notify-kpi-02 .kpi-chart-panel .panel-body,
 #view-notify-kpi-03 .kpi-chart-panel .panel-body,
@@ -1175,7 +1687,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 /* ===================================================================
    28. KPI VIEWS — Shared
    =================================================================== */
-.kpi-cards-wrap { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+.kpi-cards-wrap { display: flex; gap: 14px; margin-top: 4px; flex-wrap: wrap; }
 .kpi-card {
   flex: 1;
   min-width: 160px;
@@ -1187,61 +1699,18 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  position: relative;
-  overflow: hidden;
 }
-
-/* 🆕 Subtle glass shine overlay */
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -50%;
-  width: 200%;
-  height: 50%;
-  background: linear-gradient(
-    120deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 100%
-  );
-  pointer-events: none;
-  transform: skewY(-4deg);
-}
-
-/* Content එක shine එකට උඩින් තියන්න */
-.kpi-card-content,
-.kpi-card-icon {
-  position: relative;
-  z-index: 1;
-}
-
-/* 🆕 Content wrapper — existing elements stay inside */
-.kpi-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-/* 🆕 Icon container */
+.kpi-card-content { flex: 1; min-width: 0; }
 .kpi-card-icon {
   flex-shrink: 0;
-  width: 70px;
-  height: 70px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.kpi-card-icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+.kpi-card-icon svg { width: 100%; height: 100%; display: block; }
 
-/* 🆕 Icon colors — match each card status */
-.kpi-card-green  .kpi-card-icon { color: #0A5C1F; }
-.kpi-card-yellow .kpi-card-icon { color: #7A5C00; }
-.kpi-card-orange .kpi-card-icon { color: #9A4400; }
-.kpi-card-red    .kpi-card-icon { color: #7A0000; }
 .kpi-card-label {
   font-family: 'Arial', sans-serif;
   font-size: 20px;
@@ -1262,37 +1731,32 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-card-days { font-size: 13px; font-weight: 500; opacity: 0.85; }
 .kpi-card-pct { font-size: 26px; font-weight: 700; }
 
-/* ===================================================================
-   KPI STATUS CARDS — Highlight Gradient Colors
-   =================================================================== */
-
-/* ✅ GOOD — Fresh Mint → Vivid Green */
+/* KPI status cards — Highlight gradients */
 .kpi-card-green {
   background: linear-gradient(135deg, #A8FFB0 0%, #6EE87C 100%);
   border-top: 5px solid #1B9E3A;
   box-shadow: 0 4px 14px rgba(27, 158, 58, 0.30);
 }
-
-/* ⚠️ CAUTION — Bright Lemon → Golden Yellow */
 .kpi-card-yellow {
   background: linear-gradient(135deg, #FFF9A0 0%, #FFD93D 100%);
   border-top: 5px solid #D4A017;
   box-shadow: 0 4px 14px rgba(212, 160, 23, 0.30);
 }
-
-/* 🔶 WARNING — Peach → Bright Orange */
 .kpi-card-orange {
   background: linear-gradient(135deg, #FFD4A3 0%, #FFA733 100%);
   border-top: 5px solid #E65C00;
   box-shadow: 0 4px 14px rgba(230, 92, 0, 0.30);
 }
-
-/* 🔴 CRITICAL — Coral → Vivid Red */
 .kpi-card-red {
   background: linear-gradient(135deg, #FFA8A8 0%, #FF5252 100%);
   border-top: 5px solid #B71C1C;
   box-shadow: 0 4px 14px rgba(183, 28, 28, 0.30);
 }
+
+.kpi-card-green  .kpi-card-icon { color: #0A5C1F; }
+.kpi-card-yellow .kpi-card-icon { color: #7A5C00; }
+.kpi-card-orange .kpi-card-icon { color: #9A4400; }
+.kpi-card-red    .kpi-card-icon { color: #7A0000; }
 
 .kpi-chart-panel {
   margin: 20px 0;
@@ -1305,7 +1769,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 
 .kpi-table-scroll { overflow-x: auto; max-width: 100%; }
 
-/* KPI tables — auto width */
 #view-kpi-01 .kpi-bay-mortality-table,
 #view-kpi-02 .kpi-dressed-yield-table,
 #view-kpi-03 .kpi-dressed-yield-table,
@@ -1365,7 +1828,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   color: #fff;
 }
 
-/* KPI status color bands */
 #view-kpi-01 .kpi-green,  #view-kpi-02 .kpi-green,
 #view-kpi-03 .kpi-green,  #view-kpi-04 .kpi-green,
 #view-kpi-05 .kpi-green,  #view-kpi-06 .kpi-green  { background: #66f182; color: #1b5e20; font-weight: 600; }
@@ -1405,14 +1867,29 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .dash-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 24px;
-  padding: 20px 24px;
-  background: rgb(244, 244, 244);
-  border: 1px solid #ffffff;
-  border-radius: 10px;
+
+  /* 🆕 Same as .sticky-report-header — full-bleed with blue border */
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  isolation: isolate;
+  transform: translateZ(0);
+
+  margin-left: -32px;
+  margin-right: -32px;
+  width: calc(100% + 64px);
+  box-sizing: border-box;
+
+  padding: 16px 32px;
+  background: #ffffff;
+  border: 3px solid #2c4a7c;
+  border-radius: 0;
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(44, 74, 124, 0.12);
 }
 .dash-header-left h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0 0 4px 0; }
 .dash-subtitle { color: #6b7a8f; font-size: 14px; margin: 0; }
@@ -1481,7 +1958,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* KPI cards grid */
 .dash-kpi-cards {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -1504,8 +1980,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 .dash-kpi-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.14);
-  filter: saturate(1.15) brightness(1.02);   /* 🆕 color එක පොඩ්ඩක් vibrant වෙන්න */
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
 }
 .dash-kpi-card:active {
   transform: translateY(-1px);
@@ -1517,13 +1992,39 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 .dash-kpi-card .card-icon { font-size: 22px; margin-bottom: 6px; }
 .dash-kpi-card .card-label {
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6b7a8f;
+  color: #3c5f90;
   margin-bottom: 4px;
 }
+
+/* 🆕 Standard row — between Title and Actual Value */
+.dash-kpi-card .card-standard {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 6px 0 2px 0;
+  padding: 3px 8px;
+  background: #eef3fb;
+  border-radius: 5px;
+  width: fit-content;
+}
+.dash-kpi-card .card-standard .std-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7a8f;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.dash-kpi-card .card-standard .std-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1976D2;
+  letter-spacing: 0.2px;
+}
+
 .dash-kpi-card .card-value { font-size: 28px; font-weight: 700; color: #14213D; line-height: 1.2; }
 .dash-kpi-card .card-value .unit { font-size: 16px; font-weight: 500; color: #6b7a8f; margin-left: 2px; }
 .dash-kpi-card .card-status {
@@ -1552,7 +2053,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 .dash-kpi-card .card-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
 
-/* Charts grid */
 .dash-charts-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1598,7 +2098,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   height: 100% !important;
 }
 
-/* Summary table */
 .dash-summary-section {
   background: white;
   border-radius: 14px;
@@ -1651,7 +2150,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .dash-no-data .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
 
 /* ===================================================================
-   30. DASHBOARD PIE CHARTS (Day-status)
+   30. DASHBOARD PIE CHARTS
    =================================================================== */
 .dash-pie-wrap {
   display: grid;
@@ -1664,8 +2163,10 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 
 .dash-pie-card {
   background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 8px 8px 6px 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
   min-height: 140px;
@@ -1676,7 +2177,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   justify-content: center;
   gap: 4px;
   margin-bottom: 4px;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
   color: #14213D;
   text-align: center;
@@ -1704,7 +2205,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 /* ===================================================================
-   31. CHART TOOLBAR (Buttons + Centered Title)
+   31. CHART TOOLBAR
    =================================================================== */
 .chart-toolbar {
   display: grid;
