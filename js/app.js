@@ -245,10 +245,10 @@ function getKpiStatusDisplay_(kpiKey, value) {
 
   const cls = classFn(value);
   const MAP = {
-    'kpi-green':  { label: 'Good',     color: '#2e7d32' },
-    'kpi-yellow': { label: 'Caution',  color: '#d4a017' },
-    'kpi-orange': { label: 'Warning',  color: '#e65100' },
-    'kpi-red':    { label: 'Critical', color: '#c0392b' },
+    'kpi-green':  { label: 'Good',     color: '#7EE787' },   // 🆕 bright green
+    'kpi-yellow': { label: 'Caution',  color: '#FFD54F' },   // 🆕 bright yellow
+    'kpi-orange': { label: 'Warning',  color: '#FFB74D' },   // 🆕 bright orange
+    'kpi-red':    { label: 'Critical', color: '#FF8A80' },   // 🆕 bright coral
   };
   return MAP[cls] || { label: '—', color: '#999' };
 }
@@ -3376,8 +3376,8 @@ function renderPackingEfficiencyTable_(report) {
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
           <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Actual packed Qty</td>${actualCells}</tr>
-          <tr><td class="row-label">Planned packed Qty</td>${plannedCells}</tr>
+          <tr><td class="row-label">Actual Production Qty</td>${actualCells}</tr>
+          <tr><td class="row-label">Planned Production Qty</td>${plannedCells}</tr>
           <tr><td class="row-label">Efficiency %</td>${pctCells}</tr>
         </tbody>
       </table>
@@ -5083,6 +5083,48 @@ const KPI_BAR_MAX_ = {
 // ===================================================================
 const DASH_KPI_ORDER_ = ["kpi-05", "kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-06"];
 
+// ===================================================================
+// KPI OVERALL VALUE — same calculation as KPI tabs header
+// ===================================================================
+function computeKpiOverallValue_(report, kpiKey) {
+  if (!report) return null;
+
+  // KPI-01: simple average of daily % (same as header)
+  if (kpiKey === 'kpi-01' && report.days) {
+    const valid = report.days.filter(d => d.hasData);
+    if (!valid.length) return null;
+    return valid.reduce((s, d) => s + d.pct, 0) / valid.length;
+  }
+
+  // KPI-02: weighted rate — total received / total time
+  if (kpiKey === 'kpi-02') {
+    if (report.totals && isFinite(report.totals.rate)) return report.totals.rate;
+    return null;
+  }
+
+  // KPI-03 & KPI-04: weighted — total actual / total planned × 100
+  if ((kpiKey === 'kpi-03' || kpiKey === 'kpi-04') && report.days) {
+    const totalPlanned = report.days.reduce((s, d) => s + (Number(d.planned) || 0), 0);
+    const totalActual  = report.days.reduce((s, d) => s + (Number(d.actual)  || 0), 0);
+    if (totalPlanned <= 0) return null;
+    return (totalActual / totalPlanned) * 100;
+  }
+
+  // KPI-05: weighted yield % — total dressed / total live × 100
+  if (kpiKey === 'kpi-05') {
+    if (report.totals && isFinite(report.totals.yieldPct)) return report.totals.yieldPct;
+    return null;
+  }
+
+  // KPI-06: weighted chill loss %
+  if (kpiKey === 'kpi-06') {
+    if (report.totals && isFinite(report.totals.chillLossPct)) return report.totals.chillLossPct;
+    return null;
+  }
+
+  return null;
+}
+
 function renderKpiCardsNew(data) {
   const container = document.getElementById("dashNewCards");
   if (!container) return;
@@ -5100,8 +5142,13 @@ function renderKpiCardsNew(data) {
     let trend = { direction: "flat", value: 0 };
     let displayValue = "—";
 
-    if (extracted.hasData && extracted.values.length > 0) {
-      avgValue = extracted.values.reduce((a, b) => a + b, 0) / extracted.values.length;
+        if (extracted.hasData && extracted.values.length > 0) {
+      // 🆕 Same calc as KPI tabs header (weighted, not simple avg)
+      const overall = computeKpiOverallValue_(report, key);
+      avgValue = (overall !== null && isFinite(overall))
+        ? overall
+        : extracted.values.reduce((a, b) => a + b, 0) / extracted.values.length;
+
       status = getKpiStatusNew(avgValue, config);
 
       // 🆕 KPI 02 (birds/hr) → no decimals; others → 2 decimals
