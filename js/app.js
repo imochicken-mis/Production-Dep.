@@ -244,13 +244,9 @@ function getKpiStatusDisplay_(kpiKey, value) {
   }
 
   const cls = classFn(value);
-  const MAP = {
-    'kpi-green':  { label: 'Good',     color: '#7EE787' },   // 🆕 bright green
-    'kpi-yellow': { label: 'Caution',  color: '#FFD54F' },   // 🆕 bright yellow
-    'kpi-orange': { label: 'Warning',  color: '#FFB74D' },   // 🆕 bright orange
-    'kpi-red':    { label: 'Critical', color: '#FF8A80' },   // 🆕 bright coral
-  };
-  return MAP[cls] || { label: '—', color: '#999' };
+  // 🆕 Achieved / Not Achieved — green band = Achieved, anything else = Not Achieved
+  if (cls === 'kpi-green') return { label: 'Achieved',     color: '#2e7d32', pill: 'kpi-achieved' };
+  return                        { label: 'Not Achieved', color: '#c62828', pill: 'kpi-not-achieved' };
 }
 
 // ===================================================================
@@ -283,16 +279,57 @@ function shortStdLabel_(kpiKey) {
   return '—';
 }
 
+// -------------------------------------------------------------------
+// Wrap master chart + status cards into a side-by-side flex layout
+// -------------------------------------------------------------------
+function wrapChartAndCards_(chartHtml, cardsHtml) {
+  return `
+    <div class="kpi-chart-cards-flex">
+      <div class="kpi-chart-cards-chart">${chartHtml}</div>
+      <div class="kpi-chart-cards-side">${cardsHtml}</div>
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------------
+// Wrap numbers AND operators inside formula with spans
+// -------------------------------------------------------------------
+function wrapFormulaNumbers_(formula) {
+  if (!formula) return '';
+  // 1) Escape HTML
+  const escaped = String(formula)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 2) Line by line process කරන්න
+  const lines = escaped.split('\n');
+
+  return lines.map((line, idx) => {
+    // 🆕 පළවෙනි line එක = text-only (numbers wrap කරන්නේ නැහැ)
+    if (idx === 0) {
+      return '<span class="formula-text-line">' + line + '</span>';
+    }
+    // ඉතුරු lines = numbers + operators wrap කරන්න
+    return line.replace(/(\d[\d,\.]*%?|[×÷=+\-])/g, function (match) {
+      if (/^\d/.test(match)) {
+        return '<span class="formula-num">' + match + '</span>';
+      }
+      return '<span class="formula-op">' + match + '</span>';
+    });
+  }).join('\n');
+}
+
 // ===================================================================
 // KPI HEADER — update the 6-column grid
 // ===================================================================
-function updateKpiHeader(kpiKey, std, workingDays, actualValue) {
+function updateKpiHeader(kpiKey, std, workingDays, actualValue, breakdown) {
   const viewElement = document.getElementById(`view-${kpiKey}`);
   if (!viewElement) return;
 
-  const num = kpiKey.replace('kpi-', '');   // "01", "02", ...
+  const num = kpiKey.replace('kpi-', '');
 
-  // Standard display per KPI — 2 decimal places for %
+  // Standard display per KPI
   let stdText;
   if (kpiKey === 'kpi-01')      stdText = '≤ 0.05%';
   else if (kpiKey === 'kpi-02') stdText = '4500 birds/hr';
@@ -309,62 +346,128 @@ function updateKpiHeader(kpiKey, std, workingDays, actualValue) {
     else                     actualText = Number(actualValue).toFixed(2) + '%';
   }
 
-  // Status label + color
   const statusInfo = getKpiStatusDisplay_(kpiKey, actualValue);
+  const good = isKpiGood_(kpiKey, actualValue);
 
-  // Populate elements
   const stdEl = document.getElementById(`kpi${num}Standard`);
   const actEl = document.getElementById(`kpi${num}Actual`);
   const stEl  = document.getElementById(`kpi${num}Status`);
   const wdEl  = document.getElementById(`kpi${num}WorkingDays`);
 
-  if (stdEl) stdEl.textContent = stdText;
-  if (actEl) actEl.textContent = actualText;
+  // STANDARD — value only
+  if (stdEl) {
+    stdEl.textContent = stdText;
+  }
+
+  // ACTUAL — value + achieved/not-achieved color
+  if (actEl) {
+    actEl.textContent = actualText;
+    actEl.style.color = '';
+    actEl.classList.remove('kpi-actual-achieved', 'kpi-actual-notachieved');
+    actEl.classList.add(good ? 'kpi-actual-achieved' : 'kpi-actual-notachieved');
+  }
+
+
+  // STATUS pill
   if (stEl) {
     stEl.textContent = statusInfo.label;
     stEl.style.color = statusInfo.color;
+    stEl.classList.remove('kpi-achieved', 'kpi-not-achieved');
+    if (statusInfo.pill) stEl.classList.add(statusInfo.pill);
   }
-      if (wdEl) {
+
+  // Working Days
+  if (wdEl) {
     wdEl.textContent = workingDays;
     wdEl.style.color = '#2e7d32';
   }
 
-    // 🆕 Bar — center = standard, fill toward actual (green/red)
-  const barFillEl   = document.getElementById(`kpi${num}BarFill`);
-  const barStdLabel = document.getElementById(`kpi${num}BarStdLabel`);
-  const stdNum = Number(std);
+    // ===========================================================
+  // BAR — standard marked, actual fills left-to-right
+  // ===========================================================
+  const barFillEl    = document.getElementById(`kpi${num}BarFill`);
+  const barStdMarkEl = document.getElementById(`kpi${num}BarStdMark`);
+  const barStdLblEl  = document.getElementById(`kpi${num}BarStdLabel`);
+  const barStatusEl  = document.getElementById(`kpi${num}BarStatus`);
 
-  if (barFillEl && stdNum > 0 &&
-      actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
+  if (barFillEl && actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
+    // Bar max range from KPI_BAR_MAX_ (defined elsewhere in app.js)
+    const BAR_MAX = (typeof KPI_BAR_MAX_ !== 'undefined' && KPI_BAR_MAX_[kpiKey])
+      ? KPI_BAR_MAX_[kpiKey]
+      : std * 2;
 
-    // Deviation from standard, as a percentage of standard
-    const MAX_DEV_PCT = 30;   // ±30% deviation = full left/right
-    const devPct = ((actualValue - stdNum) / stdNum) * 100;
-    const clamped = Math.max(-MAX_DEV_PCT, Math.min(MAX_DEV_PCT, devPct));
+    const fillPct = Math.max(0, Math.min(100, (actualValue / BAR_MAX) * 100));
+    const stdPct  = Math.max(0, Math.min(100, (std / BAR_MAX) * 100));
 
-    let leftPct, widthPct;
-    if (clamped >= 0) {
-      // Actual is above standard → fill to the RIGHT of center
-      leftPct  = 50;
-      widthPct = (clamped / MAX_DEV_PCT) * 50;
-    } else {
-      // Actual is below standard → fill to the LEFT of center
-      widthPct = (Math.abs(clamped) / MAX_DEV_PCT) * 50;
-      leftPct  = 50 - widthPct;
-    }
-
-    barFillEl.style.left  = `${leftPct}%`;
-    barFillEl.style.width = `${widthPct}%`;
-
-    // Green if Good, Red if Bad
-    const good = isKpiGood_(kpiKey, actualValue);
+    // Fill width + color
+    barFillEl.style.width = `${fillPct}%`;
     barFillEl.style.background = good
       ? 'linear-gradient(90deg, #6EE87C 0%, #1B9E3A 100%)'
       : 'linear-gradient(90deg, #FF6B6B 0%, #B71C1C 100%)';
+
+    // Standard mark position
+    if (barStdMarkEl) barStdMarkEl.style.left = `${stdPct}%`;
+
+    // Standard label position (with edge-clamping)
+    if (barStdLblEl) {
+      if (stdPct < 12) {
+        barStdLblEl.style.transform = 'translateX(0)';
+        barStdLblEl.style.left = '4px';
+      } else if (stdPct > 88) {
+        barStdLblEl.style.transform = 'translateX(-100%)';
+        barStdLblEl.style.left = 'calc(100% - 4px)';
+      } else {
+        barStdLblEl.style.transform = 'translateX(-50%)';
+        barStdLblEl.style.left = `${stdPct}%`;
+      }
+      barStdLblEl.textContent = shortStdLabel_(kpiKey);
+    }
+
+    // Status text on bar
+    if (barStatusEl) barStatusEl.textContent = statusInfo.label;
+
+        // 🆕 Deviation from standard
+    const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
+    if (barDevEl && std > 0) {
+      const devPct = ((actualValue - std) / std) * 100;
+      const sign = devPct >= 0 ? '+' : '';
+      barDevEl.textContent = `${sign}${devPct.toFixed(1)}%`;
+
+      // Position near the actual fill edge
+      const devPos = Math.max(6, Math.min(94, fillPct));
+      barDevEl.style.left = `${devPos}%`;
+
+      // Color: green if achieved, red if not
+      barDevEl.classList.toggle('negative', !good);
+      barDevEl.classList.remove('hidden');
+    }
+  } else {
+    // No data → hide deviation
+    const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
+    if (barDevEl) barDevEl.classList.add('hidden');
   }
 
-  if (barStdLabel) {
-    barStdLabel.textContent = shortStdLabel_(kpiKey);
+  // ===========================================================
+  // FORMULA — bottom row (Col 3)
+  // ===========================================================
+  const fmSpanEl = document.getElementById(`kpi${num}FormulaSpan`);
+    if (fmSpanEl) {
+    if (breakdown && breakdown.formula) {
+      fmSpanEl.innerHTML = wrapFormulaNumbers_(breakdown.formula);   // ✅
+      fmSpanEl.style.display = '';
+    } else {
+      fmSpanEl.innerHTML = '';
+      fmSpanEl.style.display = 'none';
+    }
+  }
+
+    // Today's date — DD-MM-YYYY
+  const todayEl = document.getElementById(`kpi${num}Today`);
+  if (todayEl) {
+    const d = new Date();
+    const day   = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    todayEl.textContent = `${day}-${month}-${d.getFullYear()}`;
   }
 }
 
@@ -1997,27 +2100,35 @@ async function renderBayMortalityKpi() {
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_BAY_MORTALITY_STANDARD_;
 
-// Actual = average of daily % values for the selected month
+// Actual = month overall = (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100
 const dataDays = report.days.filter(d => d.hasData);
-const actualAvg = dataDays.length > 0
-  ? dataDays.reduce((s, d) => s + d.pct, 0) / dataDays.length
-  : 0;
+const sumBirds  = dataDays.reduce((s, d) => s + (d.totalBirds || 0), 0);
+const sumMortal = dataDays.reduce((s, d) => s + (d.bayMortality || 0), 0);
+const actualAvg = sumBirds > 0 ? (sumMortal / sumBirds) * 100 : 0;
 
-updateKpiHeader("kpi-01", std, workingDays, actualAvg);
+// 🆕 Breakdown: total mortality birds ÷ total birds received alive
+const kpi01Breakdown = sumBirds > 0 ? {
+  figures: `${sumMortal.toLocaleString()} ÷ ${sumBirds.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100\n= ${sumMortal.toLocaleString()} ÷ ${sumBirds.toLocaleString()} × 100\n= ${actualAvg.toFixed(2)}%`
+} : null;
+
+updateKpiHeader("kpi-01", std, workingDays, actualAvg, kpi01Breakdown);
 
     panel.innerHTML =
-      renderBayMortalitySummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi01TrendViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi01TrendViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi01ChartTitle">Daily Bay Mortality % Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi01TrendViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi01TrendViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div>
-      </div>` +
-      renderBayMortalityTable_(report) +
+        <div class="kpi-chart-title" id="kpi01ChartTitle">Daily Bay Mortality % Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi01Chart" height="90"></canvas></div>
+    </div>`,
+    renderBayMortalitySummaryCards_(report.summary)
+  ) +
+  renderBayMortalityTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -2040,7 +2151,6 @@ updateKpiHeader("kpi-01", std, workingDays, actualAvg);
     renderBayMortalityChart_(report);
     kpi01TrendView_ = "daily";
     setupKpi01TrendToggle_();
-    syncChartWidthToTable_();
 
     kpi01GoodDaysView_ = "weekly";
     setupKpi01GoodDaysToggle_();
@@ -2809,21 +2919,29 @@ const std = 4500;
 // Actual = overall rate for the month (total received / total time)
 const actualAvg = report.totals && report.totals.rate ? report.totals.rate : 0;
 
-updateKpiHeader("kpi-02", std, workingDays, actualAvg);
+// 🆕 Breakdown: total received birds ÷ total unloading time
+const kpi02Breakdown = (report.totals && report.totals.unloadingTime > 0) ? {
+  figures: `${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)}`,
+  formula: `= Total Received Birds ÷ Total Unloading Time\n= ${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
+} : null;
+
+updateKpiHeader("kpi-02", std, workingDays, actualAvg, kpi02Breakdown);
 
     panel.innerHTML =
-      renderBirdUnloadSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi02MainViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi02MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi02ChartTitle">Daily Birds Unloading Rate Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi02MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi02MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi02Chart" height="90"></canvas></div>
-      </div>` +
-      renderBirdUnloadTable_(report) +
+        <div class="kpi-chart-title" id="kpi02ChartTitle">Daily Birds Unloading Rate Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi02Chart" height="90"></canvas></div>
+    </div>`,
+    renderBirdUnloadSummaryCards_(report.summary)
+  ) +
+  renderBirdUnloadTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -2844,7 +2962,6 @@ updateKpiHeader("kpi-02", std, workingDays, actualAvg);
       </div>`;
 
     renderBirdUnloadChart_(report);
-    syncKpi02ChartWidthToTable_();
     kpi02MainChartView_ = "daily";
     setupKpi02MainChartToggle_(report);
 
@@ -3278,21 +3395,29 @@ const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
 const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
 const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
-updateKpiHeader("kpi-03", std, workingDays, actualAvg);
+// 🆕 Breakdown: total actual ÷ total planned
+const kpi03Breakdown = totalPlanned > 0 ? {
+  figures: `${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Actual Birds ÷ Total Planned Birds) × 100\n= ${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`
+} : null;
+
+updateKpiHeader("kpi-03", std, workingDays, actualAvg, kpi03Breakdown);
 
     panel.innerHTML =
-      renderBirdInputSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi03MainViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi03MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi03ChartTitle">Daily Bird Input Efficiency % Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi03MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi03MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div>
-      </div>` +
-      renderBirdInputTable_(report) +
+        <div class="kpi-chart-title" id="kpi03ChartTitle">Daily Bird Input Efficiency % Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi03Chart" height="90"></canvas></div>
+    </div>`,
+    renderBirdInputSummaryCards_(report.summary)
+  ) +
+  renderBirdInputTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -3315,7 +3440,6 @@ updateKpiHeader("kpi-03", std, workingDays, actualAvg);
     renderBirdInputChart_(report);
     kpi03MainView_ = "daily";
     setupKpi03MainChartToggle_(report);
-    syncKpi03ChartWidthToTable_();
 
     kpi03GoodDaysView_ = "weekly";
     setupKpi03GoodDaysToggle_();
@@ -3743,21 +3867,29 @@ const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
 const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
 const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
-updateKpiHeader("kpi-04", std, workingDays, actualAvg);
+// 🆕 Breakdown: total actual ÷ total planned
+const kpi04Breakdown = totalPlanned > 0 ? {
+  figures: `${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Actual Qty ÷ Total Planned Qty) × 100\n= ${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`
+} : null;
+
+updateKpiHeader("kpi-04", std, workingDays, actualAvg, kpi04Breakdown);
 
     panel.innerHTML =
-      renderPackingEfficiencySummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi04MainViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi04MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi04ChartTitle">Daily Packing Line Efficiency % Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi04MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi04MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi04Chart" height="90"></canvas></div>
-      </div>` +
-      renderPackingEfficiencyTable_(report) +
+        <div class="kpi-chart-title" id="kpi04ChartTitle">Daily Packing Line Efficiency % Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi04Chart" height="90"></canvas></div>
+    </div>`,
+    renderPackingEfficiencySummaryCards_(report.summary)
+  ) +
+  renderPackingEfficiencyTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -3780,7 +3912,6 @@ updateKpiHeader("kpi-04", std, workingDays, actualAvg);
     renderPackingEfficiencyChart_(report);
     kpi04MainView_ = "daily";
     setupKpi04MainChartToggle_(report);
-    syncKpi04ChartWidthToTable_();
 
     kpi04GoodDaysView_ = "weekly";
     setupKpi04GoodDaysToggle_();
@@ -4227,21 +4358,29 @@ const std = KPI_DRESSED_YIELD_STANDARD_;
 // Actual = overall yield % for the month
 const actualAvg = report.totals && report.totals.yieldPct ? report.totals.yieldPct : 0;
 
-updateKpiHeader("kpi-05", std, workingDays, actualAvg);
+// 🆕 Breakdown: total dressed weight ÷ total live weight
+const kpi05Breakdown = (report.totals && report.totals.liveWeight > 0) ? {
+  figures: `${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+} : null;
+
+updateKpiHeader("kpi-05", std, workingDays, actualAvg, kpi05Breakdown);
 
     panel.innerHTML =
-      renderDressedYieldSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi05MainViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi05MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi05ChartTitle">Daily Dressed Yield % Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi05MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi05MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div>
-      </div>` +
-      renderDressedYieldTable_(report) +
+        <div class="kpi-chart-title" id="kpi05ChartTitle">Daily Dressed Yield % Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi05Chart" height="90"></canvas></div>
+    </div>`,
+    renderDressedYieldSummaryCards_(report.summary)
+  ) +
+  renderDressedYieldTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -4264,7 +4403,6 @@ updateKpiHeader("kpi-05", std, workingDays, actualAvg);
     renderDressedYieldChart_(report);
     kpi05MainView_ = "daily";
     setupKpi05MainChartToggle_(report);
-    syncKpi05ChartWidthToTable_();
 
     kpi05GoodDaysView_ = "weekly";
     setupKpi05GoodDaysToggle_();
@@ -4710,22 +4848,30 @@ const std = KPI_CHILL_LOSS_STANDARD_;
 // Actual = overall chill loss % for the month
 const actualAvg = report.totals && report.totals.chillLossPct ? report.totals.chillLossPct : 0;
 
-updateKpiHeader("kpi-06", std, workingDays, actualAvg);
+// 🆕 Breakdown: (total chill weight − total dress weight) ÷ total chill weight
+const kpi06Breakdown = (report.totals && report.totals.chillWeight > 0) ? {
+  figures: `(${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+} : null;
+
+updateKpiHeader("kpi-06", std, workingDays, actualAvg, kpi06Breakdown);
     window.currentKpi06DateRows_ = report.dateRows;
 
     panel.innerHTML =
-      renderChillLossSummaryCards_(report.summary) +
-      `<div class="panel kpi-chart-panel">
-        <div class="chart-toolbar">
-          <div class="kpi-view-toggle">
-            <button type="button" id="kpi06MainViewDaily" class="kpi-toggle-btn active">Daily</button>
-            <button type="button" id="kpi06MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
-          </div>
-          <div class="kpi-chart-title" id="kpi06ChartTitle">Daily Chill Loss % Trend</div>
+  wrapChartAndCards_(
+    `<div class="panel kpi-chart-panel">
+      <div class="chart-toolbar">
+        <div class="kpi-view-toggle">
+          <button type="button" id="kpi06MainViewDaily" class="kpi-toggle-btn active">Daily</button>
+          <button type="button" id="kpi06MainViewWeekly" class="kpi-toggle-btn">Weekly</button>
         </div>
-        <div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div>
-      </div>` +
-      renderChillLossTable_(report) +
+        <div class="kpi-chart-title" id="kpi06ChartTitle">Daily Chill Loss % Trend</div>
+      </div>
+      <div class="panel-body"><canvas id="kpi06Chart" height="90"></canvas></div>
+    </div>`,
+    renderChillLossSummaryCards_(report.summary)
+  ) +
+  renderChillLossTable_(report) +
       `<div class="panel kpi-chart-panel" style="margin-top:16px;">
         <div class="chart-toolbar" style="padding:10px 14px 0;">
           <div class="kpi-view-toggle">
@@ -4748,7 +4894,6 @@ updateKpiHeader("kpi-06", std, workingDays, actualAvg);
     renderChillLossChart_(report);
     kpi06MainView_ = "daily";
     setupKpi06MainChartToggle_(report);
-    syncKpi06ChartWidthToTable_();
 
     kpi06GoodDaysView_ = "weekly";
     setupGoodDaysToggle_();
@@ -4891,15 +5036,11 @@ function getKpiStatusNew(value, config) {
   }
   const std = config.standard;
   if (config.isLowerBetter) {
-    if (value <= std)       return { status: "good",     label: "Good",     color: "#2e7d32" };
-    if (value <= std * 1.5) return { status: "caution",  label: "Caution",  color: "#f57f17" };
-    if (value <= std * 2)   return { status: "warning",  label: "Warning",  color: "#e65100" };
-    return                         { status: "critical", label: "Critical", color: "#c62828" };
+    if (value <= std) return { status: "good",     label: "Achieved",     color: "#2e7d32" };
+    return               { status: "critical", label: "Not Achieved", color: "#c62828" };
   } else {
-    if (value >= std)        return { status: "good",     label: "Good",     color: "#2e7d32" };
-    if (value >= std * 0.85) return { status: "caution",  label: "Caution",  color: "#f57f17" };
-    if (value >= std * 0.7)  return { status: "warning",  label: "Warning",  color: "#e65100" };
-    return                          { status: "critical", label: "Critical", color: "#c62828" };
+    if (value >= std) return { status: "good",     label: "Achieved",     color: "#2e7d32" };
+    return               { status: "critical", label: "Not Achieved", color: "#c62828" };
   }
 }
 
@@ -5142,8 +5283,7 @@ function renderKpiCardsNew(data) {
     let trend = { direction: "flat", value: 0 };
     let displayValue = "—";
 
-        if (extracted.hasData && extracted.values.length > 0) {
-      // 🆕 Same calc as KPI tabs header (weighted, not simple avg)
+    if (extracted.hasData && extracted.values.length > 0) {
       const overall = computeKpiOverallValue_(report, key);
       avgValue = (overall !== null && isFinite(overall))
         ? overall
@@ -5151,7 +5291,6 @@ function renderKpiCardsNew(data) {
 
       status = getKpiStatusNew(avgValue, config);
 
-      // 🆕 KPI 02 (birds/hr) → no decimals; others → 2 decimals
       if (key === "kpi-02") {
         displayValue = Math.round(avgValue).toLocaleString();
       } else {
@@ -5177,16 +5316,29 @@ function renderKpiCardsNew(data) {
 
     const stdDisplay = formatStdDisplay_(key, config);
 
+            // 🆕 Accent color from status
+    const accentColor =
+      status.status === "good"     ? "#1B9E3A" :   // green
+      status.status === "no-data"  ? "#9e9e9e" :   // grey
+                                     "#C62828";    // red (not achieved)
+
+    // 🆕 Light tint for the corner gradient
+    const accentLight =
+      status.status === "good"     ? "rgba(27, 158, 58, 0.30)" :
+      status.status === "no-data"  ? "rgba(158, 158, 158, 0.20)" :
+                                     "rgba(198, 40, 40, 0.30)";
+
     html += `
       <div class="dash-kpi-card"
            data-kpi="${key}"
            role="button"
            tabindex="0"
            title="Open ${config.label} KPI"
-           style="border-left: 4px solid ${config.color}; background: linear-gradient(135deg, ${config.bgColor} 0%, #ffffff 55%);">
+           data-status="${status.status}"
+           style="--card-accent: ${accentColor}; --card-accent-light: ${accentLight};">
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
-                <div class="card-value">
+        <div class="card-value">
           ${displayValue}<span class="unit">${config.unit}</span>
         </div>
         <div class="card-standard">
@@ -5200,12 +5352,17 @@ function renderKpiCardsNew(data) {
         <div class="card-bar">
           <div class="card-bar-fill" style="width: ${barWidth}%; background: ${config.color}"></div>
         </div>
+        <!-- 🆕 Pie chart canvas -->
+        <div class="card-pie-wrap">
+          <canvas id="card-pie-${key}"></canvas>
+        </div>
       </div>
     `;
   });
 
   container.innerHTML = html;
 
+  // Click + keyboard handlers
   container.querySelectorAll(".dash-kpi-card").forEach((card) => {
     const kpiKey = card.dataset.kpi;
     if (!kpiKey) return;
@@ -5218,6 +5375,9 @@ function renderKpiCardsNew(data) {
         if (typeof showView === "function") showView(kpiKey);
       }
     });
+
+    // 🆕 Render pie chart inside this card
+    renderSinglePieChart_(kpiKey, data[kpiKey], `card-pie-${kpiKey}`);
   });
 }
 
@@ -5465,19 +5625,20 @@ function renderKpiDayPieCharts_(data) {
   keys.forEach((key) => renderSinglePieChart_(key, data[key]));
 }
 
-function renderSinglePieChart_(kpiKey, report) {
-  const canvas = document.getElementById(`pie-${kpiKey}`);
+function renderSinglePieChart_(kpiKey, report, canvasId) {
+  const canvas = document.getElementById(canvasId || `pie-${kpiKey}`);
   if (!canvas) return;
 
   const counts = computeMonthDayStatusCounts_(report, kpiKey);
 
+  // Destroy previous instance if exists
   if (dashNewState.chartInstances[`pie-${kpiKey}`]) {
     dashNewState.chartInstances[`pie-${kpiKey}`].destroy();
     delete dashNewState.chartInstances[`pie-${kpiKey}`];
   }
 
   if (counts.total === 0) {
-    canvas.parentElement.innerHTML = `<div class="dash-pie-empty">No data for this month</div>`;
+    canvas.parentElement.innerHTML = `<div class="card-pie-empty">No data for this month</div>`;
     return;
   }
 
@@ -5555,7 +5716,6 @@ async function renderDashboardNew() {
     dashNewState.yearData = yearData;
 
     renderKpiCardsNew(data);
-    renderKpiDayPieCharts_(data);
     renderAllCharts(yearData, viewMode);
     renderSummaryTable(data);
   } catch (err) {

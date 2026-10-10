@@ -102,7 +102,7 @@
   <!-- Main content -->
   <main class="content">
 
-    <!-- content එක තුළ, අනෙකුත් views එක්ක -->
+    <!-- KPI OVERVIEW DASHBOARD -->
 <section class="view active" id="view-dashboard-new">
   
   <!-- Header -->
@@ -136,9 +136,6 @@
   <!-- KPI Summary Cards -->
   <div class="dash-kpi-cards" id="dashNewCards"></div>
 
-  <!-- KPI Day Status Pie Charts -->
-  <div id="dashNewPieCharts" class="dash-pie-wrap"></div>
-
   <!-- View Toggle Buttons -->
   <div class="dash-view-toggle">
     <button class="dash-view-btn active" data-view="quarterly">📊 Quarterly</button>
@@ -157,69 +154,85 @@
 
 </section>
 
-    <!-- KPI 01 — BAY MORTALITY RATE % -->
+<!-- =================================================================
+     KPI 01 — BAY MORTALITY RATE %
+     ================================================================= -->
 <section class="view" id="view-kpi-01">
   <div class="sticky-report-header">
-  <div class="kpi-header-grid">
-    <!-- Col 1: Title -->
-    <div class="kpi-grid-cell kpi-grid-title">
-      <h1>KPI 02 — Bay Mortality Rate %</h1>
-      <p class="sub">Daily bay mortality rate — filter by year and month.</p>
+    <div class="kpi-header-grid">
+
+      <!-- LEFT: Title + Year/Month -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 02 — Bay Mortality Rate</h1>
+            <p class="sub">Daily bay mortality rate — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi01Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi01Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- MIDDLE: Status Pill + Month Overall + Standard -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi01Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi01Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi01Standard">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BAR + FORMULA COLUMN -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi01BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi01BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi01BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi01BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi01BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi01FormulaSpan"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Today + Working Days -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi01Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi01WorkingDays">—</div>
+        </div>
+      </div>
+
     </div>
-
-    <!-- Col 2: Standard -->
-    <div class="kpi-grid-cell">
-      <div class="kpi-grid-label">📊 Standard</div>
-      <div class="kpi-grid-value kpi-std-value" id="kpi01Standard">—</div>
-    </div>
-
-    <!-- Col 3: Actual -->
-    <div class="kpi-grid-cell">
-      <div class="kpi-grid-label">Actual</div>
-      <div class="kpi-grid-value kpi-actual-value" id="kpi01Actual">—</div>
-    </div>
-
-    <!-- Col 4: Actual Status -->
-    <div class="kpi-grid-cell">
-      <div class="kpi-grid-label">Status</div>
-      <div class="kpi-grid-value kpi-status-value" id="kpi01Status">—</div>
-    </div>
-
-    <!-- 🆕 Col 5: Working Days -->
-    <div class="kpi-grid-cell">
-      <div class="kpi-grid-label">📅Ttl W/Days</div>
-      <div class="kpi-grid-value kpi-wd-value" id="kpi01WorkingDays">—</div>
-    </div>
-
-<!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi01Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi01Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi01BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi01BarStdLabel">STD</div>
   </div>
-</div>
-  </div>
-</div>
 
   <div class="panel">
     <div class="panel-body" id="kpi01Panel">
@@ -228,67 +241,83 @@
   </div>
 </section>
 
-<!-- KPI 02 — BIRDS UNLOADING RATE -->
+<!-- =================================================================
+     KPI 02 — BIRDS UNLOADING RATE
+     ================================================================= -->
 <section class="view" id="view-kpi-02">
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
-      <!-- Col 1: Title -->
-      <div class="kpi-grid-cell kpi-grid-title">
-        <h1>KPI 03 — Birds Unloading Rate</h1>
-        <p class="sub">Daily birds unloading rate — filter by year and month.</p>
+
+      <!-- LEFT -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 03 — Birds Unloading Rate</h1>
+            <p class="sub">Daily birds unloading rate — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi02Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi02Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Col 2: Standard -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📊 Standard</div>
-        <div class="kpi-grid-value kpi-std-value" id="kpi02Standard">—</div>
+      <!-- MIDDLE -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi02Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi02Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi02Standard">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Col 3: Actual -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Actual</div>
-        <div class="kpi-grid-value kpi-actual-value" id="kpi02Actual">—</div>
+      <!-- BAR + FORMULA -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi02BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi02BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi02BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi02BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi02BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi02FormulaSpan"></div>
+        </div>
       </div>
 
-      <!-- Col 4: Actual Status -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Status</div>
-        <div class="kpi-grid-value kpi-status-value" id="kpi02Status">—</div>
+      <!-- RIGHT -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi02Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi02WorkingDays">—</div>
+        </div>
       </div>
 
-      <!-- Col 5: Working Days -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📅Ttl W/Days</div>
-        <div class="kpi-grid-value kpi-wd-value" id="kpi02WorkingDays">—</div>
-      </div>
-
-      <!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi02Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi02Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi02BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi02BarStdLabel">STD</div>
-  </div>
-</div>
     </div>
   </div>
 
@@ -299,67 +328,83 @@
   </div>
 </section>
 
-<!-- KPI 03 — SLAUGHTER LINE EFFICIENCY -->
+<!-- =================================================================
+     KPI 03 — SLAUGHTER LINE EFFICIENCY
+     ================================================================= -->
 <section class="view" id="view-kpi-03">
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
-      <!-- Col 1: Title -->
-      <div class="kpi-grid-cell kpi-grid-title">
-        <h1>KPI 04 — Slaughter Line Efficiency</h1>
-        <p class="sub">Daily slaughter line efficiency — filter by year and month.</p>
+
+      <!-- LEFT -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 04 — Slaughter Line Efficiency</h1>
+            <p class="sub">Daily slaughter line efficiency — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi03Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi03Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Col 2: Standard -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📊 Standard</div>
-        <div class="kpi-grid-value kpi-std-value" id="kpi03Standard">—</div>
+      <!-- MIDDLE -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi03Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi03Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi03Standard">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Col 3: Actual -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Actual</div>
-        <div class="kpi-grid-value kpi-actual-value" id="kpi03Actual">—</div>
+      <!-- BAR + FORMULA -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi03BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi03BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi03BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi03BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi03BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi03FormulaSpan"></div>
+        </div>
       </div>
 
-      <!-- Col 4: Actual Status -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Status</div>
-        <div class="kpi-grid-value kpi-status-value" id="kpi03Status">—</div>
+      <!-- RIGHT -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi03Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi03WorkingDays">—</div>
+        </div>
       </div>
 
-      <!-- Col 5: Working Days -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📅Ttl W/Days</div>
-        <div class="kpi-grid-value kpi-wd-value" id="kpi03WorkingDays">—</div>
-      </div>
-
-      <!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi03Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi03Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi03BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi03BarStdLabel">STD</div>
-  </div>
-</div>
     </div>
   </div>
 
@@ -370,67 +415,83 @@
   </div>
 </section>
 
-<!-- KPI 04 — PACKING LINE EFFICIENCY -->
+<!-- =================================================================
+     KPI 04 — PRODUCTION EFFICIENCY
+     ================================================================= -->
 <section class="view" id="view-kpi-04">
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
-      <!-- Col 1: Title -->
-      <div class="kpi-grid-cell kpi-grid-title">
-        <h1>KPI 05 — Production Efficiency</h1>
-        <p class="sub">Daily Production efficiency — filter by year and month.</p>
+
+      <!-- LEFT -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 05 — Production Efficiency</h1>
+            <p class="sub">Daily Production efficiency — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi04Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi04Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Col 2: Standard -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📊 Standard</div>
-        <div class="kpi-grid-value kpi-std-value" id="kpi04Standard">—</div>
+      <!-- MIDDLE -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi04Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi04Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi04Standard">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Col 3: Actual -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Actual</div>
-        <div class="kpi-grid-value kpi-actual-value" id="kpi04Actual">—</div>
+      <!-- BAR + FORMULA -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi04BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi04BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi04BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi04BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi04BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi04FormulaSpan"></div>
+        </div>
       </div>
 
-      <!-- Col 4: Actual Status -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Status</div>
-        <div class="kpi-grid-value kpi-status-value" id="kpi04Status">—</div>
+      <!-- RIGHT -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi04Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi04WorkingDays">—</div>
+        </div>
       </div>
 
-      <!-- Col 5: Working Days -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📅Ttl W/Days</div>
-        <div class="kpi-grid-value kpi-wd-value" id="kpi04WorkingDays">—</div>
-      </div>
-
-      <!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi04Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi04Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi04BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi04BarStdLabel">STD</div>
-  </div>
-</div>
     </div>
   </div>
 
@@ -441,67 +502,83 @@
   </div>
 </section>
 
-<!-- KPI 05 — DRESSED YIELD % -->
+<!-- =================================================================
+     KPI 05 — DRESSED YIELD %
+     ================================================================= -->
 <section class="view" id="view-kpi-05">
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
-      <!-- Col 1: Title -->
-      <div class="kpi-grid-cell kpi-grid-title">
-        <h1>KPI 01 — Dressed Yield %</h1>
-        <p class="sub">Daily dressed yield — filter by year and month.</p>
+
+      <!-- LEFT -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 01 — Dressed Yield</h1>
+            <p class="sub">Daily dressed yield — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi05Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi05Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Col 2: Standard -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📊 Standard</div>
-        <div class="kpi-grid-value kpi-std-value" id="kpi05Standard">—</div>
+      <!-- MIDDLE -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi05Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi05Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi05Standard">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Col 3: Actual -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Actual</div>
-        <div class="kpi-grid-value kpi-actual-value" id="kpi05Actual">—</div>
+      <!-- BAR + FORMULA -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi05BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi05BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi05BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi05BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi05BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi05FormulaSpan"></div>
+        </div>
       </div>
 
-      <!-- Col 4: Actual Status -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Status</div>
-        <div class="kpi-grid-value kpi-status-value" id="kpi05Status">—</div>
+      <!-- RIGHT -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi05Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi05WorkingDays">—</div>
+        </div>
       </div>
 
-      <!-- Col 5: Working Days -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📅Ttl W/Days</div>
-        <div class="kpi-grid-value kpi-wd-value" id="kpi05WorkingDays">—</div>
-      </div>
-
-      <!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi05Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi05Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi05BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi05BarStdLabel">STD</div>
-  </div>
-</div>
     </div>
   </div>
 
@@ -512,67 +589,83 @@
   </div>
 </section>
 
-<!-- KPI 06 — CHILL LOSS % -->
+<!-- =================================================================
+     KPI 06 — CHILL LOSS %
+     ================================================================= -->
 <section class="view" id="view-kpi-06">
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
-      <!-- Col 1: Title -->
-      <div class="kpi-grid-cell kpi-grid-title">
-        <h1>KPI 06 — Chill Loss %</h1>
-        <p class="sub">Daily chill loss — filter by year and month.</p>
+
+      <!-- LEFT -->
+      <div class="kpi-grid-left">
+        <div class="kpi-grid-cell kpi-grid-title">
+          <div class="kpi-title-text">
+            <h1>KPI 06 — Chill Loss %</h1>
+            <p class="sub">Daily chill loss — filter by year and month.</p>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
+          <div class="kpi-grid-label">Year</div>
+          <select id="kpi06Year"></select>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
+          <div class="kpi-grid-label">Month</div>
+          <select id="kpi06Month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Col 2: Standard -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📊 Standard</div>
-        <div class="kpi-grid-value kpi-std-value" id="kpi06Standard">—</div>
+      <!-- MIDDLE -->
+      <div class="kpi-grid-metrics-group">
+        <div class="kpi-grid-cell kpi-grid-status-cell">
+          <div class="kpi-grid-value kpi-status-value" id="kpi06Status">—</div>
+        </div>
+        <div class="kpi-grid-metrics-row">
+          <div class="kpi-grid-cell kpi-grid-actual-cell">
+            <div class="kpi-grid-label">MONTH OVERALL</div>
+            <div class="kpi-grid-value kpi-actual-value" id="kpi06Actual">—</div>
+          </div>
+          <div class="kpi-grid-cell kpi-grid-std-cell">
+            <div class="kpi-grid-label">Standard</div>
+            <div class="kpi-grid-value kpi-std-value" id="kpi06Standard">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Col 3: Actual -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Actual</div>
-        <div class="kpi-grid-value kpi-actual-value" id="kpi06Actual">—</div>
+      <!-- BAR + FORMULA -->
+      <div class="kpi-grid-bar-formula">
+        <div class="kpi-grid-cell kpi-grid-bar-cell">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" id="kpi06BarFill"></div>
+            <div class="kpi-bar-std-mark" id="kpi06BarStdMark"></div>
+            <div class="kpi-bar-std-label" id="kpi06BarStdLabel">STD</div>
+            <div class="kpi-bar-status" id="kpi06BarStatus">—</div>
+            <div class="kpi-bar-deviation" id="kpi06BarDeviation">—</div>
+          </div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-formula-cell">
+          <div class="kpi-actual-formula" id="kpi06FormulaSpan"></div>
+        </div>
       </div>
 
-      <!-- Col 4: Actual Status -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">Status</div>
-        <div class="kpi-grid-value kpi-status-value" id="kpi06Status">—</div>
+      <!-- RIGHT -->
+      <div class="kpi-grid-right">
+        <div class="kpi-grid-cell kpi-grid-today-cell">
+          <div class="kpi-grid-label">Today</div>
+          <div class="kpi-grid-value kpi-today-value" id="kpi06Today">—</div>
+        </div>
+        <div class="kpi-grid-cell kpi-grid-wd-cell">
+          <div class="kpi-grid-label">Total Working Days</div>
+          <div class="kpi-grid-value kpi-wd-value" id="kpi06WorkingDays">—</div>
+        </div>
       </div>
 
-      <!-- Col 5: Working Days -->
-      <div class="kpi-grid-cell">
-        <div class="kpi-grid-label">📅Ttl W/Days</div>
-        <div class="kpi-grid-value kpi-wd-value" id="kpi06WorkingDays">—</div>
-      </div>
-
-      <!-- Year -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-year">
-  <div class="kpi-grid-label">Year</div>
-  <select id="kpi06Year"></select>
-</div>
-
-<!-- Month -->
-<div class="kpi-grid-cell kpi-grid-filter kpi-grid-month">
-  <div class="kpi-grid-label">Month</div>
-  <select id="kpi06Month">
-    <option value="1">January</option><option value="2">February</option>
-    <option value="3">March</option><option value="4">April</option>
-    <option value="5">May</option><option value="6">June</option>
-    <option value="7">July</option><option value="8">August</option>
-    <option value="9">September</option><option value="10">October</option>
-    <option value="11">November</option><option value="12">December</option>
-  </select>
-</div>
-
-<!-- Col 3–6, Row 2: Center-standard Bar -->
-<div class="kpi-grid-cell kpi-grid-bar">
-  <div class="kpi-bar-track">
-    <div class="kpi-bar-fill" id="kpi06BarFill"></div>
-    <div class="kpi-bar-center-mark"></div>
-    <div class="kpi-bar-std-label" id="kpi06BarStdLabel">STD</div>
-  </div>
-</div>
     </div>
   </div>
 
