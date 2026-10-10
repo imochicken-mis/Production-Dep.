@@ -161,7 +161,7 @@
   <div class="sticky-report-header">
     <div class="kpi-header-grid">
 
-      <!-- LEFT: Title + Year/Month -->
+      <!-- LEFT -->
       <div class="kpi-grid-left">
         <div class="kpi-grid-cell kpi-grid-title">
           <div class="kpi-title-text">
@@ -186,7 +186,7 @@
         </div>
       </div>
 
-      <!-- MIDDLE: Status Pill + Month Overall + Standard -->
+      <!-- MIDDLE -->
       <div class="kpi-grid-metrics-group">
         <div class="kpi-grid-cell kpi-grid-status-cell">
           <div class="kpi-grid-value kpi-status-value" id="kpi01Status">—</div>
@@ -203,7 +203,7 @@
         </div>
       </div>
 
-      <!-- BAR + FORMULA COLUMN -->
+      <!-- BAR + FORMULA -->
       <div class="kpi-grid-bar-formula">
         <div class="kpi-grid-cell kpi-grid-bar-cell">
           <div class="kpi-bar-track">
@@ -219,15 +219,22 @@
         </div>
       </div>
 
-      <!-- RIGHT: Today + Working Days -->
+      <!-- RIGHT: Today + Working Days (STD + ACT) -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi01Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi01WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi01WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi01WdActual">—</span>
+          </div>
         </div>
       </div>
 
@@ -306,15 +313,22 @@
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- RIGHT: Today + Working Days -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi02Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi02WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi02WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi02WdActual">—</span>
+          </div>
         </div>
       </div>
 
@@ -393,15 +407,22 @@
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- RIGHT: Today + Working Days -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi03Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi03WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi03WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi03WdActual">—</span>
+          </div>
         </div>
       </div>
 
@@ -480,15 +501,22 @@
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- RIGHT: Today + Working Days -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi04Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi04WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi04WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi04WdActual">—</span>
+          </div>
         </div>
       </div>
 
@@ -567,15 +595,22 @@
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- RIGHT: Today + Working Days -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi05Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi05WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi05WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi05WdActual">—</span>
+          </div>
         </div>
       </div>
 
@@ -654,15 +689,22 @@
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- RIGHT: Today + Working Days -->
       <div class="kpi-grid-right">
         <div class="kpi-grid-cell kpi-grid-today-cell">
           <div class="kpi-grid-label">Today</div>
           <div class="kpi-grid-value kpi-today-value" id="kpi06Today">—</div>
         </div>
         <div class="kpi-grid-cell kpi-grid-wd-cell">
-          <div class="kpi-grid-label">Total Working Days</div>
-          <div class="kpi-grid-value kpi-wd-value" id="kpi06WorkingDays">—</div>
+          <div class="kpi-grid-label">Working Days</div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">STD</span>
+            <span class="kpi-grid-value kpi-wd-std-value" id="kpi06WdStd">—</span>
+          </div>
+          <div class="kpi-wd-row">
+            <span class="kpi-wd-tag">ACT</span>
+            <span class="kpi-grid-value kpi-wd-actual-value" id="kpi06WdActual">—</span>
+          </div>
         </div>
       </div>
 

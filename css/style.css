@@ -1146,6 +1146,58 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   min-width: 0;
 }
 
+/* ===================================================================
+   WORKING DAYS CELL — STD vs ACT
+   =================================================================== */
+.kpi-grid-wd-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.kpi-wd-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.kpi-wd-tag {
+  font-size: 9px;
+  font-weight: 800;
+  color: #9CC5E8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.kpi-grid-value.kpi-wd-std-value {
+  color: #7FD1FF;              /* cyan — standard */
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.kpi-grid-value.kpi-wd-actual-value {
+  color: #7EE787;              /* green — actual */
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* Alert: actual > standard (worked extra days) */
+.kpi-grid-value.kpi-wd-actual-value.wd-over {
+  color: #FFD54F;
+}
+
+/* Alert: actual < standard (missed days) */
+.kpi-grid-value.kpi-wd-actual-value.wd-under {
+  color: #FF8A80;
+}
+
 /* ---------- Title text ---------- */
 .kpi-title-text { min-width: 0; }
 .kpi-grid-title h1 {

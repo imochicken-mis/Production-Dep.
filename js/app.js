@@ -323,7 +323,7 @@ function wrapFormulaNumbers_(formula) {
 // ===================================================================
 // KPI HEADER — update the 6-column grid
 // ===================================================================
-function updateKpiHeader(kpiKey, std, workingDays, actualValue, breakdown) {
+function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, breakdown) {
   const viewElement = document.getElementById(`view-${kpiKey}`);
   if (!viewElement) return;
 
@@ -376,10 +376,18 @@ function updateKpiHeader(kpiKey, std, workingDays, actualValue, breakdown) {
     if (statusInfo.pill) stEl.classList.add(statusInfo.pill);
   }
 
-  // Working Days
-  if (wdEl) {
-    wdEl.textContent = workingDays;
-    wdEl.style.color = '#2e7d32';
+  // ===========================================================
+  // WORKING DAYS — STD + ACT
+  // ===========================================================
+  const wdStdEl = document.getElementById(`kpi${num}WdStd`);
+  const wdActEl = document.getElementById(`kpi${num}WdActual`);
+
+  if (wdStdEl) wdStdEl.textContent = workingDays;
+  if (wdActEl) {
+    wdActEl.textContent = actualDays;
+    wdActEl.classList.remove('wd-over', 'wd-under');
+    if (actualDays > workingDays) wdActEl.classList.add('wd-over');
+    else if (actualDays < workingDays) wdActEl.classList.add('wd-under');
   }
 
     // ===========================================================
@@ -2099,6 +2107,8 @@ async function renderBayMortalityKpi() {
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_BAY_MORTALITY_STANDARD_;
+const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
+
 
 // Actual = month overall = (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100
 const dataDays = report.days.filter(d => d.hasData);
@@ -2112,7 +2122,7 @@ const kpi01Breakdown = sumBirds > 0 ? {
   formula: `= (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100\n= ${sumMortal.toLocaleString()} ÷ ${sumBirds.toLocaleString()} × 100\n= ${actualAvg.toFixed(2)}%`
 } : null;
 
-updateKpiHeader("kpi-01", std, workingDays, actualAvg, kpi01Breakdown);
+updateKpiHeader("kpi-01", std, workingDays , actualDays , actualAvg, kpi01Breakdown);
 
     panel.innerHTML =
   wrapChartAndCards_(
@@ -2915,6 +2925,8 @@ async function renderBirdUnloadKpi() {
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = 4500;
+const actualDays = report.dateRows.filter(r => r.hasData && r.receivedBirds > 0).length;   // 🆕
+
 
 // Actual = overall rate for the month (total received / total time)
 const actualAvg = report.totals && report.totals.rate ? report.totals.rate : 0;
@@ -2925,8 +2937,7 @@ const kpi02Breakdown = (report.totals && report.totals.unloadingTime > 0) ? {
   formula: `= Total Received Birds ÷ Total Unloading Time\n= ${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
 } : null;
 
-updateKpiHeader("kpi-02", std, workingDays, actualAvg, kpi02Breakdown);
-
+updateKpiHeader("kpi-02", std, workingDays, actualDays, actualAvg, kpi02Breakdown);
     panel.innerHTML =
   wrapChartAndCards_(
     `<div class="panel kpi-chart-panel">
@@ -3389,6 +3400,7 @@ async function renderBirdInputEfficiencyKpi() {
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_BIRD_INPUT_STANDARD_;
+const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency for the month (total actual / total planned * 100)
 const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
@@ -3401,7 +3413,7 @@ const kpi03Breakdown = totalPlanned > 0 ? {
   formula: `= (Total Actual Birds ÷ Total Planned Birds) × 100\n= ${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
-updateKpiHeader("kpi-03", std, workingDays, actualAvg, kpi03Breakdown);
+updateKpiHeader("kpi-03", std, workingDays, actualDays, actualAvg, kpi03Breakdown);
 
     panel.innerHTML =
   wrapChartAndCards_(
@@ -3861,6 +3873,7 @@ async function renderPackingEfficiencyKpi() {
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_PACKING_EFFICIENCY_STANDARD_;
+const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency (total actual / total planned * 100)
 const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
@@ -3873,7 +3886,7 @@ const kpi04Breakdown = totalPlanned > 0 ? {
   formula: `= (Total Actual Qty ÷ Total Planned Qty) × 100\n= ${totalActual.toLocaleString()} ÷ ${totalPlanned.toLocaleString()} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
-updateKpiHeader("kpi-04", std, workingDays, actualAvg, kpi04Breakdown);
+updateKpiHeader("kpi-04", std, workingDays, actualDays, actualAvg, kpi04Breakdown);
 
     panel.innerHTML =
   wrapChartAndCards_(
@@ -4354,6 +4367,7 @@ async function renderDressedYieldKpi() {
 
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_DRESSED_YIELD_STANDARD_;
+const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall yield % for the month
 const actualAvg = report.totals && report.totals.yieldPct ? report.totals.yieldPct : 0;
@@ -4364,7 +4378,7 @@ const kpi05Breakdown = (report.totals && report.totals.liveWeight > 0) ? {
   formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
-updateKpiHeader("kpi-05", std, workingDays, actualAvg, kpi05Breakdown);
+updateKpiHeader("kpi-05", std, workingDays, actualDays, actualAvg, kpi05Breakdown);
 
     panel.innerHTML =
   wrapChartAndCards_(
@@ -4844,6 +4858,7 @@ async function renderChillLossKpi() {
     const report = await buildChillLossKpi(year, month);
     const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_CHILL_LOSS_STANDARD_;
+const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall chill loss % for the month
 const actualAvg = report.totals && report.totals.chillLossPct ? report.totals.chillLossPct : 0;
@@ -4854,7 +4869,7 @@ const kpi06Breakdown = (report.totals && report.totals.chillWeight > 0) ? {
   formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
-updateKpiHeader("kpi-06", std, workingDays, actualAvg, kpi06Breakdown);
+updateKpiHeader("kpi-06", std, workingDays, actualDays, actualAvg, kpi06Breakdown);
     window.currentKpi06DateRows_ = report.dateRows;
 
     panel.innerHTML =
