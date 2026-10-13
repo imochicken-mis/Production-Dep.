@@ -92,6 +92,25 @@ kpiToggle.addEventListener("click", () => toggleSection("kpi"));
 reportsToggle.addEventListener("click", () => toggleSection("reports"));
 notificationsToggle.addEventListener("click", () => toggleSection("notifications"));
 
+// -------------------------------------------------------------------
+// Decimal hours → "Xh Ym" format (display only)
+//   1.8  →  "1h 48m"
+//   0.5  →  "0h 30m"
+//   2.4  →  "2h 24m"
+// -------------------------------------------------------------------
+function formatHoursMinutes_(decimalHours) {
+  const num = Number(decimalHours);
+  if (!isFinite(num) || num <= 0) return "—";
+
+  const totalMinutes = Math.round(num * 60);
+  const hours   = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 // ===================================================================
 // showView — Tab navigation dispatcher
 // ===================================================================
@@ -2111,9 +2130,14 @@ const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 
 // Actual = month overall = (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100
-const dataDays = report.days.filter(d => d.hasData);
-const sumBirds  = dataDays.reduce((s, d) => s + (d.totalBirds || 0), 0);
-const sumMortal = dataDays.reduce((s, d) => s + (d.bayMortality || 0), 0);
+// 🆕 Only days where BOTH totalBirds AND bayMortality > 0
+const dataDays = report.days.filter(d =>
+  d.hasData &&
+  Number(d.totalBirds) > 0 &&
+  Number(d.bayMortality) > 0
+);
+const sumBirds  = dataDays.reduce((s, d) => s + (Number(d.totalBirds) || 0), 0);
+const sumMortal = dataDays.reduce((s, d) => s + (Number(d.bayMortality) || 0), 0);
 const actualAvg = sumBirds > 0 ? (sumMortal / sumBirds) * 100 : 0;
 
 // 🆕 Breakdown: total mortality birds ÷ total birds received alive
@@ -2594,7 +2618,9 @@ function renderBirdUnloadTable_(report) {
     return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
   }).join("");
   const receivedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.receivedBirds, 0) : ""}</td>`).join("");
-  const timeCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.unloadingTime, 1) : ""}</td>`).join("");
+  const timeCells = report.dateRows.map((r) =>
+  `<td>${r.hasData ? formatHoursMinutes_(r.unloadingTime) : ""}</td>`
+).join("");
   const rateCells = report.dateRows.map((r) => {
     if (!r.hasData || r.receivedBirds === 0) return `<td></td>`;
     const cls = birdUnloadColorClass_(r.rate);
@@ -2607,7 +2633,7 @@ function renderBirdUnloadTable_(report) {
         <tbody>
           <tr><td class="row-label">Date</td>${dateCells}</tr>
           <tr><td class="row-label">Received Birds</td>${receivedCells}</tr>
-          <tr><td class="row-label">Unloading Time (hrs)</td>${timeCells}</tr>
+          <tr><td class="row-label">Unloading Time</td>${timeCells}</tr>
           <tr><td class="row-label">Rate (birds/hr)</td>${rateCells}</tr>
         </tbody>
       </table>
@@ -2929,12 +2955,20 @@ const actualDays = report.dateRows.filter(r => r.hasData && r.receivedBirds > 0)
 
 
 // Actual = overall rate for the month (total received / total time)
-const actualAvg = report.totals && report.totals.rate ? report.totals.rate : 0;
+// 🆕 Only days where BOTH receivedBirds AND unloadingTime > 0
+const dataDays = report.dateRows.filter(r =>
+  r.hasData &&
+  Number(r.receivedBirds) > 0 &&
+  Number(r.unloadingTime) > 0
+);
+const totalReceived = dataDays.reduce((s, r) => s + (Number(r.receivedBirds) || 0), 0);
+const totalTime     = dataDays.reduce((s, r) => s + (Number(r.unloadingTime) || 0), 0);
+const actualAvg     = totalTime > 0 ? (totalReceived / totalTime) : 0;
 
 // 🆕 Breakdown: total received birds ÷ total unloading time
-const kpi02Breakdown = (report.totals && report.totals.unloadingTime > 0) ? {
-  figures: `${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)}`,
-  formula: `= Total Received Birds ÷ Total Unloading Time\n= ${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
+const kpi02Breakdown = totalTime > 0 ? {
+  figures: `${totalReceived.toLocaleString()} ÷ ${totalTime.toLocaleString()} = ${actualAvg.toFixed(0)}`,
+  formula: `= Total Received Birds ÷ Total Unloading Time\n= ${totalReceived.toLocaleString()} ÷ ${totalTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
 } : null;
 
 updateKpiHeader("kpi-02", std, workingDays, actualDays, actualAvg, kpi02Breakdown);
@@ -3403,9 +3437,15 @@ const std = KPI_BIRD_INPUT_STANDARD_;
 const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency for the month (total actual / total planned * 100)
-const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
-const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
-const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+// 🆕 Only days where BOTH planned AND actual > 0
+const dataDays = report.days.filter(d =>
+  d.hasData &&
+  Number(d.planned) > 0 &&
+  Number(d.actual) > 0
+);
+const totalPlanned = dataDays.reduce((s, d) => s + (Number(d.planned) || 0), 0);
+const totalActual  = dataDays.reduce((s, d) => s + (Number(d.actual)  || 0), 0);
+const actualAvg    = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
 // 🆕 Breakdown: total actual ÷ total planned
 const kpi03Breakdown = totalPlanned > 0 ? {
@@ -3876,9 +3916,15 @@ const std = KPI_PACKING_EFFICIENCY_STANDARD_;
 const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency (total actual / total planned * 100)
-const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
-const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
-const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+// 🆕 Only days where BOTH planned AND actual > 0
+const dataDays = report.days.filter(d =>
+  d.hasData &&
+  Number(d.planned) > 0 &&
+  Number(d.actual) > 0
+);
+const totalPlanned = dataDays.reduce((s, d) => s + (Number(d.planned) || 0), 0);
+const totalActual  = dataDays.reduce((s, d) => s + (Number(d.actual)  || 0), 0);
+const actualAvg    = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
 // 🆕 Breakdown: total actual ÷ total planned
 const kpi04Breakdown = totalPlanned > 0 ? {
@@ -4370,12 +4416,20 @@ const std = KPI_DRESSED_YIELD_STANDARD_;
 const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall yield % for the month
-const actualAvg = report.totals && report.totals.yieldPct ? report.totals.yieldPct : 0;
+// 🆕 Only days where BOTH liveWeight AND dressedWeight > 0
+const dataDays = report.dateRows.filter(r =>
+  r.hasData &&
+  Number(r.liveWeight) > 0 &&
+  Number(r.dressedWeight) > 0
+);
+const totalLive    = dataDays.reduce((s, r) => s + (Number(r.liveWeight)    || 0), 0);
+const totalDressed = dataDays.reduce((s, r) => s + (Number(r.dressedWeight) || 0), 0);
+const actualAvg    = totalLive > 0 ? (totalDressed / totalLive) * 100 : 0;
 
 // 🆕 Breakdown: total dressed weight ÷ total live weight
-const kpi05Breakdown = (report.totals && report.totals.liveWeight > 0) ? {
-  figures: `${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
-  formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+const kpi05Breakdown = totalLive > 0 ? {
+  figures: `${totalDressed.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${totalLive.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${totalDressed.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${totalLive.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
 updateKpiHeader("kpi-05", std, workingDays, actualDays, actualAvg, kpi05Breakdown);
@@ -4861,12 +4915,20 @@ const std = KPI_CHILL_LOSS_STANDARD_;
 const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall chill loss % for the month
-const actualAvg = report.totals && report.totals.chillLossPct ? report.totals.chillLossPct : 0;
+// 🆕 Only days where BOTH chillWeight AND dressWeight > 0
+const dataDays = report.dateRows.filter(r =>
+  r.hasData &&
+  Number(r.chillWeight) > 0 &&
+  Number(r.dressWeight) > 0
+);
+const totalChill = dataDays.reduce((s, r) => s + (Number(r.chillWeight) || 0), 0);
+const totalDress = dataDays.reduce((s, r) => s + (Number(r.dressWeight) || 0), 0);
+const actualAvg  = totalChill > 0 ? ((totalChill - totalDress) / totalChill) * 100 : 0;
 
 // 🆕 Breakdown: (total chill weight − total dress weight) ÷ total chill weight
-const kpi06Breakdown = (report.totals && report.totals.chillWeight > 0) ? {
-  figures: `(${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
-  formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+const kpi06Breakdown = totalChill > 0 ? {
+  figures: `(${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${totalDress.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${totalDress.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
 updateKpiHeader("kpi-06", std, workingDays, actualDays, actualAvg, kpi06Breakdown);
@@ -5041,6 +5103,9 @@ let dashNewState = {
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
   viewMode: "quarterly",
+  chartType: "line",
+  selectedKpis: new Set(["kpi-01","kpi-02","kpi-03","kpi-04","kpi-05","kpi-06"]),
+  selectedStatuses: new Set(["good", "not-achieved"]),
   data: {},
   chartInstances: {}
 };
@@ -5245,11 +5310,17 @@ const DASH_KPI_ORDER_ = ["kpi-05", "kpi-01", "kpi-02", "kpi-03", "kpi-04", "kpi-
 function computeKpiOverallValue_(report, kpiKey) {
   if (!report) return null;
 
-  // KPI-01: simple average of daily % (same as header)
+  // KPI-01: weighted — total mortality / total birds (matches KPI tab)
   if (kpiKey === 'kpi-01' && report.days) {
-    const valid = report.days.filter(d => d.hasData);
+    const valid = report.days.filter(d =>
+      d.hasData &&
+      Number(d.totalBirds) > 0 &&
+      Number(d.bayMortality) > 0
+    );
     if (!valid.length) return null;
-    return valid.reduce((s, d) => s + d.pct, 0) / valid.length;
+    const sumBirds  = valid.reduce((s, d) => s + (Number(d.totalBirds) || 0), 0);
+    const sumMortal = valid.reduce((s, d) => s + (Number(d.bayMortality) || 0), 0);
+    return sumBirds > 0 ? (sumMortal / sumBirds) * 100 : null;
   }
 
   // KPI-02: weighted rate — total received / total time
@@ -5285,7 +5356,8 @@ function renderKpiCardsNew(data) {
   const container = document.getElementById("dashNewCards");
   if (!container) return;
 
-  const keys = DASH_KPI_ORDER_;
+  // 🆕 Filter KPI keys by user selection
+  const keys = DASH_KPI_ORDER_.filter(k => dashNewState.selectedKpis.has(k));
   let html = "";
 
   keys.forEach(key => {
@@ -5324,6 +5396,21 @@ function renderKpiCardsNew(data) {
       }
     }
 
+    // ===================================================================
+    // 🆕 STATUS FILTER — skip card if status not selected
+    // ===================================================================
+    const statusKey =
+      status.status === "good"     ? "good" :
+      status.status === "no-data"  ? "no-data" :
+                                     "not-achieved";
+
+    console.log(`[Card Filter] ${key} → status="${status.status}" → key="${statusKey}" → selected=${dashNewState.selectedStatuses.has(statusKey)}`);
+
+    if (!dashNewState.selectedStatuses.has(statusKey)) {
+      return;   // skip this KPI card
+    }
+    // ===================================================================
+
     const barWidth = avgValue !== null ? Math.min(100, (avgValue / config.standard) * 100) : 0;
     const trendDisplay = trend.direction === "up" ? `▲ ${trend.value.toFixed(1)}%` :
                         trend.direction === "down" ? `▼ ${trend.value.toFixed(1)}%` : "—";
@@ -5331,13 +5418,11 @@ function renderKpiCardsNew(data) {
 
     const stdDisplay = formatStdDisplay_(key, config);
 
-            // 🆕 Accent color from status
     const accentColor =
-      status.status === "good"     ? "#1B9E3A" :   // green
-      status.status === "no-data"  ? "#9e9e9e" :   // grey
-                                     "#C62828";    // red (not achieved)
+      status.status === "good"     ? "#1B9E3A" :
+      status.status === "no-data"  ? "#9e9e9e" :
+                                     "#C62828";
 
-    // 🆕 Light tint for the corner gradient
     const accentLight =
       status.status === "good"     ? "rgba(27, 158, 58, 0.30)" :
       status.status === "no-data"  ? "rgba(158, 158, 158, 0.20)" :
@@ -5367,7 +5452,6 @@ function renderKpiCardsNew(data) {
         <div class="card-bar">
           <div class="card-bar-fill" style="width: ${barWidth}%; background: ${config.color}"></div>
         </div>
-        <!-- 🆕 Pie chart canvas -->
         <div class="card-pie-wrap">
           <canvas id="card-pie-${key}"></canvas>
         </div>
@@ -5377,7 +5461,6 @@ function renderKpiCardsNew(data) {
 
   container.innerHTML = html;
 
-  // Click + keyboard handlers
   container.querySelectorAll(".dash-kpi-card").forEach((card) => {
     const kpiKey = card.dataset.kpi;
     if (!kpiKey) return;
@@ -5390,8 +5473,6 @@ function renderKpiCardsNew(data) {
         if (typeof showView === "function") showView(kpiKey);
       }
     });
-
-    // 🆕 Render pie chart inside this card
     renderSinglePieChart_(kpiKey, data[kpiKey], `card-pie-${kpiKey}`);
   });
 }
@@ -5406,6 +5487,7 @@ function renderSingleChart(kpiKey, aggregated, containerId) {
 
   const ctx = canvas.getContext("2d");
   const config = KPI_CONFIG_NEW[kpiKey];
+  const chartType = dashNewState.chartType || "line";   // 🆕
 
   if (dashNewState.chartInstances[kpiKey]) {
     dashNewState.chartInstances[kpiKey].destroy();
@@ -5429,46 +5511,77 @@ function renderSingleChart(kpiKey, aggregated, containerId) {
   gradient.addColorStop(0, config.gradientFrom);
   gradient.addColorStop(1, config.gradientTo);
 
-  // 🆕 Standard value for the flat dashed line
   const stdValue = config.standard;
+  const stdLabel = `Standard (${stdValue}${config.unit === '%' ? '%' : ' ' + config.unit})`;
+
+  // 🆕 Datasets differ by chart type
+  let datasets;
+  if (chartType === "column") {
+    datasets = [
+      {
+        type: "line",                                    // standard as dashed line
+        label: stdLabel,
+        data: labels.map(() => stdValue),
+        borderColor: "#c0564a",
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        borderDash: [6, 4],
+        tension: 0,
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        order: 1,                                        // draw on top
+      },
+      {
+        type: "bar",                                     // actual as column
+        label: config.shortLabel,
+        data: values,
+        backgroundColor: config.color + "CC",
+        borderColor: config.color,
+        borderWidth: 1.5,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
+        order: 2,                                        // draw behind
+      },
+    ];
+  } else {
+    datasets = [
+      {
+        label: stdLabel,
+        data: labels.map(() => stdValue),
+        borderColor: "#c0564a",
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        tension: 0,
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        order: 2,
+      },
+      {
+        label: config.shortLabel,
+        data: values,
+        borderColor: config.color,
+        backgroundColor: gradient,
+        borderWidth: 2.5,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: config.color,
+        pointBorderColor: "white",
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: config.color,
+        order: 1,
+      },
+    ];
+  }
 
   const chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          // 🆕 Standard line — flat, dashed, behind actual
-          label: `Standard (${stdValue}${config.unit === '%' ? '%' : ' ' + config.unit})`,
-          data: labels.map(() => stdValue),
-          borderColor: "#c0564a",
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          borderDash: [6, 4],
-          tension: 0,
-          fill: false,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          order: 2,                       // ← drawn behind
-        },
-        {
-          label: config.shortLabel,
-          data: values,
-          borderColor: config.color,
-          backgroundColor: gradient,
-          borderWidth: 2.5,
-          tension: 0.35,
-          fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: config.color,
-          pointBorderColor: "white",
-          pointBorderWidth: 1.5,
-          pointHoverRadius: 6,
-          pointHoverBackgroundColor: config.color,
-          order: 1,                       // ← drawn on top
-        }
-      ]
-    },
+    type: chartType === "column" ? "bar" : "line",       // 🆕
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -5485,10 +5598,10 @@ function renderSingleChart(kpiKey, aggregated, containerId) {
             if (ctx.type !== "data" || ctx.xStarted) return 0;
             ctx.xStarted = true;
             return ctx.index * 30;
-          }
-        }
+          },
+        },
       },
-            plugins: {
+      plugins: {
         legend: {
           display: true,
           position: "bottom",
@@ -5498,7 +5611,7 @@ function renderSingleChart(kpiKey, aggregated, containerId) {
             padding: 10,
             font: { size: 10 },
             usePointStyle: false,
-            filter: (item) => !item.text.startsWith("Standard"),   // only show actual in legend
+            filter: (item) => !item.text.startsWith("Standard"),
           },
         },
       },
@@ -5509,22 +5622,22 @@ function renderSingleChart(kpiKey, aggregated, containerId) {
           ticks: {
             font: { size: 9 },
             maxTicksLimit: 5,
-            callback: function(value) { return value + config.unit; }
-          }
+            callback: function(value) { return value + config.unit; },
+          },
         },
         x: {
           grid: { display: false },
-          ticks: { font: { size: 9 }, maxTicksLimit: 10 }
-        }
-      }
-    }
+          ticks: { font: { size: 9 }, maxTicksLimit: 10 },
+        },
+      },
+    },
   });
 
   dashNewState.chartInstances[kpiKey] = chart;
 }
 
 function renderAllCharts(yearData, viewMode) {
-  const keys = DASH_KPI_ORDER_;
+  const keys = DASH_KPI_ORDER_.filter(k => dashNewState.selectedKpis.has(k));   // 🆕
 
   keys.forEach(key => {
     const yearDays = yearData[key] || [];
@@ -5538,7 +5651,7 @@ function renderSummaryTable(data) {
   const container = document.getElementById("dashNewSummary");
   if (!container) return;
 
-  const keys = DASH_KPI_ORDER_;
+  const keys = DASH_KPI_ORDER_.filter(k => dashNewState.selectedKpis.has(k));   // 🆕
   let html = `
     <table class="dash-summary-table">
       <thead>
@@ -5785,6 +5898,172 @@ function initDashboardNew() {
       }
     });
   });
+    // 🆕 Chart type toggle (Line / Column) — mutually exclusive
+  const chartTypeLineEl   = document.getElementById("chartTypeLine");
+  const chartTypeColumnEl = document.getElementById("chartTypeColumn");
+
+  if (chartTypeLineEl && chartTypeColumnEl) {
+    chartTypeLineEl.addEventListener("change", () => {
+      if (chartTypeLineEl.checked) {
+        chartTypeColumnEl.checked = false;
+        dashNewState.chartType = "line";
+      } else {
+        // Both unchecked — reset to line
+        chartTypeLineEl.checked = true;
+        return;
+      }
+      if (dashNewState.yearData) {
+        renderAllCharts(dashNewState.yearData, dashNewState.viewMode);
+      } else {
+        renderDashboardNew();
+      }
+    });
+
+    chartTypeColumnEl.addEventListener("change", () => {
+      if (chartTypeColumnEl.checked) {
+        chartTypeLineEl.checked = false;
+        dashNewState.chartType = "column";
+      } else {
+        // Both unchecked — reset to column
+        chartTypeColumnEl.checked = true;
+        return;
+      }
+      if (dashNewState.yearData) {
+        renderAllCharts(dashNewState.yearData, dashNewState.viewMode);
+      } else {
+        renderDashboardNew();
+      }
+    });
+  }
+
+    // ===================================================================
+  // 🆕 Multi-select dropdown helpers
+  // ===================================================================
+  function setupMultiSelect_(containerId, btnId, onSelectionChanged) {
+    const container = document.getElementById(containerId);
+    const btn = document.getElementById(btnId);
+    if (!container || !btn) return;
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // Close other dropdowns
+      document.querySelectorAll(".multi-select.open").forEach(el => {
+        if (el !== container) el.classList.remove("open");
+      });
+      container.classList.toggle("open");
+    });
+
+    // Prevent clicks inside panel from closing
+    const panel = container.querySelector(".multi-select-panel");
+    panel.addEventListener("click", (e) => e.stopPropagation());
+
+    // Outside click closes
+    document.addEventListener("click", () => container.classList.remove("open"));
+
+    // Optional callback — only call if provided
+    if (typeof onSelectionChanged === "function") onSelectionChanged();
+  }
+
+  function updateKpiFilterLabel_() {
+    const label = document.getElementById("kpiFilterLabel");
+    const all = document.getElementById("kpiFilterAll");
+    const items = document.querySelectorAll(".kpi-filter-item");
+    const checked = Array.from(items).filter(i => i.checked);
+
+    if (all.checked || checked.length === items.length) {
+      label.textContent = "All KPIs";
+    } else if (checked.length === 0) {
+      label.textContent = "No KPIs";
+    } else if (checked.length === 1) {
+      label.textContent = checked[0].parentElement.querySelector("span").textContent.trim();
+    } else {
+      label.textContent = `${checked.length} KPIs`;
+    }
+  }
+
+  function updateStatusFilterLabel_() {
+    const label = document.getElementById("statusFilterLabel");
+    const all = document.getElementById("statusFilterAll");
+    const items = document.querySelectorAll(".status-filter-item");
+    const checked = Array.from(items).filter(i => i.checked);
+
+    if (all.checked || checked.length === items.length) {
+      label.textContent = "All Status";
+    } else if (checked.length === 0) {
+      label.textContent = "No Status";
+    } else if (checked.length === 1) {
+      label.textContent = checked[0].dataset.status === "good" ? "Achieved" : "Not Achieved";
+    } else {
+      label.textContent = `${checked.length} Status`;
+    }
+  }
+
+  // KPI Names filter
+  const kpiFilterAll = document.getElementById("kpiFilterAll");
+  const kpiFilterItems = document.querySelectorAll(".kpi-filter-item");
+
+  kpiFilterAll.addEventListener("change", () => {
+    kpiFilterItems.forEach(i => { i.checked = kpiFilterAll.checked; });
+    dashNewState.selectedKpis = new Set(
+      Array.from(kpiFilterItems).filter(i => i.checked).map(i => i.dataset.kpi)
+    );
+    updateKpiFilterLabel_();
+    rerenderDashboard_();
+  });
+
+  kpiFilterItems.forEach(item => {
+    item.addEventListener("change", () => {
+      const checkedCount = Array.from(kpiFilterItems).filter(i => i.checked).length;
+      kpiFilterAll.checked = checkedCount === kpiFilterItems.length;
+
+      dashNewState.selectedKpis = new Set(
+        Array.from(kpiFilterItems).filter(i => i.checked).map(i => i.dataset.kpi)
+      );
+      updateKpiFilterLabel_();
+      rerenderDashboard_();
+    });
+  });
+
+  // Status filter
+  const statusFilterAll = document.getElementById("statusFilterAll");
+  const statusFilterItems = document.querySelectorAll(".status-filter-item");
+
+  statusFilterAll.addEventListener("change", () => {
+    statusFilterItems.forEach(i => { i.checked = statusFilterAll.checked; });
+    dashNewState.selectedStatuses = new Set(
+      Array.from(statusFilterItems).filter(i => i.checked).map(i => i.dataset.status)
+    );
+    updateStatusFilterLabel_();
+    rerenderDashboard_();
+  });
+
+  statusFilterItems.forEach(item => {
+    item.addEventListener("change", () => {
+      const checkedCount = Array.from(statusFilterItems).filter(i => i.checked).length;
+      statusFilterAll.checked = checkedCount === statusFilterItems.length;
+
+      dashNewState.selectedStatuses = new Set(
+        Array.from(statusFilterItems).filter(i => i.checked).map(i => i.dataset.status)
+      );
+      updateStatusFilterLabel_();
+      rerenderDashboard_();
+    });
+  });
+
+  // Initialize dropdown open/close
+  setupMultiSelect_("kpiFilter", "kpiFilterBtn");
+  setupMultiSelect_("statusFilter", "statusFilterBtn");
+
+  // Rerender helper (uses cached data if available)
+  function rerenderDashboard_() {
+    if (dashNewState.data && dashNewState.yearData) {
+      renderKpiCardsNew(dashNewState.data);
+      renderAllCharts(dashNewState.yearData, dashNewState.viewMode);
+      renderSummaryTable(dashNewState.data);
+    } else {
+      renderDashboardNew();
+    }
+  }
 
   renderDashboardNew();
 }

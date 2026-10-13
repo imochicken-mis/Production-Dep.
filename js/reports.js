@@ -531,9 +531,6 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "05CM02", name: "Skinless Boneless Thigh" },
   { code: "05CM03", name: "Chicken Skin" },
   { code: "05CM04", name: "Chicken Fat" },
-  { code: "09GP09", name: "Giblet Production"},
-  { code: "09EM09", name: "WIP(Easy Metirial)"},
-  { code: "", name: "Giblet Use for Whole Chicken" },
   { code: "06CE01", name: "EASY 250g" },
   { code: "06CE02", name: "EASY 400g" },
   { code: "06CE03", name: "EASY 700g" },
@@ -980,16 +977,18 @@ async function buildYieldReport(year, month) {
   // Source sheets
   //   DataLBSummary             → LB (birds / weight / mortality)
   //   DataLBRendering           → Feather / Feet / Offal
-  //   DataPackingChillWeight    → Chill weight
-  //   DataFBPProduction         → FG weight (base)
-  //   DataEasyProduction        → FG weight (additional — NET_WEIGHT excluded)
+  //   DataPackingChillWeight    → Chill weight (Total Finished Goods + Pet Food)
+  //   DataPackingGiblet         → Giblet Use
+  //   DataEasyProduction        → Easy Production (NET_WEIGHT excluded)
+  //   DataFBPProduction         → FBP Production (09EM09, 09GP09 excluded)
   // -----------------------------------------------------------------
-  const [lbRows, renderingRows, chillRows, fgRows, easyRows] = await Promise.all([
+  const [lbRows, renderingRows, chillRows, gibletRows, easyRows, fbpRows] = await Promise.all([
     Api.list("DataLBSummary"),
     Api.list("DataLBRendering"),
     Api.list("DataPackingChillWeight"),
-    Api.list("DataFBPProduction"),
+    Api.list("DataPackingGiblet"),
     Api.list("DataEasyProduction"),
+    Api.list("DataFBPProduction"),
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
@@ -1003,16 +1002,17 @@ async function buildYieldReport(year, month) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
 
-    // Filter rows for this date (from each sheet)
+    // Filter rows for this date
     const lbForDate      = lbRows.filter((r) => String(r.Date) === dateStr);
     const renderForDate  = renderingRows.filter((r) => String(r.Date) === dateStr);
     const chillForDate   = chillRows.filter((r) => String(r.Date) === dateStr);
-    const fgForDate      = fgRows.filter((r) => String(r.Date) === dateStr);
+    const gibletForDate  = gibletRows.filter((r) => String(r.Date) === dateStr);
     const easyForDate    = easyRows.filter((r) => String(r.Date) === dateStr);
+    const fbpForDate     = fbpRows.filter((r) => String(r.Date) === dateStr);
 
-    // No data in ANY sheet for this date → empty row
+    // No data in ANY sheet
     if (!lbForDate.length && !renderForDate.length && !chillForDate.length
-        && !fgForDate.length && !easyForDate.length) {
+        && !gibletForDate.length && !easyForDate.length && !fbpForDate.length) {
       dateRows.push({ date: dateStr, hasData: false, metrics: {} });
       continue;
     }
@@ -1036,17 +1036,45 @@ async function buildYieldReport(year, month) {
       ? (liveWeightToPlant - totalFFO) / liveWeightToPlant
       : 0;
 
-    // ---- Chill weight ----
-    const chillWeight = sumField(chillForDate, "Weight");
+    // ===================================================================
+    // ---- Chill Weight (SAME as Chill Weight Report) ----
+    // ===================================================================
+    const totalFinishedGoodsFull = chillForDate.reduce(
+      (s, r) => s + (Number(r.Weight) || 0), 0
+    );
 
-    // ---- FG Weight ----
-    // FG weight = FBP Production Weight + Easy Production Weight
-    //   → Easy Production වල "NET_WEIGHT" items exclude කරනවා
-    const fbpFgWeight  = sumField(fgForDate, "Weight");
-    const easyFgWeight = easyForDate
-      .filter((r) => String(r.Item_Code) !== "NET_WEIGHT")
+    const gibletUse = gibletForDate.reduce(
+      (s, r) => s + (Number(r.Qty) || 0), 0
+    );
+
+    const petFood = chillForDate
+      .filter((r) => String(r.Item_Code) === "04CP34" &&
+                     String(r.Item_Name || "").trim() === "Easy - Pet Food")
       .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
-    const fgWeight = fbpFgWeight + easyFgWeight;
+
+    const chillWeight = totalFinishedGoodsFull - (gibletUse + petFood);
+
+    // ===================================================================
+    // ---- FG Weight ----
+    //   FGWeight = (DataFBPProduction total − 09EM09 − 09GP09)
+    //            + (DataEasyProduction total, NET_WEIGHT excluded)
+    // ===================================================================
+    const HIDDEN_FBP_CODES_ = ["09EM09", "09GP09"];
+
+    const totalFbpRaw = fbpForDate.reduce(
+      (s, r) => s + (Number(r.Weight) || 0), 0
+    );
+    const totalHiddenItems = fbpForDate
+      .filter((r) => HIDDEN_FBP_CODES_.includes(String(r.Item_Code || "").trim()))
+      .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+
+    const totalFbpWeight = totalFbpRaw - totalHiddenItems;
+
+    const totalEasyProductWeight = easyForDate
+      .filter((r) => String(r.Item_Code || "").trim() !== "NET_WEIGHT")
+      .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+
+    const fgWeight = totalFbpWeight + totalEasyProductWeight;
 
     // ---- Derived yields ----
     const finalYield       = liveWeightToPlant > 0 ? fgWeight / liveWeightToPlant : 0;
@@ -1079,7 +1107,7 @@ async function buildYieldReport(year, month) {
   }
 
   // ===================================================================
-  // Totals — computed from summed raw values, NOT an average of daily %
+  // Totals
   // ===================================================================
   const dataRows = dateRows.filter((r) => r.hasData);
   const sum = (key) => dataRows.reduce((s, r) => s + (r.metrics[key] || 0), 0);

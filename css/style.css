@@ -2059,13 +2059,13 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   margin-right: -32px;
   width: calc(100% + 64px);
   box-sizing: border-box;
-  padding: 16px 32px;
-  background: #ffffff;
-  border: 3px solid #2c4a7c;
+  padding: 20px 32px;
+  background: linear-gradient(to left, #00245E, #003d9e);
+  border: none;
   border-radius: 0;
   margin-bottom: 20px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(44, 74, 124, 0.12);
+  overflow: visible;   /* 🆕 was: hidden */
+  box-shadow: 0 4px 12px rgba(0, 36, 94, 0.35);
 }
 .dash-header-left h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0 0 4px 0; }
 .dash-subtitle { color: #6b7a8f; font-size: 14px; margin: 0; }
@@ -2607,3 +2607,220 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   .kpi-chart-cards-side .kpi-card { flex: 1 1 calc(50% - 4px); }
 }
 
+/* ===================================================================
+   DASHBOARD — View toggle row + Chart type checkboxes
+   =================================================================== */
+.dash-view-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.dash-view-row .dash-view-toggle {
+  margin-bottom: 0;    /* row already handles spacing */
+}
+
+.dash-chart-type-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chart-type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #14213D;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: #f0f2f6;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin: 0;
+}
+
+.chart-type-option:hover {
+  background: #e4e9f2;
+}
+
+.chart-type-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #2c4a7c;
+  margin: 0;
+}
+
+.chart-type-option:has(input:checked) {
+  background: #2c4a7c;
+  color: #ffffff;
+  border-color: #1a3560;
+  box-shadow: 0 2px 6px rgba(44, 74, 124, 0.25);
+}
+
+.chart-type-option:has(input:checked) input[type="checkbox"] {
+  accent-color: #ffffff;
+}
+
+/* ===================================================================
+   DASHBOARD HEADER — 2-row layout (taller)
+   =================================================================== */
+.dash-header {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+  padding: 20px 32px !important;
+}
+
+.dash-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dash-header-top .dash-header-left h1 {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: "Inter", sans-serif;
+  margin: 0 0 4px 0;
+  color: #FFFFFF;
+}
+.dash-header-top .dash-subtitle {
+  color: #A7B8CC;
+  font-size: 14px;
+  margin: 0;
+}
+
+.dash-header-top .btn-refresh {
+  margin-top: 0 !important;
+}
+
+.dash-header-bottom {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Multi-select dropdown */
+.multi-select-group { position: relative; }
+.multi-select { position: relative; }
+
+.multi-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 170px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.multi-select-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.multi-arrow {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.multi-select.open .multi-arrow {
+  transform: rotate(180deg);
+}
+
+/* ===================================================================
+   MULTI-SELECT — Match Month/Year dropdown style (dark navy)
+   =================================================================== */
+.multi-select-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  background: #00245E;                    /* ← dark navy */
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  z-index: 9999;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar */
+.multi-select-panel::-webkit-scrollbar { width: 6px; }
+.multi-select-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+.multi-select-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+
+.multi-select.open .multi-select-panel {
+  display: block;
+}
+
+/* Individual option */
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #FFFFFF;                          /* ← white text */
+  transition: background 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ms-option:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.ms-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+  accent-color: #7FD1FF;                   /* ← bright cyan */
+}
+
+/* "All" option — highlighted */
+.ms-option.ms-all {
+  font-weight: 700;
+  color: #7FD1FF;                          /* ← cyan */
+}
+
+/* Divider */
+.ms-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 6px 4px;
+}
+
+/* Highlight the last-selected option (like October in Month dropdown) */
+.ms-option:has(input:checked):not(.ms-all) {
+  background: #1976D2;                     /* ← bright blue */
+}

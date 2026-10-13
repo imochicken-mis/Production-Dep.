@@ -40,12 +40,12 @@
   </button>
   <div class="nav-collapse open" id="kpiCollapse">
     <button class="nav-item active" data-view="dashboard-new"><span class="ico">📊</span>KPI Overview Dashboard</button>
-    <button class="nav-item" data-view="kpi-05"><span class="ico"></span>01. Dressed Yield %</button>
-    <button class="nav-item" data-view="kpi-01"><span class="ico"></span>02. Live Bird Bay Mortality Rate %</button>
+    <button class="nav-item" data-view="kpi-05"><span class="ico"></span>01. Dressed Yield</button>
+    <button class="nav-item" data-view="kpi-01"><span class="ico"></span>02. Live Bird Bay Mortality Rate</button>
     <button class="nav-item" data-view="kpi-02"><span class="ico"></span>03. Birds Unloading Rate</button>
-    <button class="nav-item" data-view="kpi-03"><span class="ico"></span>04. Slaughter Line Efficiency %</button>
-    <button class="nav-item" data-view="kpi-04"><span class="ico"></span>05. Production Efficiency %</button>
-    <button class="nav-item" data-view="kpi-06"><span class="ico"></span>06. Chill Loss %</button>
+    <button class="nav-item" data-view="kpi-03"><span class="ico"></span>04. Slaughter Line Efficiency</button>
+    <button class="nav-item" data-view="kpi-04"><span class="ico"></span>05. Production Efficiency</button>
+    <button class="nav-item" data-view="kpi-06"><span class="ico"></span>06. Chill Loss</button>
   </div>
 
   <!-- Reports collapsible section -->
@@ -106,29 +106,101 @@
 <section class="view active" id="view-dashboard-new">
   
   <!-- Header -->
-  <div class="dash-header">
-    <div class="dash-header-left">
-      <h1>📈 KPI Performance Dashboard</h1>
-      <p class="dash-subtitle">Real-time KPI performance trends — 6 key metrics at a glance</p>
+    <div class="dash-header">
+    <!-- Row 1: Title + Refresh -->
+    <div class="dash-header-top">
+      <div class="dash-header-left">
+        <h1>📈 KPI Performance Dashboard</h1>
+        <p class="dash-subtitle">Real-time KPI performance trends — 6 key metrics at a glance</p>
+      </div>
+      <button class="btn-refresh" id="dashNewRefreshBtn">⟳ Refresh</button>
     </div>
-    <div class="dash-header-right">
-      <div class="dash-filters">
-        <div class="filter-group">
-          <label for="dashNewYear">Year</label>
-          <select id="dashNewYear"></select>
+
+    <!-- Row 2: Filters -->
+    <div class="dash-header-bottom">
+      <div class="filter-group">
+        <label for="dashNewYear">Year</label>
+        <select id="dashNewYear"></select>
+      </div>
+
+      <div class="filter-group">
+        <label for="dashNewMonth">Month</label>
+        <select id="dashNewMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+
+      <!-- 🆕 KPI Names multi-select -->
+      <div class="filter-group multi-select-group">
+        <label>KPI Names</label>
+        <div class="multi-select" id="kpiFilter">
+          <button type="button" class="multi-select-btn" id="kpiFilterBtn">
+            <span id="kpiFilterLabel">All KPIs</span>
+            <span class="multi-arrow">▾</span>
+          </button>
+          <div class="multi-select-panel" id="kpiFilterPanel">
+            <label class="ms-option ms-all">
+              <input type="checkbox" id="kpiFilterAll" checked>
+              <span>All KPIs</span>
+            </label>
+            <div class="ms-divider"></div>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-05" checked>
+              <span>🍗 Dressed Yield</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-01" checked>
+              <span>🐦 Bay Mortality</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-02" checked>
+              <span>🚚 Birds Unloading</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-03" checked>
+              <span>🔪 Slaughter Efficiency</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-04" checked>
+              <span>📦 Production Efficiency</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="kpi-filter-item" data-kpi="kpi-06" checked>
+              <span>❄️ Chill Loss</span>
+            </label>
+          </div>
         </div>
-        <div class="filter-group">
-          <label for="dashNewMonth">Month</label>
-          <select id="dashNewMonth">
-            <option value="1">January</option><option value="2">February</option>
-            <option value="3">March</option><option value="4">April</option>
-            <option value="5">May</option><option value="6">June</option>
-            <option value="7">July</option><option value="8">August</option>
-            <option value="9">September</option><option value="10">October</option>
-            <option value="11">November</option><option value="12">December</option>
-          </select>
+      </div>
+
+      <!-- 🆕 Status multi-select -->
+      <div class="filter-group multi-select-group">
+        <label>Status</label>
+        <div class="multi-select" id="statusFilter">
+          <button type="button" class="multi-select-btn" id="statusFilterBtn">
+            <span id="statusFilterLabel">All Status</span>
+            <span class="multi-arrow">▾</span>
+          </button>
+          <div class="multi-select-panel" id="statusFilterPanel">
+            <label class="ms-option ms-all">
+              <input type="checkbox" id="statusFilterAll" checked>
+              <span>All Status</span>
+            </label>
+            <div class="ms-divider"></div>
+            <label class="ms-option">
+              <input type="checkbox" class="status-filter-item" data-status="good" checked>
+              <span>✅ Achieved</span>
+            </label>
+            <label class="ms-option">
+              <input type="checkbox" class="status-filter-item" data-status="not-achieved" checked>
+              <span>❌ Not Achieved</span>
+            </label>
+          </div>
         </div>
-        <button class="btn-refresh" id="dashNewRefreshBtn">⟳ Refresh</button>
       </div>
     </div>
   </div>
@@ -136,11 +208,23 @@
   <!-- KPI Summary Cards -->
   <div class="dash-kpi-cards" id="dashNewCards"></div>
 
-  <!-- View Toggle Buttons -->
-  <div class="dash-view-toggle">
-    <button class="dash-view-btn active" data-view="quarterly">📊 Quarterly</button>
-    <button class="dash-view-btn" data-view="monthly">📅 Monthly</button>
-    <button class="dash-view-btn" data-view="weekly">📆 Weekly</button>
+  <!-- View Toggle Row — Quarterly/Monthly/Weekly + Chart Type -->
+  <div class="dash-view-row">
+    <div class="dash-view-toggle">
+      <button class="dash-view-btn active" data-view="quarterly">📊 Quarterly</button>
+      <button class="dash-view-btn" data-view="monthly">📅 Monthly</button>
+      <button class="dash-view-btn" data-view="weekly">📆 Weekly</button>
+    </div>
+    <div class="dash-chart-type-toggle">
+      <label class="chart-type-option">
+        <input type="checkbox" id="chartTypeLine" checked>
+        <span>📈 Line Chart</span>
+      </label>
+      <label class="chart-type-option">
+        <input type="checkbox" id="chartTypeColumn">
+        <span>📊 Column Chart</span>
+      </label>
+    </div>
   </div>
 
   <!-- Charts Grid - 6 Charts -->
