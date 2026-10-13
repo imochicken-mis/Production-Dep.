@@ -958,15 +958,15 @@ const YIELD_COLUMNS_ = [
   { label: "Bay mortality",                key: "Bay_Mortality" },
   { label: "Reject Birds",                 key: "RejectBirds" },
   { label: "No.of birds to the plant",     key: "No_of_birds_to_plant" },
-  { label: "Live weight to the plant Kg",  key: "Live_weight_to_plant" },
-  { label: "Avg Body Weight Kgf",          key: "AvgBodyWeight", decimals: 2 },
-  { label: "Feathers",                     key: "Feather" },
-  { label: "Feet",                         key: "Feet" },
-  { label: "Offals",                       key: "Offal" },
-  { label: "Total (F+F+O)",                key: "TotalFFO" },
+  { label: "Live weight to the plant Kg",  key: "Live_weight_to_plant",  decimals: 2 },   // 🆕
+  { label: "Avg Body Weight Kgf",          key: "AvgBodyWeight",         decimals: 2 },
+  { label: "Feathers",                     key: "Feather",               decimals: 2 },   // 🆕
+  { label: "Feet",                         key: "Feet",                  decimals: 2 },   // 🆕
+  { label: "Offals",                       key: "Offal",                 decimals: 2 },   // 🆕
+  { label: "Total (F+F+O)",                key: "TotalFFO",              decimals: 2 },   // 🆕
   { label: "Yield % B/F screw chill",      key: "YieldBF", isPercent: true },
-  { label: "chill weight",                 key: "ChillWeight" },
-  { label: "FG weight",                    key: "FGWeight" },
+  { label: "chill weight",                 key: "ChillWeight",           decimals: 2 },   // 🆕
+  { label: "FG weight",                    key: "FGWeight",              decimals: 2 },   // 🆕
   { label: "Final yield%",                 key: "FinalYield", isPercent: true, highlight: true },
   { label: "Chill loss %",                 key: "ChillLoss", isPercent: true },
   { label: "Screw chiller Absortion %",    key: "ScrewAbsorption", isPercent: true },

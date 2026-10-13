@@ -611,13 +611,50 @@ button { font-family: var(--body); cursor: pointer; }
 .print-header { display: none; }
 
 @media print {
+  /* Force print colors */
   *,
   *::before,
   *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    /* color-adjust අයින් කරා */
   }
+
+  /* 🆕 Force solid blue on print-header (no gradient) */
+  .print-header {
+    background: #2c4a7c !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 🆕 Report tables — blue header row */
+  .report-table thead th {
+    background: #00245E !important;
+    color: #ffffff !important;
+  }
+  .report-table thead th.row-label {
+    background: #00245E !important;
+    color: #ffffff !important;
+  }
+
+  /* 🆕 Section headings (Daily Live Birds Input Summary, etc.) */
+  .report-subhead {
+    background: transparent !important;
+    color: #000000 !important;
+  }
+
+  /* 🆕 Highlight rows — Total cells */
+  .report-table td.total-cell,
+  .report-table tfoot td {
+    background: #dcdcdc !important;
+    color: #1a3a5c !important;
+  }
+
+  /* 🆕 KPI color cells (if any print) */
+  .report-table td.kpi-green  { background: #66f182 !important; }
+  .report-table td.kpi-yellow { background: #ffec8a !important; }
+  .report-table td.kpi-orange { background: #fbb65c !important; }
+  .report-table td.kpi-red    { background: #f48080 !important; }
 
   html, body {
     height: auto !important;
