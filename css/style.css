@@ -611,6 +611,14 @@ button { font-family: var(--body); cursor: pointer; }
 .print-header { display: none; }
 
 @media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    /* color-adjust අයින් කරා */
+  }
+
   html, body {
     height: auto !important;
     min-height: 0 !important;
