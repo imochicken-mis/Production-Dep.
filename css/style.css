@@ -2869,3 +2869,10 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .ms-option:has(input:checked):not(.ms-all) {
   background: #1976D2;                     /* ← bright blue */
 }
+
+/* ===================================================================
+   DASHBOARD CARD — Hide trend indicator
+   =================================================================== */
+.dash-kpi-card .card-trend {
+  display: none !important;
+}

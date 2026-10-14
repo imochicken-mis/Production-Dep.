@@ -5447,7 +5447,6 @@ function renderKpiCardsNew(data) {
         </div>
         <div>
           <span class="card-status ${status.status}">${status.label}</span>
-          <span class="card-trend ${trendClass}">${trendDisplay}</span>
         </div>
         <div class="card-bar">
           <div class="card-bar-fill" style="width: ${barWidth}%; background: ${config.color}"></div>
