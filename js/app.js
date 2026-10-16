@@ -3892,34 +3892,91 @@ function initDailyLbEntry() {
     recalc();
   });
 
-  // ----- Save (placeholder — backend next step) -----
-  form.addEventListener("submit", (e) => {
+  // ----- Save to Google Sheets (Data_LB_Summary + LoadingUnloadingTime) -----
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const payload = {
-      Date:                       F.date.value,
-      Location:                   F.location.value.trim(),
-      Loading_Start_Time:         F.loadingStart.value,
-      Unloading_Time:             F.unloadingTime.value,
-      No_of_birds:                parseNum_(F.birds),
-      Live_Weight:                parseNum_(F.liveWeight),
-      Average_Weight:             parseNum_(F.avgWeight),
-      Transport_Mortality:        parseNum_(F.transportMort),
-      Transport_Mortality_Weight: parseNum_(F.transportMortW),
-      Bay_Mortality:              parseNum_(F.bayMort),
-      Bay_Mortality_Weight:       parseNum_(F.bayMortW),
-      Total_Dead_Weight:          parseNum_(F.totalDeadW),
-      Halal_Rejected:             parseNum_(F.halalRej),
-      Halal_Rejected_Weight:      parseNum_(F.halalRejW),
-      Other_Rejected:             parseNum_(F.otherRej),
-      Other_Rejected_Weight:      parseNum_(F.otherRejW),
-      Total_Rejected_Weight:      parseNum_(F.totalRejW),
-      No_of_birds_to_plant:       parseNum_(F.birdsToPlant),
-      Live_weight_to_plant:       parseNum_(F.liveWToPlant),
+    const saveBtn = document.getElementById("dlbSaveBtn");
+    const originalText = saveBtn.textContent;
+
+    // Collect + validate
+    const dateVal     = F.date.value;
+    const locationVal = F.location.value.trim();
+    const startTime   = F.loadingStart.value;
+    const endTime     = F.unloadingTime.value;
+
+    if (!dateVal)     { alert("Please select a Date."); return; }
+    if (!locationVal) { alert("Please enter a Location."); return; }
+    if (!startTime)   { alert("Please enter Loading Start Time."); return; }
+    if (!endTime)     { alert("Please enter Unloading Time."); return; }
+
+    // ---- Auto timestamp (Google Sheet readable) ----
+    const now = new Date();
+    const timestampStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+    // ============================================================
+    // Row 1: Data_LB_Summary
+    // ============================================================
+    const lbSummaryRow = {
+      Timestamp:                          timestampStr,
+      Date:                               dateVal,
+      Location:                           locationVal,
+      No_of_birds:                        parseNum_(F.birds),
+      Average_weight:                     parseNum_(F.avgWeight),
+      Live_weight:                        parseNum_(F.liveWeight),
+      Transport_Mortality:                parseNum_(F.transportMort),
+      Transport_Mortality_Weight:         parseNum_(F.transportMortW),
+      Bay_Mortality:                      parseNum_(F.bayMort),
+      Bay_Mortality_Weight:               parseNum_(F.bayMortW),
+      Total_Weight_of_dead_birds:         parseNum_(F.totalDeadW),
+      Number_of_Halal_rejected_birds:     parseNum_(F.halalRej),
+      Weight_of_Halal_rejected_birds:     parseNum_(F.halalRejW),
+      Number_of_other_rejected_birds:     parseNum_(F.otherRej),
+      Weight_of_other_rejected_birds:     parseNum_(F.otherRejW),
+      Total_Weight_of_rejected_birds:     parseNum_(F.totalRejW),
+      No_of_birds_to_plant:               parseNum_(F.birdsToPlant),
+      Live_weight_to_plant:               parseNum_(F.liveWToPlant),
     };
 
-    console.log("[Daily LB Entry] Payload ready:", payload);
-    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
+    // ============================================================
+    // Row 2: LoadingUnloadingTime
+    // ============================================================
+    const unloadingRow = {
+      Timestamp:  timestampStr,
+      Date:       dateVal,
+      Location:   locationVal,
+      Start_Time: startTime,      // "HH:MM" (24-hour)
+      End_Time:   endTime,        // "HH:MM"
+    };
+
+    // Disable button while saving
+    saveBtn.disabled = true;
+    saveBtn.textContent = "⏳ Saving...";
+
+    try {
+      // Save to BOTH sheets in parallel
+      const [r1, r2] = await Promise.all([
+        Api.append("DataLBSummary",    [lbSummaryRow]),
+        Api.append("Birds_Unloading",  [unloadingRow]),
+      ]);
+
+      if (r1 && r1.success && r2 && r2.success) {
+        alert(`✅ Record saved successfully!\n\nDate: ${dateVal}\nLocation: ${locationVal}\n\nSaved to:\n• Data_LB_Summary\n• LoadingUnloadingTime`);
+        form.reset();
+        F.date.value = today;
+        recalc();
+      } else {
+        const lbStatus  = r1 && r1.success ? "✅" : "❌";
+        const unlStatus = r2 && r2.success ? "✅" : "❌";
+        alert(`⚠️ Partial save:\n\n${lbStatus} Data_LB_Summary\n${unlStatus} LoadingUnloadingTime\n\nErrors:\n${r1?.error || "-"}\n${r2?.error || "-"}`);
+      }
+    } catch (err) {
+      console.error("[Daily LB Entry] Save failed:", err);
+      alert(`❌ Save failed: ${err.message}`);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
   });
 
   // Initial calc

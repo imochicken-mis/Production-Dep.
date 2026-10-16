@@ -30,42 +30,42 @@ const _requestQueue = {
 
 const Api = {
   // =================================================================
-  // list() — POST වලින් load කරනවා (redirect cache ප්‍රශ්නය විසඳෙනවා)
+  // list() — GET වලින් load කරනවා
   // =================================================================
   async list(sheet, opts = {}) {
-  const isLegacyRetries = typeof opts === "number";
-  const retries = isLegacyRetries ? opts : (opts.retries ?? 2);
-  const force   = isLegacyRetries ? false : (opts.force === true);
+    const isLegacyRetries = typeof opts === "number";
+    const retries = isLegacyRetries ? opts : (opts.retries ?? 2);
+    const force   = isLegacyRetries ? false : (opts.force === true);
 
-  const now = Date.now();
-  const cached = _sheetCache[sheet];
-  if (!force && cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-    return cached.rows;
-  }
-
-  return await _requestQueue.run(async () => {
-    const cachedNow = _sheetCache[sheet];
-    if (!force && cachedNow && (Date.now() - cachedNow.timestamp) < CACHE_TTL_MS) {
-      return cachedNow.rows;
+    const now = Date.now();
+    const cached = _sheetCache[sheet];
+    if (!force && cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+      return cached.rows;
     }
 
-    const url = `${API_URL}?sheet=${encodeURIComponent(sheet)}&action=list`;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const res = await fetch(url, { method: "GET" });
-        if (!res.ok) throw new Error(`API error (${res.status})`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-
-        _sheetCache[sheet] = { rows: data, timestamp: Date.now() };
-        return data;
-      } catch (err) {
-        if (attempt === retries) throw err;
-        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    return await _requestQueue.run(async () => {
+      const cachedNow = _sheetCache[sheet];
+      if (!force && cachedNow && (Date.now() - cachedNow.timestamp) < CACHE_TTL_MS) {
+        return cachedNow.rows;
       }
-    }
-  });
-},
+
+      const url = `${API_URL}?sheet=${encodeURIComponent(sheet)}&action=list`;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch(url, { method: "GET" });
+          if (!res.ok) throw new Error(`API error (${res.status})`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          _sheetCache[sheet] = { rows: data, timestamp: Date.now() };
+          return data;
+        } catch (err) {
+          if (attempt === retries) throw err;
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        }
+      }
+    });
+  },
 
   clearCache(sheet) {
     if (sheet) delete _sheetCache[sheet];
@@ -96,10 +96,40 @@ const Api = {
   login(username, password) {
     return this._post({ sheet: "Users", action: "login", data: { username, password } });
   },
+
   forgotPassword(username) {
     return this._post({ sheet: "Users", action: "forgotPassword", data: { username } });
   },
+
   resetPassword(username, code, newPassword) {
     return this._post({ sheet: "Users", action: "resetPassword", data: { username, code, newPassword } });
+  },
+
+  // 🆕 Append rows to a sheet
+  append(sheetName, rows) {
+    return this._post({
+      action: "append",
+      sheet: sheetName,
+      rows: rows,
+    }, 2);
+  },
+
+  // 🆕 Update a single row
+  update(sheetName, rowIndex, data) {
+    return this._post({
+      action: "update",
+      sheet: sheetName,
+      rowIndex: rowIndex,
+      data: data,
+    }, 2);
+  },
+
+  // 🆕 Delete a row
+  delete(sheetName, rowIndex) {
+    return this._post({
+      action: "delete",
+      sheet: sheetName,
+      rowIndex: rowIndex,
+    }, 2);
   },
 };
