@@ -10,6 +10,7 @@
 
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <script>
@@ -38,7 +39,7 @@
     <span class="section-label-text">KPI's</span>
     <span class="toggle-arrow">▾</span>
   </button>
-  <div class="nav-collapse open" id="kpiCollapse">
+  <div class="nav-collapse nav-scroll open" id="kpiCollapse">
     <button class="nav-item active" data-view="dashboard-new"><span class="ico">📊</span>KPI Overview Dashboard</button>
     <button class="nav-item" data-view="kpi-05"><span class="ico"></span>01. Dressed Yield</button>
     <button class="nav-item" data-view="kpi-01"><span class="ico"></span>02. Live Bird Bay Mortality Rate</button>
@@ -69,13 +70,30 @@
     <button class="nav-item" data-view="yield-report"><span class="ico"></span>13. Yield Report</button> 
     <button class="nav-item" data-view="all-division-consumable-reports"><span class="ico"></span>14. All Division Consumable Reports</button>
   </div>
+
+    <!-- Data Entering collapsible section -->
+  <button class="nav-section-toggle" id="dataEntryToggle">
+    <span class="section-label-text">Data Entering</span>
+    <span class="toggle-arrow">▾</span>
+  </button>
+  <div class="nav-collapse nav-scroll" id="dataEntryCollapse">
+    <button class="nav-item" data-view="entry-daily-lb"><span class="ico"></span>01. Daily LB Input</button>
+  <!--  <button class="nav-item" data-view="entry-rendering"><span class="ico"></span>02. Daily Rendering Outflow</button> -->
+    <button class="nav-item" data-view="entry-production"><span class="ico"></span>02. Daily Production Detail</button>
+    <button class="nav-item" data-view="entry-blast-freezer"><span class="ico"></span>03. Blast Freezer</button>
+    <button class="nav-item" data-view="entry-giblet"><span class="ico"></span>04. Giblet Use</button>
+    <button class="nav-item" data-view="entry-easy-material"><span class="ico"></span>05. Easy Material (WIP)</button>
+    <button class="nav-item" data-view="entry-easy-production"><span class="ico"></span>06. Easy Production</button>
+    <button class="nav-item" data-view="entry-csv-uploads"><span class="ico"></span>07. CSV Uploads</button>
+    <button class="nav-item" data-view="entry-consumable"><span class="ico"></span>08. Consumable Records</button>
+  </div>
     
   <!-- Notifications collapsible section -->
 <button class="nav-section-toggle" id="notificationsToggle">
   <span class="section-label-text">Notifications</span>
   <span class="toggle-arrow">▾</span>
 </button>
-<div class="nav-collapse" id="notificationsCollapse">
+<div class="nav-collapse nav-scroll" id="notificationsCollapse">
   <button class="nav-item" data-view="notify-kpi-01"><span class="ico"></span>KPI 01</button>
   <button class="nav-item" data-view="notify-kpi-02"><span class="ico"></span>KPI 02</button>
   <button class="nav-item" data-view="notify-kpi-03"><span class="ico"></span>KPI 03</button>
@@ -1407,6 +1425,868 @@
   <div class="report-actions">
     <button class="btn-report-action" id="consumableCsvBtn">⬇ Download CSV</button>
     <button class="btn-report-action" id="consumablePdfBtn">🖨 Print PDF</button>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Daily Live Birds Input
+     ================================================================= -->
+<section class="view" id="view-entry-daily-lb">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Daily Live Birds Input</h1>
+      <p class="sub">Record bird intake, mortality and plant transfer</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-daily-lb" autocomplete="off">
+
+        <!-- Row 01: Date | Location | Loading Start | Unloading -->
+        <div class="entry-row entry-row-4">
+          <div class="entry-field">
+            <label for="dlbDate">Date</label>
+            <input type="date" id="dlbDate" required>
+          </div>
+          <div class="entry-field">
+            <label for="dlbLocation">Location</label>
+            <input type="text" id="dlbLocation" placeholder="Enter location" required>
+          </div>
+          <div class="entry-field">
+            <label for="dlbLoadingStart">Loading Start Time</label>
+            <input type="time" id="dlbLoadingStart" step="60" required>
+          </div>
+          <div class="entry-field">
+            <label for="dlbUnloadingTime">Unloading Time</label>
+            <input type="time" id="dlbUnloadingTime" step="60" required>
+          </div>
+        </div>
+
+        <!-- Row 02: Birds | Live Weight | Avg Weight (auto) -->
+        <div class="entry-row entry-row-3">
+          <div class="entry-field">
+            <label for="dlbBirds">No. of Birds</label>
+            <input type="text" id="dlbBirds" class="num-int" inputmode="numeric" placeholder="0" required>
+          </div>
+          <div class="entry-field">
+            <label for="dlbLiveWeight">Live Weight (kg)</label>
+            <input type="text" id="dlbLiveWeight" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <div class="entry-field">
+            <label for="dlbAvgWeight">Average Weight (kg)</label>
+            <input type="text" id="dlbAvgWeight" class="num-dec" readonly tabindex="-1">
+          </div>
+        </div>
+
+        <!-- Row 03: Transport Mortality | Weight | Bay Mortality | Weight -->
+        <div class="entry-row entry-row-4">
+          <div class="entry-field">
+            <label for="dlbTransportMort">Transport Mortality (NOB)</label>
+            <input type="text" id="dlbTransportMort" class="num-int" inputmode="numeric" placeholder="0">
+          </div>
+          <div class="entry-field">
+            <label for="dlbTransportMortWeight">Transport Mortality Weight (kg)</label>
+            <input type="text" id="dlbTransportMortWeight" class="num-dec" inputmode="decimal" placeholder="0.00">
+          </div>
+          <div class="entry-field">
+            <label for="dlbBayMort">Bay Mortality (NOB)</label>
+            <input type="text" id="dlbBayMort" class="num-int" inputmode="numeric" placeholder="0">
+          </div>
+          <div class="entry-field">
+            <label for="dlbBayMortWeight">Bay Mortality Weight (kg)</label>
+            <input type="text" id="dlbBayMortWeight" class="num-dec" inputmode="decimal" placeholder="0.00">
+          </div>
+        </div>
+
+        <!-- Row 04: Halal Rejected | Weight | Other Rejected | Weight -->
+        <div class="entry-row entry-row-4">
+          <div class="entry-field">
+            <label for="dlbHalalRej">Halal Rejected (NOB)</label>
+            <input type="text" id="dlbHalalRej" class="num-int" inputmode="numeric" placeholder="0">
+          </div>
+          <div class="entry-field">
+            <label for="dlbHalalRejWeight">Halal Rejected Weight (kg)</label>
+            <input type="text" id="dlbHalalRejWeight" class="num-dec" inputmode="decimal" placeholder="0.00">
+          </div>
+          <div class="entry-field">
+            <label for="dlbOtherRej">Other Rejected (NOB)</label>
+            <input type="text" id="dlbOtherRej" class="num-int" inputmode="numeric" placeholder="0">
+          </div>
+          <div class="entry-field">
+            <label for="dlbOtherRejWeight">Other Rejected Weight (kg)</label>
+            <input type="text" id="dlbOtherRejWeight" class="num-dec" inputmode="decimal" placeholder="0.00">
+          </div>
+        </div>
+
+        <!-- Row 05: Total Dead Weight | Total Rejected Weight (auto) -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="dlbTotalDeadWeight">Total Dead Weight (kg) — Auto</label>
+            <input type="text" id="dlbTotalDeadWeight" class="num-dec" readonly tabindex="-1">
+          </div>
+          <div class="entry-field">
+            <label for="dlbTotalRejWeight">Total Rejected Weight (kg) — Auto</label>
+            <input type="text" id="dlbTotalRejWeight" class="num-dec" readonly tabindex="-1">
+          </div>
+        </div>
+
+        <!-- Row 06: Birds to Plant | Live Weight to Plant (auto) -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="dlbBirdsToPlant">Birds to Plant (NOB) — Auto</label>
+            <input type="text" id="dlbBirdsToPlant" class="num-int" readonly tabindex="-1">
+          </div>
+          <div class="entry-field">
+            <label for="dlbLiveWeightToPlant">Live Weight to Plant (kg) — Auto</label>
+            <input type="text" id="dlbLiveWeightToPlant" class="num-dec" readonly tabindex="-1">
+          </div>
+        </div>
+
+        <!-- Row 07: Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="dlbClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="dlbSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Daily Rendering Outflow
+     ================================================================= -->
+<section class="view" id="view-entry-rendering">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Daily Rendering Outflow</h1>
+      <p class="sub">Record feather, feet and offal weights</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-rendering" autocomplete="off">
+
+        <!-- Row 01: Date -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="rndDate">Date</label>
+            <input type="date" id="rndDate" required>
+          </div>
+        </div>
+
+        <!-- Row 02: Feather | Feet | Offal -->
+        <div class="entry-row entry-row-3">
+          <div class="entry-field">
+            <label for="rndFeather">Feather (kg)</label>
+            <input type="text" id="rndFeather" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <div class="entry-field">
+            <label for="rndFeet">Feet (kg)</label>
+            <input type="text" id="rndFeet" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <div class="entry-field">
+            <label for="rndOffal">Offal (kg)</label>
+            <input type="text" id="rndOffal" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <!-- Row 03: Total Rendering Weight (auto) -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="rndTotal">Total Rendering Weight (kg) — Auto</label>
+            <input type="text" id="rndTotal" class="num-dec" readonly tabindex="-1">
+          </div>
+        </div>
+
+        <!-- Row 04: Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="rndClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="rndSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Daily Production Detail
+     ================================================================= -->
+<section class="view" id="view-entry-production">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Daily Production Detail</h1>
+      <p class="sub">Enter quantities per product item</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-production-detail" autocomplete="off">
+
+        <!-- Top bar: Date + Search -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="prdDate">Date</label>
+            <input type="date" id="prdDate" required>
+          </div>
+          <div class="entry-field">
+            <label for="prdSearch">Search Items</label>
+            <input type="text" id="prdSearch" placeholder="Type code or item name...">
+          </div>
+        </div>
+
+        <!-- Items table -->
+        <div class="entry-table-wrap">
+          <table class="entry-table" id="prdItemsTable">
+            <thead>
+              <tr>
+                <th style="width:100px;">Code</th>
+                <th>Item Name</th>
+                <th style="width:180px;">Quantity (kg)</th>
+              </tr>
+            </thead>
+            <tbody id="prdItemsBody">
+              <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="entry-table-total">
+                <td colspan="2" style="text-align:right;font-weight:700;">Total Production Weight</td>
+                <td><span id="prdGrandTotal">0</span></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="prdClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="prdSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Blast Freezer
+     ================================================================= -->
+<section class="view" id="view-entry-blast-freezer">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Blast Freezer</h1>
+        <p class="sub">Daily Blast Freezer records</p>
+      </div>
+      <div class="report-toolbar">
+        <div class="bf-tabs">
+          <button type="button" class="bf-tab active" data-bf-tab="ledger">Daily Blast Freezer Inward Ledger</button>
+          <button type="button" class="bf-tab" data-bf-tab="inout">Blast Freezer In Time &amp; Weight</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+
+      <!-- ============ TAB 1: Daily Blast Freezer Inward Ledger ============ -->
+      <div class="bf-tab-content active" id="bfTabLedger">
+        <form class="entry-form" id="form-bf-ledger" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="bflDate">Date</label>
+              <input type="date" id="bflDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="bflSearch">Search Items</label>
+              <input type="text" id="bflSearch" placeholder="Type code or item name...">
+            </div>
+          </div>
+
+          <div class="entry-table-wrap">
+            <table class="entry-table" id="bflItemsTable">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Code</th>
+                  <th>Item Name</th>
+                  <th style="width:180px;">Quantity (kg)</th>
+                </tr>
+              </thead>
+              <tbody id="bflItemsBody">
+                <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td colspan="2" style="text-align:right;font-weight:700;">Total Production Weight</td>
+                  <td><span id="bflGrandTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="bflClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="bflSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB 2: Blast Freezer In Time & Weight ============ -->
+      <div class="bf-tab-content" id="bfTabInOut">
+        <form class="entry-form" id="form-bf-inout" autocomplete="off">
+
+          <!-- Row 01: Date | Batch No -->
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="bfDate">Date</label>
+              <input type="date" id="bfDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="bfBatchNo">Batch No</label>
+              <input type="text" id="bfBatchNo" placeholder="Ex-BT-001" required>
+            </div>
+          </div>
+
+          <!-- Items table -->
+          <div class="entry-table-wrap">
+            <table class="entry-table" id="bfItemsTable">
+              <thead>
+                <tr>
+                  <th style="width:50px;">#</th>
+                  <th>Blast Freezer No</th>
+                  <th style="width:180px;">In Time</th>
+                  <th style="width:180px;">Weight (kg)</th>
+                  <th style="width:60px;"></th>
+                </tr>
+              </thead>
+              <tbody id="bfItemsBody">
+                <!-- Rows added by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Add Row button (bottom-left) -->
+          <div class="entry-add-row-wrap">
+            <button type="button" class="btn-add-row" id="bfAddRowBtn">+ Add Row</button>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="bfClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="bfSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Giblet Use for W/Chicken
+     ================================================================= -->
+<section class="view" id="view-entry-giblet">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Giblet Use for W/Chicken</h1>
+      <p class="sub">Enter quantity for today</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-giblet" autocomplete="off">
+
+        <!-- Row 01: Date | Giblet Use -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="gibDate">Date</label>
+            <input type="date" id="gibDate" required>
+          </div>
+          <div class="entry-field">
+            <label for="gibQty">Giblet Use for W/Chicken (kg)</label>
+            <input type="text" id="gibQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <!-- Row 02: Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="gibClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="gibSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Daily Production Easy Material (WIP)
+     ================================================================= -->
+<section class="view" id="view-entry-easy-material">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Daily Production Easy Material (WIP)</h1>
+      <p class="sub">Enter quantity for today</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-easy-material" autocomplete="off">
+
+        <!-- Row 01: Date | Easy Material -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="emDate">Date</label>
+            <input type="date" id="emDate" required>
+          </div>
+          <div class="entry-field">
+            <label for="emQty">Daily Production Easy Material (WIP) — kg</label>
+            <input type="text" id="emQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <!-- Row 02: Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="emClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="emSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Daily Easy Production
+     ================================================================= -->
+<section class="view" id="view-entry-easy-production">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Daily Easy Production</h1>
+      <p class="sub">Enter production quantities</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <form class="entry-form" id="form-easy-production" autocomplete="off">
+
+        <!-- Top bar: Date + Search -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="epDate">Date</label>
+            <input type="date" id="epDate" required>
+          </div>
+          <div class="entry-field">
+            <label for="epSearch">Search Items</label>
+            <input type="text" id="epSearch" placeholder="Type code or item name...">
+          </div>
+        </div>
+
+        <!-- Items table -->
+        <div class="entry-table-wrap">
+          <table class="entry-table" id="epItemsTable">
+            <thead>
+              <tr>
+                <th style="width:100px;">Code</th>
+                <th>Item Name</th>
+                <th style="width:180px;">Quantity (kg)</th>
+              </tr>
+            </thead>
+            <tbody id="epItemsBody">
+              <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="entry-table-total">
+                <td colspan="2" style="text-align:right;font-weight:700;">Total Easy Product Weight</td>
+                <td><span id="epGrandTotal">0</span></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Easy Material Net Weight (manual) -->
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="epNetWeight">Easy Material Net Weight (kg)</label>
+            <input type="text" id="epNetWeight" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="epClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="epSaveBtn">💾 Save Record</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — CSV Uploads
+     ================================================================= -->
+<section class="view" id="view-entry-csv-uploads">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>CSV Uploads</h1>
+      <p class="sub">Daily Target, Live Bird Requirement &amp; Daily Opening Stock</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+
+      <!-- ============ 01. Daily Target ============ -->
+      <div class="csv-upload-block">
+        <div class="csv-upload-header">
+          <h2 class="csv-upload-title">01. Daily Target</h2>
+          <p class="csv-upload-sub">Upload the daily target workbook or CSV</p>
+        </div>
+
+        <form class="entry-form csv-form" id="form-csv-daily-target" autocomplete="off">
+          <div class="entry-field">
+            <label for="csvTargetFile">Select Excel or CSV File (.xlsx / .csv)</label>
+            <div class="csv-file-input">
+              <input type="file" id="csvTargetFile" accept=".csv,.xlsx,.xls" required>
+              <label for="csvTargetFile" class="csv-file-label">
+                <span class="csv-file-btn">Choose File</span>
+                <span class="csv-file-name" id="csvTargetFileName">No file chosen</span>
+              </label>
+            </div>
+            <p class="csv-hint">ℹ️ Only the first sheet in the workbook is read. For CSV files, use <code>"YYYY-MM-DD"</code> or <code>"DD/MM/YYYY"</code> for dates.</p>
+          </div>
+
+          <div class="csv-preview" id="csvTargetPreview"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="csvTargetClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="csvTargetSaveBtn">⬆ Upload</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ 02. Live Bird Requirement ============ -->
+      <div class="csv-upload-block">
+        <div class="csv-upload-header">
+          <h2 class="csv-upload-title">02. Live Bird Requirement</h2>
+          <p class="csv-upload-sub">Upload the live bird requirement workbook or CSV</p>
+        </div>
+
+        <form class="entry-form csv-form" id="form-csv-livebird-req" autocomplete="off">
+          <div class="entry-field">
+            <label for="csvBirdReqFile">Select Excel or CSV File (.xlsx / .csv)</label>
+            <div class="csv-file-input">
+              <input type="file" id="csvBirdReqFile" accept=".csv,.xlsx,.xls" required>
+              <label for="csvBirdReqFile" class="csv-file-label">
+                <span class="csv-file-btn">Choose File</span>
+                <span class="csv-file-name" id="csvBirdReqFileName">No file chosen</span>
+              </label>
+            </div>
+            <p class="csv-hint">ℹ️ Only the first sheet in the workbook is read. For CSV files, use <code>"YYYY-MM-DD"</code> or <code>"DD/MM/YYYY"</code> for dates.</p>
+          </div>
+
+          <div class="csv-preview" id="csvBirdReqPreview"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="csvBirdReqClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="csvBirdReqSaveBtn">⬆ Upload</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ 03. Daily Opening Stock ============ -->
+      <div class="csv-upload-block">
+        <div class="csv-upload-header">
+          <h2 class="csv-upload-title">03. Daily Opening Stock</h2>
+          <p class="csv-upload-sub">Upload the daily opening stock workbook or CSV</p>
+        </div>
+
+        <form class="entry-form csv-form" id="form-csv-opening-stock" autocomplete="off">
+          <!-- Date -->
+          <div class="entry-field">
+            <label for="csvOpeningDate">Date</label>
+            <input type="date" id="csvOpeningDate" required>
+          </div>
+
+          <!-- File -->
+          <div class="entry-field">
+            <label for="csvOpeningFile">Select Excel or CSV File (.xlsx / .csv)</label>
+            <div class="csv-file-input">
+              <input type="file" id="csvOpeningFile" accept=".csv,.xlsx,.xls" required>
+              <label for="csvOpeningFile" class="csv-file-label">
+                <span class="csv-file-btn">Choose File</span>
+                <span class="csv-file-name" id="csvOpeningFileName">No file chosen</span>
+              </label>
+            </div>
+            <p class="csv-hint">ℹ️ Only the first sheet in the workbook is read. For CSV files, use <code>"YYYY-MM-DD"</code> or <code>"DD/MM/YYYY"</code> for dates.</p>
+          </div>
+
+          <div class="csv-preview" id="csvOpeningPreview"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="csvOpeningClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="csvOpeningSaveBtn">⬆ Upload</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     DATA ENTERING — Consumable Records
+     ================================================================= -->
+<section class="view" id="view-entry-consumable">
+  <div class="sticky-report-header">
+    <div class="header-row-flex">
+      <div class="view-head">
+        <h1>Consumable Records</h1>
+      </div>
+      <div class="report-toolbar">
+        <div class="cons-tabs">
+          <button type="button" class="cons-tab active" data-cons-tab="LB">LB</button>
+          <button type="button" class="cons-tab" data-cons-tab="EV">EV</button>
+          <button type="button" class="cons-tab" data-cons-tab="FBP">FBP</button>
+          <button type="button" class="cons-tab" data-cons-tab="Packing">Packing</button>
+          <button type="button" class="cons-tab" data-cons-tab="Packing2">Packing 02</button>
+          <button type="button" class="cons-tab" data-cons-tab="Easy">Easy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+
+      <!-- ============ TAB: LB ============ -->
+      <div class="cons-tab-content active" id="consTabLB">
+        <form class="entry-form" id="form-cons-lb" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consLbDate">Date</label>
+              <input type="date" id="consLbDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="consLbSearch">Search Items</label>
+              <input type="text" id="consLbSearch" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr>
+                  <th>Item Name</th>
+                  <th style="width:220px;">Quantity (kg)</th>
+                </tr>
+              </thead>
+              <tbody id="consLbBody">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consLbTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="LB">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB: EV ============ -->
+      <div class="cons-tab-content" id="consTabEV">
+        <form class="entry-form" id="form-cons-ev" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consEvDate">Date</label>
+              <input type="date" id="consEvDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="consEvSearch">Search Items</label>
+              <input type="text" id="consEvSearch" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+              </thead>
+              <tbody id="consEvBody">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consEvTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="EV">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB: FBP ============ -->
+      <div class="cons-tab-content" id="consTabFBP">
+        <form class="entry-form" id="form-cons-fbp" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consFbpDate">Date</label>
+              <input type="date" id="consFbpDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="consFbpSearch">Search Items</label>
+              <input type="text" id="consFbpSearch" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+              </thead>
+              <tbody id="consFbpBody">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consFbpTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="FBP">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB: Packing ============ -->
+      <div class="cons-tab-content" id="consTabPacking">
+        <form class="entry-form" id="form-cons-packing" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consPackingDate">Date</label>
+              <input type="date" id="consPackingDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="consPackingSearch">Search Items</label>
+              <input type="text" id="consPackingSearch" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+              </thead>
+              <tbody id="consPackingBody">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consPackingTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="Packing">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB: Packing 02 ============ -->
+      <div class="cons-tab-content" id="consTabPacking2">
+        <form class="entry-form" id="form-cons-packing2" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consPacking2Date">Date</label>
+              <input type="date" id="consPacking2Date" required>
+            </div>
+            <div class="entry-field">
+              <label for="consPacking2Search">Search Items</label>
+              <input type="text" id="consPacking2Search" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+              </thead>
+              <tbody id="consPacking2Body">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consPacking2Total">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="Packing2">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ TAB: Easy ============ -->
+      <div class="cons-tab-content" id="consTabEasy">
+        <form class="entry-form" id="form-cons-easy" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="consEasyDate">Date</label>
+              <input type="date" id="consEasyDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="consEasySearch">Search Items</label>
+              <input type="text" id="consEasySearch" placeholder="Type item name...">
+            </div>
+          </div>
+          <div class="entry-table-wrap">
+            <table class="entry-table">
+              <thead>
+                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+              </thead>
+              <tbody id="consEasyBody">
+                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                  <td><span id="consEasyTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" data-cons-clear="Easy">Clear</button>
+            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
   </div>
 </section>
 

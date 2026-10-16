@@ -611,7 +611,9 @@ button { font-family: var(--body); cursor: pointer; }
 .print-header { display: none; }
 
 @media print {
-  /* Force print colors */
+  /* ============================================================
+     1) FORCE PRINT COLORS
+     ============================================================ */
   *,
   *::before,
   *::after {
@@ -619,50 +621,47 @@ button { font-family: var(--body); cursor: pointer; }
     print-color-adjust: exact !important;
   }
 
-  /* 🆕 Force solid blue on print-header (no gradient) */
-  .print-header {
-    background: #2c4a7c !important;
-    color: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  /* ============================================================
+     2) WHITE BACKGROUND EVERYWHERE (structural)
+     ============================================================ */
+  html,
+  body,
+  .app-shell,
+  .content,
+  .view,
+  .view.active,
+  .panel,
+  .panel-body,
+  .sticky-report-header,
+  .chill-summary,
+  .cw-row,
+  .easy-net-weight-row,
+  .entry-form,
+  .entry-row,
+  .entry-field,
+  .print-header + *,
+  main,
+  section,
+  article,
+  div,
+  header,
+  aside,
+  footer,
+  nav {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
   }
 
-  /* 🆕 Report tables — blue header row */
-  .report-table thead th {
-    background: #00245E !important;
-    color: #ffffff !important;
-  }
-  .report-table thead th.row-label {
-    background: #00245E !important;
-    color: #ffffff !important;
-  }
-
-  /* 🆕 Section headings (Daily Live Birds Input Summary, etc.) */
-  .report-subhead {
-    background: transparent !important;
-    color: #000000 !important;
-  }
-
-  /* 🆕 Highlight rows — Total cells */
-  .report-table td.total-cell,
-  .report-table tfoot td {
-    background: #dcdcdc !important;
-    color: #1a3a5c !important;
-  }
-
-  /* 🆕 KPI color cells (if any print) */
-  .report-table td.kpi-green  { background: #66f182 !important; }
-  .report-table td.kpi-yellow { background: #ffec8a !important; }
-  .report-table td.kpi-orange { background: #fbb65c !important; }
-  .report-table td.kpi-red    { background: #f48080 !important; }
-
+  /* ============================================================
+     3) RESET LAYOUT
+     ============================================================ */
   html, body {
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
-    background: #fff !important;
   }
   .app-shell {
     display: block !important;
@@ -675,9 +674,11 @@ button { font-family: var(--body); cursor: pointer; }
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: #fff !important;
   }
 
+  /* ============================================================
+     4) HIDE UI CHROME
+     ============================================================ */
   .sidebar,
   .topbar,
   .report-toolbar,
@@ -704,30 +705,8 @@ button { font-family: var(--body); cursor: pointer; }
   .sticky-report-header {
     position: static !important;
     padding: 0 !important;
-    background: #fff !important;
+    background: #ffffff !important;
   }
-
-  .print-header {
-    display: flex !important;
-    align-items: center;
-    gap: 16px;
-    position: static !important;
-    top: auto !important;
-    left: auto !important;
-    width: 100% !important;
-    background: #2c4a7c;
-    color: #fff;
-    padding: 14px 20px;
-    box-sizing: border-box;
-    border-bottom: 4px solid #E3B23C;
-    margin: 0 0 12px 0 !important;
-  }
-  .print-logo { height: 40px; width: auto; }
-  .print-header-text { flex: 1; }
-  .print-company { font-size: 12px; font-weight: 700; color: #E3B23C; }
-  .print-report-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
-  .print-meta { font-size: 11px; text-align: right; line-height: 1.6; }
-  .print-meta span:first-child { font-weight: 600; margin-right: 4px; }
 
   .panel {
     position: static !important;
@@ -739,12 +718,164 @@ button { font-family: var(--body); cursor: pointer; }
     padding: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
+    background: #ffffff !important;
   }
-  .panel-body { padding: 0 !important; }
-  .report-table { min-width: 0 !important; border-radius: 0 !important; }
+  .panel-body {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
 
+  /* ============================================================
+     5) REPORT SUBHEADINGS — WHITE BG, BLACK TEXT
+     ============================================================ */
+  .report-subhead,
+  h3.report-subhead {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    padding: 2px 0 !important;
+    margin: 8px 0 4px 0 !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    text-decoration: underline !important;
+    font-weight: 700 !important;
+  }
+
+    /* ============================================================
+     6) PRINT HEADER — SOLID BLUE, TEXT VISIBLE
+     ============================================================ */
+  .print-header {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    background: #2c4a7c !important;
+    background-color: #2c4a7c !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    padding: 14px 20px;
+    box-sizing: border-box;
+    border-bottom: 4px solid #E3B23C !important;
+    margin: 0 0 8px 0 !important;
+  }
+
+  /* 🆕 Header children — transparent (inherit blue) */
+  .print-header * {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+
+  .print-logo {
+    height: 40px;
+    width: auto;
+    background: transparent !important;
+  }
+
+  .print-header-text {
+    flex: 1;
+    background: transparent !important;
+  }
+
+  .print-company {
+    font-size: 12px;
+    font-weight: 700;
+    color: #E3B23C !important;
+    background: transparent !important;
+  }
+
+  .print-report-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 2px;
+    color: #ffffff !important;
+    background: transparent !important;
+  }
+
+  .print-meta {
+    font-size: 11px;
+    text-align: right;
+    line-height: 1.6;
+    color: #ffffff !important;
+    background: transparent !important;
+  }
+
+  .print-meta span {
+    color: #ffffff !important;
+    background: transparent !important;
+  }
+
+  .print-meta span:first-child {
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* ============================================================
+     7) REPORT TABLES — KEEP COLORS
+     ============================================================ */
+  .report-table {
+    min-width: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+  }
+  .report-table thead th {
+    background: #00245E !important;
+    background-color: #00245E !important;
+    background-image: none !important;
+    color: #ffffff !important;
+  }
+  .report-table thead th.row-label {
+    background: #00245E !important;
+    background-color: #00245E !important;
+    color: #ffffff !important;
+  }
+  .report-table thead th.total-col {
+    background: #7a7a7a !important;
+    background-color: #7a7a7a !important;
+    color: #ffffff !important;
+  }
+
+  /* Body rows — alternating */
+  .report-table tbody tr:nth-child(even) { background: #ececec !important; }
+  .report-table tbody tr:nth-child(odd)  { background: #f8f8f8 !important; }
+
+  /* Total cells + footer */
+  .report-table td.total-cell,
+  .report-table tfoot td {
+    background: #dcdcdc !important;
+    background-color: #dcdcdc !important;
+    color: #1a3a5c !important;
+  }
+
+  /* KPI color cells */
+  .report-table td.kpi-green  { background: #66f182 !important; color: #1b5e20 !important; }
+  .report-table td.kpi-yellow { background: #ffec8a !important; color: #7a5c00 !important; }
+  .report-table td.kpi-orange { background: #fbb65c !important; color: #8a4b00 !important; }
+  .report-table td.kpi-red    { background: #f48080 !important; color: #7a1414 !important; }
+
+  /* Chill summary rows */
+  .chill-summary,
+  .cw-row {
+    background: #ffffff !important;
+  }
+  .cw-total {
+    background: #eef1f7 !important;
+    border-top: 2px solid #2c4a7c !important;
+  }
+
+  /* ============================================================
+     8) PAGE SETUP
+     ============================================================ */
   @page { margin: 10mm; }
 
+  /* ============================================================
+     9) PER-VIEW OVERRIDES
+     ============================================================ */
   #view-lbtarget-vs-actual .lta-table {
     min-width: 0; width: 100%; font-size: 8px;
   }
@@ -2875,4 +3006,786 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
    =================================================================== */
 .dash-kpi-card .card-trend {
   display: none !important;
+}
+
+
+/* ===================================================================
+   DATA ENTERING FORMS — Shared
+   =================================================================== */
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #ffffff;                    /* 🆕 white fill */
+  padding: 26px 30px 20px;                /* 🆕 inner spacing */
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e4e8ee;
+  margin: 4px 0;
+}
+
+.entry-row {
+  display: grid;
+  gap: 16px;
+}
+.entry-row-2 { grid-template-columns: repeat(2, 1fr); }
+.entry-row-3 { grid-template-columns: repeat(3, 1fr); }
+.entry-row-4 { grid-template-columns: repeat(4, 1fr); }
+
+.entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.entry-field label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #14213D;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.entry-field input {
+  padding: 11px 13px;
+  border: 1.5px solid #b0bccd;            /* 🆕 clear border */
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Inter', 'Calibri', sans-serif;
+  color: #14213D;
+  background: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.entry-field input:hover {
+  border-color: #7f8fa6;                   /* 🆕 hover darker */
+}
+
+.entry-field input:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+
+/* Readonly (auto-calculated) fields */
+.entry-field input[readonly] {
+  background: #eef3fb;
+  color: #0b3475;
+  font-weight: 700;
+  cursor: not-allowed;
+  border: 1.5px solid #c5d5eb;            /* 🆕 also bordered */
+}
+
+.entry-field input[readonly]:focus {
+  border-color: #c5d5eb;
+  box-shadow: none;
+}
+
+/* Date / Time picker icon tint */
+.entry-field input[type="date"]::-webkit-calendar-picker-indicator,
+.entry-field input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+}
+.entry-field input[type="date"]:hover::-webkit-calendar-picker-indicator,
+.entry-field input[type="time"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
+/* Actions row */
+.entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 18px;
+  border-top: 1px solid #e4e8ee;
+}
+
+.btn-entry-save,
+.btn-entry-clear {
+  padding: 11px 26px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+
+.btn-entry-save {
+  background: #2c4a7c;
+  color: #fff;
+  border: 1.5px solid #2c4a7c;
+}
+.btn-entry-save:hover {
+  background: #1a3560;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(44, 74, 124, 0.25);
+}
+
+.btn-entry-clear {
+  background: #ffffff;
+  color: #2c4a7c;
+  border: 1.5px solid #2c4a7c;
+}
+.btn-entry-clear:hover {
+  background: #eef3fb;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .entry-row-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .entry-row-2,
+  .entry-row-3,
+  .entry-row-4 { grid-template-columns: 1fr; }
+  .entry-actions { flex-direction: column-reverse; }
+  .btn-entry-save, .btn-entry-clear { width: 100%; }
+}
+
+/* Entry forms — panel is transparent, only the form is white */
+#view-entry-daily-lb .panel,
+#view-entry-chill-weight .panel,
+#view-entry-dress-weight .panel,
+#view-entry-production .panel,
+#view-entry-giblet .panel,
+#view-entry-easy .panel,
+#view-entry-consumable-lb .panel,
+#view-entry-consumable-ev .panel,
+#view-entry-consumable-fbp .panel,
+#view-entry-consumable-packing .panel,
+#view-entry-consumable-packing2 .panel,
+#view-entry-consumable-easy .panel {
+  background: transparent;
+}
+
+#view-entry-daily-lb .panel-body,
+#view-entry-chill-weight .panel-body,
+#view-entry-dress-weight .panel-body,
+#view-entry-production .panel-body,
+#view-entry-giblet .panel-body,
+#view-entry-easy .panel-body,
+#view-entry-consumable-lb .panel-body,
+#view-entry-consumable-ev .panel-body,
+#view-entry-consumable-fbp .panel-body,
+#view-entry-consumable-packing .panel-body,
+#view-entry-consumable-packing2 .panel-body,
+#view-entry-consumable-easy .panel-body {
+  padding: 12px 18px 18px;
+  background: transparent;
+}
+
+/* ===================================================================
+   DATA ENTRY — Items table (form 03+)
+   =================================================================== */
+.entry-table-wrap {
+  max-height: 520px;
+  overflow-y: auto;
+  border: 1px solid #e4e8ee;
+  border-radius: 10px;
+  background: #ffffff;
+  margin-top: 4px;
+}
+
+.entry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Inter', 'Calibri', sans-serif;
+  font-size: 13px;
+}
+
+.entry-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.entry-table thead th {
+  background: #00245E;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 11px 12px;
+  text-align: left;
+  border-bottom: 2px solid #2c4a7c;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.entry-table tbody tr {
+  border-bottom: 1px solid #eef1f7;
+  transition: background 0.1s;
+}
+
+.entry-table tbody tr:nth-child(even) {
+  background: #fafbfd;
+}
+
+.entry-table tbody tr:hover {
+  background: #eef3fb;
+}
+
+.entry-table tbody td {
+  padding: 7px 12px;
+  color: #14213D;
+  vertical-align: middle;
+}
+
+.entry-table tbody td:first-child {
+  font-family: arial;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b3475;
+  width: 100px;
+}
+
+.entry-table tbody td:nth-child(2) {
+  color: #14213D;
+}
+
+.entry-table tbody input.entry-item-qty {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1.5px solid #b0bccd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', 'Calibri', sans-serif;
+  color: #14213D;
+  background: #ffffff;
+  text-align: right;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.entry-table tbody input.entry-item-qty:hover {
+  border-color: #7f8fa6;
+}
+
+.entry-table tbody input.entry-item-qty:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+
+/* Hide empty rows when searching */
+.entry-table tbody tr.item-hidden {
+  display: none;
+}
+
+/* Footer / total row */
+.entry-table-total td {
+  background: #eef3fb;
+  border-top: 2px solid #2c4a7c;
+  padding: 11px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b3475;
+}
+
+#prdGrandTotal {
+  display: inline-block;
+  min-width: 120px;
+  text-align: right;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0b3475;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .entry-table-wrap { max-height: 420px; }
+  .entry-table thead th:nth-child(1) { display: none; }
+  .entry-table tbody td:nth-child(1) { display: none; }
+}
+
+/* 🆕 Highlight row when quantity has a value */
+.entry-table tbody tr:has(.entry-item-qty:not(:placeholder-shown)) {
+  background: #e8f5e9 !important;         /* light green */
+  border-left: 4px solid #1B9E3A;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* Also highlight on focus (while typing) */
+.entry-table tbody tr:has(.entry-item-qty:focus) {
+  background: #dbeafe !important;         /* light blue while typing */
+  border-left: 4px solid #1976D2;
+}
+
+/* ===================================================================
+   BLAST FREEZER — Tabs
+   =================================================================== */
+.bf-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.10);
+  padding: 5px;
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.bf-tab {
+  border: none;
+  background: transparent;
+  color: #A7B8CC;
+  padding: 9px 18px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+
+.bf-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bf-tab.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #00245E;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+}
+
+/* Tab content */
+.bf-tab-content { display: none; }
+.bf-tab-content.active { display: block; }
+
+/* ===================================================================
+   BLAST FREEZER — Add Row button
+   =================================================================== */
+.entry-add-row-wrap {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.btn-add-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef3fb;
+  color: #2c4a7c;
+  border: 1.5px dashed #2c4a7c;
+  padding: 9px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-add-row:hover {
+  background: #2c4a7c;
+  color: #ffffff;
+  border-style: solid;
+}
+
+/* ===================================================================
+   BLAST FREEZER — Row cells in table
+   =================================================================== */
+.entry-table tbody input.entry-item-qty,
+.entry-table tbody select.entry-item-select,
+.entry-table tbody input.entry-item-time {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1.5px solid #b0bccd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', 'Calibri', sans-serif;
+  color: #14213D;
+  background: #ffffff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.entry-table tbody input.entry-item-qty {
+  text-align: right;
+}
+
+.entry-table tbody input.entry-item-qty:hover,
+.entry-table tbody select.entry-item-select:hover,
+.entry-table tbody input.entry-item-time:hover {
+  border-color: #7f8fa6;
+}
+
+.entry-table tbody input.entry-item-qty:focus,
+.entry-table tbody select.entry-item-select:focus,
+.entry-table tbody input.entry-item-time:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+
+/* Row number column */
+.entry-table tbody td.bf-row-num {
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  background: #f8fafc;
+  width: 50px;
+}
+
+/* Delete row button */
+.entry-table tbody .btn-del-row {
+  background: none;
+  border: none;
+  color: #c62828;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.entry-table tbody .btn-del-row:hover {
+  background: #fdecea;
+}
+
+/* Row highlight when has value (Blast Freezer tab) */
+.entry-table tbody tr:has(input.entry-item-qty:not(:placeholder-shown)),
+.entry-table tbody tr:has(select.entry-item-select:valid):not(:has(option[value=""]:checked)) {
+  background: #e8f5e9;
+  border-left: 4px solid #1B9E3A;
+}
+
+/* ===================================================================
+   RESPONSIVE — Blast Freezer
+   =================================================================== */
+@media (max-width: 768px) {
+  .bf-tabs { width: 100%; }
+  .bf-tab { flex: 1 1 auto; text-align: center; font-size: 11px; padding: 8px 12px; }
+}
+
+/* ===================================================================
+   CSV UPLOADS
+   =================================================================== */
+.csv-upload-block {
+  margin-bottom: 32px;
+}
+.csv-upload-block:last-child { margin-bottom: 0; }
+
+.csv-upload-header {
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+.csv-upload-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0b3475;
+  margin: 0 0 3px 0;
+  letter-spacing: 0.2px;
+}
+
+.csv-upload-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ---- Custom file input ---- */
+.csv-file-input {
+  position: relative;
+  width: 100%;
+}
+.csv-file-input input[type="file"] {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.csv-file-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+  border: 1.5px solid #b0bccd;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: 46px;
+  box-sizing: border-box;
+}
+.csv-file-label:hover {
+  border-color: #7f8fa6;
+}
+.csv-file-input input[type="file"]:focus + .csv-file-label {
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+
+.csv-file-btn {
+  display: inline-block;
+  padding: 7px 16px;
+  background: #29ABE2;               /* bright blue (screenshot match) */
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.csv-file-label:hover .csv-file-btn {
+  background: #1d8fbf;
+}
+
+.csv-file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #14213D;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.csv-file-name.empty {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ---- Info hint ---- */
+.csv-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+  margin: 8px 0 0 0;
+  line-height: 1.5;
+}
+.csv-hint code {
+  background: #eef3fb;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #0b3475;
+}
+
+/* ---- CSV Preview panel ---- */
+.csv-preview {
+  display: none;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e4e8ee;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #14213D;
+}
+.csv-preview.visible { display: block; }
+
+.csv-preview-header {
+  font-weight: 700;
+  color: #0b3475;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.csv-preview-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.csv-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #e4e8ee;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11.5px;
+}
+.csv-preview-table th {
+  background: #eef3fb;
+  color: #0b3475;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #e4e8ee;
+}
+.csv-preview-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f2f6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.csv-preview-table tr:last-child td { border-bottom: none; }
+
+.csv-preview-error {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* ===================================================================
+   CONSUMABLE — Tabs (6 equal width)
+   =================================================================== */
+.cons-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.10);
+  padding: 5px;
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.cons-tab {
+  border: none;
+  background: transparent;
+  color: #A7B8CC;
+  padding: 9px 18px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+  min-width: 80px;                /* 🆕 same width baseline */
+  text-align: center;
+  flex: 1 1 0;                    /* 🆕 equal flex width */
+}
+
+.cons-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cons-tab.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #00245E;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+}
+
+/* Tab content */
+.cons-tab-content { display: none; }
+.cons-tab-content.active { display: block; }
+
+/* Responsive — Mobile */
+@media (max-width: 768px) {
+  .cons-tabs {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .cons-tab {
+    flex: 1 1 calc(33.33% - 4px);   /* 3 per row on mobile */
+    font-size: 11px;
+    padding: 8px 10px;
+    min-width: 0;
+  }
+}
+
+/* ===================================================================
+   PRODUCTION REPORT — Easy Production Summary Tfoot alignment
+   =================================================================== */
+#view-production-weight .easy-product-table tfoot tr td:first-child {
+  text-align: left !important;
+  padding-left: 14px !important;
+}
+
+#view-production-weight .easy-product-table tfoot tr td:last-child {
+  text-align: right !important;
+  padding-right: 14px !important;
+}
+
+/* Daily LB Input Report — Unloading rows */
+#view-daily-lb-input .unloading-rows td {
+  background: #f0f7ff !important;
+}
+
+#view-daily-lb-input .unloading-rows td.row-label {
+  background: #e0ecf8 !important;
+  font-weight: 600;
+}
+
+/* ===================================================================
+   DATA ENTERING — Vertical scrollbar (matches Reports)
+   =================================================================== */
+#dataEntryCollapse.open {
+  overflow-y: auto;
+  max-height: 550px;
+}
+
+/* Custom scrollbar — matches Reports */
+#dataEntryCollapse::-webkit-scrollbar {
+  width: 5px;
+}
+
+#dataEntryCollapse::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+#dataEntryCollapse::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ===================================================================
+   KPI's & Notifications — Vertical scrollbar (matches Reports)
+   =================================================================== */
+#kpiCollapse.open {
+  overflow-y: auto;
+  max-height: 550px;
+}
+
+#notificationsCollapse.open {
+  overflow-y: auto;
+  max-height: 550px;
+}
+
+/* Custom scrollbar — KPI's */
+#kpiCollapse::-webkit-scrollbar {
+  width: 5px;
+}
+#kpiCollapse::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+#kpiCollapse::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Custom scrollbar — Notifications */
+#notificationsCollapse::-webkit-scrollbar {
+  width: 5px;
+}
+#notificationsCollapse::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+#notificationsCollapse::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }

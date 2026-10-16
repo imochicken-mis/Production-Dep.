@@ -68,28 +68,38 @@ sidebarCollapseBtn.addEventListener("click", () => {
 // ===================================================================
 const kpiToggle = document.getElementById("kpiToggle");
 const reportsToggle = document.getElementById("reportsToggle");
+const dataEntryToggle = document.getElementById("dataEntryToggle");          // 🆕
 const notificationsToggle = document.getElementById("notificationsToggle");
 const kpiCollapse = document.getElementById("kpiCollapse");
 const reportsCollapse = document.getElementById("reportsCollapse");
+const dataEntryCollapse = document.getElementById("dataEntryCollapse");       // 🆕
 const notificationsCollapse = document.getElementById("notificationsCollapse");
 
 function setSection(open) {
   kpiToggle.classList.toggle("active", open === "kpi");
   reportsToggle.classList.toggle("active", open === "reports");
+  dataEntryToggle.classList.toggle("active", open === "dataEntry");           // 🆕
   notificationsToggle.classList.toggle("active", open === "notifications");
   kpiCollapse.classList.toggle("open", open === "kpi");
   reportsCollapse.classList.toggle("open", open === "reports");
+  dataEntryCollapse.classList.toggle("open", open === "dataEntry");           // 🆕
   notificationsCollapse.classList.toggle("open", open === "notifications");
 }
 
 function toggleSection(section) {
-  const collapseMap = { kpi: kpiCollapse, reports: reportsCollapse, notifications: notificationsCollapse };
+  const collapseMap = {
+    kpi: kpiCollapse,
+    reports: reportsCollapse,
+    dataEntry: dataEntryCollapse,                                             // 🆕
+    notifications: notificationsCollapse
+  };
   const isOpen = collapseMap[section].classList.contains("open");
   setSection(isOpen ? null : section);
 }
 
 kpiToggle.addEventListener("click", () => toggleSection("kpi"));
 reportsToggle.addEventListener("click", () => toggleSection("reports"));
+dataEntryToggle.addEventListener("click", () => toggleSection("dataEntry"));  // 🆕
 notificationsToggle.addEventListener("click", () => toggleSection("notifications"));
 
 // -------------------------------------------------------------------
@@ -129,6 +139,7 @@ function showView(key) {
   let section;
   if (key === "dashboard-new" || key.startsWith("kpi-")) section = "kpi";
   else if (key.startsWith("notify-kpi-")) section = "notifications";
+  else if (key.startsWith("entry-")) section = "dataEntry";      // 🆕
   else section = "reports";
   setSection(section);
 
@@ -155,6 +166,17 @@ function showView(key) {
   if (key === "kpi-04") initPackingEfficiencyKpi();
   if (key === "kpi-05") initDressedYieldKpi();
   if (key === "kpi-06") initChillLossKpi();
+
+  // 🆕 Data Entering
+  if (key === "entry-daily-lb") initDailyLbEntry();
+  if (key === "entry-rendering") initRenderingEntry();      // 🆕
+  if (key === "entry-production") initProductionDetailEntry();      // 🆕
+  if (key === "entry-blast-freezer") initBlastFreezerEntry();      // 🆕
+  if (key === "entry-giblet") initGibletEntry();      // 🆕
+  if (key === "entry-easy-material") initEasyMaterialEntry();      // 🆕
+  if (key === "entry-easy-production") initEasyProductionEntry();      // 🆕
+  if (key === "entry-csv-uploads") initCsvUploadsEntry();      // 🆕
+  if (key === "entry-consumable") initConsumableEntry();      // 🆕
 
   // Notifications
   if (key === "notify-kpi-01") initNotifyKpi("01");
@@ -220,11 +242,59 @@ const MONTH_SHORT_NAMES_ = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 // ===================================================================
 // countWorkingDaysInMonth_ — TOP LEVEL (used by all KPI functions)
 // ===================================================================
-function countWorkingDaysInMonth_(year, month) {
+// ===================================================================
+// Count working days in a month
+//   = non-Sunday days − Poya days (excluding Poya that fall on Sunday)
+// ===================================================================
+let __holidaysCache_ = null;
+
+async function loadHolidaysCache_() {
+  if (__holidaysCache_ !== null) return __holidaysCache_;
+  try {
+    const rows = await Api.list("Holidays");
+    __holidaysCache_ = rows.map((r) => ({
+      date: String(r.Date || "").slice(0, 10),
+      category: String(r.Category || "").trim(),
+    }));
+  } catch (err) {
+    console.warn("[Holidays] Failed to load:", err.message);
+    __holidaysCache_ = [];
+  }
+  return __holidaysCache_;
+}
+
+async function countWorkingDaysInMonth_(year, month) {
   const daysInMonth = new Date(year, month, 0).getDate();
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+
+  // Load holidays (cached)
+  const holidays = await loadHolidaysCache_();
+
+  // 🆕 Build a Set of Poya dates in this month
+  const poyaDates = new Set();
+  holidays.forEach((h) => {
+    if (h.category.toLowerCase() === "poya" && h.date.startsWith(monthPrefix)) {
+      poyaDates.add(h.date);
+    }
+  });
+
   let count = 0;
   for (let d = 1; d <= daysInMonth; d++) {
-    if (new Date(year, month - 1, d).getDay() !== 0) count++;  // 0 = Sunday
+    const dateObj = new Date(year, month - 1, d);
+    const dayOfWeek = dateObj.getDay();   // 0 = Sunday
+
+    // Skip Sundays
+    if (dayOfWeek === 0) continue;
+
+    // 🆕 Skip Poya days (but only if they're NOT Sunday — Sunday already skipped)
+    const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
+    if (poyaDates.has(dateStr)) {
+      // Poya on Sunday → already skipped above, no double-count issue
+      // Poya on weekday → skip
+      continue;
+    }
+
+    count++;
   }
   return count;
 }
@@ -538,20 +608,127 @@ async function renderLbInputReport(dateStr) {
 
     if (report.locations.length === 0) {
       panel.innerHTML = `<p class="hint">No data found for ${dateStr}.</p>`;
+      window.currentLbUnloadingRows = [];
       return;
     }
-    panel.innerHTML = renderReportTable_(report);
+
+    // 🆕 Load Birds_Unloading data for this date
+    let unloadingRows = [];
+    try {
+      const all = await Api.list("Birds_Unloading");
+      unloadingRows = all.filter((r) => String(r.Date) === dateStr);
+    } catch (err) {
+      console.warn("[LB] Failed to load Birds_Unloading:", err.message);
+    }
+
+    // 🆕 Save globally for CSV download
+    window.currentLbUnloadingRows = unloadingRows;
+
+    panel.innerHTML = renderReportTable_(report, unloadingRows);
   } catch (err) {
     panel.innerHTML = `<p class="hint error">Failed to load report: ${err.message}</p>`;
   }
 }
 
-function renderReportTable_(report) {
+function renderReportTable_(report, unloadingRows) {
+  unloadingRows = unloadingRows || [];
+
   const locCols = report.locations.map((loc) => `<th>${loc}</th>`).join("");
-  const rows = report.metrics.map((m) => {
+
+  // ----- Existing rows (Farmer Reference metrics) -----
+  const existingRows = report.metrics.map((m) => {
     const cells = m.values.map((v) => `<td>${formatNum_(v, m.decimals)}</td>`).join("");
     return `<tr><td class="row-label">${m.label}</td>${cells}<td class="total-cell">${formatNum_(m.total, m.decimals)}</td></tr>`;
   }).join("");
+
+  // ===================================================================
+  // Helper functions
+  // ===================================================================
+  const getLoc = (r) => String(r.Location || r.Loaction || "").trim();
+
+  // Get the Nth matching entry for a location (occurrenceIndex = 0, 1, 2, ...)
+  function getUnloadingEntryForLoc_(loc, occurrenceIndex) {
+    const target = String(loc || "").trim();
+    const matches = unloadingRows.filter((r) => getLoc(r) === target);
+    return matches[occurrenceIndex] || null;
+  }
+
+  // Count how many times this location appeared BEFORE index `idx`
+  function getOccurrenceIndex_(locationsList, idx) {
+    const target = String(locationsList[idx] || "").trim();
+    let count = 0;
+    for (let k = 0; k < idx; k++) {
+      if (String(locationsList[k] || "").trim() === target) count++;
+    }
+    return count;
+  }
+
+  // Parse "HH:MM" or "HH:MM:SS" → total minutes
+  function parseTimeMins_(t) {
+    if (!t) return null;
+    const parts = String(t).split(":").map((x) => Number(x));
+    if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1])) return null;
+    return parts[0] * 60 + parts[1];
+  }
+
+  // Format duration minutes → "Xh Ym"
+  function formatDuration_(mins) {
+    if (mins === null || mins === undefined || !isFinite(mins)) return "";
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${String(m).padStart(2, "0")}m`;
+  }
+
+  // ===================================================================
+  // Build 3 new rows — ONE entry per column
+  // ===================================================================
+
+  // Row 1: Unload/ Start Time
+  const startTimeCells = report.locations.map((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    if (!entry) return `<td></td>`;
+    const time = String(entry.Start_Time || "").slice(0, 5);
+    return `<td>${time || ""}</td>`;
+  }).join("");
+
+  // Row 2: Unload/ End Time
+  const endTimeCells = report.locations.map((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    if (!entry) return `<td></td>`;
+    const time = String(entry.End_Time || "").slice(0, 5);
+    return `<td>${time || ""}</td>`;
+  }).join("");
+
+    // Row 3: Unloading Time (duration)
+  let totalDurationMins = 0;
+
+  const durationCells = report.locations.map((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    if (!entry) return `<td></td>`;
+    const s = parseTimeMins_(entry.Start_Time);
+    const en = parseTimeMins_(entry.End_Time);
+    if (s === null || en === null) return `<td></td>`;
+    let diff = en - s;
+    if (diff < 0) diff += 24 * 60;
+    totalDurationMins += diff;                    // 🆕 accumulate
+    return `<td>${formatDuration_(diff)}</td>`;
+  }).join("");
+
+  // 🆕 Total unloading time across all locations
+  const totalDurationCell = totalDurationMins > 0
+    ? `<td class="total-cell">${formatDuration_(totalDurationMins)}</td>`
+    : `<td class="total-cell"></td>`;
+
+  const newRows = `
+    <tr class="unloading-rows"><td class="row-label">Unload/ Start Time</td>${startTimeCells}<td class="total-cell"></td></tr>
+    <tr class="unloading-rows"><td class="row-label">Unload/ End Time</td>${endTimeCells}<td class="total-cell"></td></tr>
+    <tr class="unloading-rows"><td class="row-label">Unloading Time</td>${durationCells}${totalDurationCell}</tr>
+  `;
 
   return `
     <table class="report-table">
@@ -562,17 +739,107 @@ function renderReportTable_(report) {
           <th class="total-col">Total</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${existingRows}${newRows}</tbody>
     </table>
   `;
 }
 
 function downloadReportCsv_(report) {
+  if (!report) return;
+
   const headers = ["Farmer Reference", ...report.locations, "Total"];
   const rows = report.metrics.map((m) => [m.label, ...m.values, m.total]);
 
+  // ===================================================================
+  // 🆕 Add 3 unloading rows (one entry per column, matching the table)
+  // ===================================================================
+  const unloadingRows = window.currentLbUnloadingRows || [];
+
+  const getLoc = (r) => String(r.Location || r.Loaction || "").trim();
+
+  function getUnloadingEntryForLoc_(loc, occurrenceIndex) {
+    const target = String(loc || "").trim();
+    const matches = unloadingRows.filter((r) => getLoc(r) === target);
+    return matches[occurrenceIndex] || null;
+  }
+
+  function getOccurrenceIndex_(locationsList, idx) {
+    const target = String(locationsList[idx] || "").trim();
+    let count = 0;
+    for (let k = 0; k < idx; k++) {
+      if (String(locationsList[k] || "").trim() === target) count++;
+    }
+    return count;
+  }
+
+  function parseTimeMins_(t) {
+    if (!t) return null;
+    const parts = String(t).split(":").map((x) => Number(x));
+    if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1])) return null;
+    return parts[0] * 60 + parts[1];
+  }
+
+  function formatDuration_(mins) {
+    if (mins === null || mins === undefined || !isFinite(mins)) return "";
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${String(m).padStart(2, "0")}m`;
+  }
+
+  // ---- Row: Unload/ Start Time ----
+  const startRow = ["Unload/ Start Time"];
+  report.locations.forEach((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    startRow.push(entry ? String(entry.Start_Time || "").slice(0, 5) : "");
+  });
+  startRow.push("");
+  rows.push(startRow);
+
+  // ---- Row: Unload/ End Time ----
+  const endRow = ["Unload/ End Time"];
+  report.locations.forEach((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    endRow.push(entry ? String(entry.End_Time || "").slice(0, 5) : "");
+  });
+  endRow.push("");
+  rows.push(endRow);
+
+  // ---- Row: Unloading Time ----
+  const durRow = ["Unloading Time"];
+  let totalDurationMins = 0;
+
+  report.locations.forEach((loc, i) => {
+    const occIdx = getOccurrenceIndex_(report.locations, i);
+    const entry = getUnloadingEntryForLoc_(loc, occIdx);
+    if (!entry) {
+      durRow.push("");
+      return;
+    }
+    const s = parseTimeMins_(entry.Start_Time);
+    const en = parseTimeMins_(entry.End_Time);
+    if (s === null || en === null) {
+      durRow.push("");
+      return;
+    }
+    let diff = en - s;
+    if (diff < 0) diff += 24 * 60;
+    totalDurationMins += diff;                  // 🆕 accumulate
+    durRow.push(formatDuration_(diff));
+  });
+  durRow.push(totalDurationMins > 0 ? formatDuration_(totalDurationMins) : "");   // 🆕 Total
+  rows.push(durRow);
+
+  // ===================================================================
+  // Build CSV
+  // ===================================================================
   let csv = headers.join(",") + "\n";
-  rows.forEach((r) => { csv += r.map((v) => `"${v}"`).join(",") + "\n"; });
+  rows.forEach((r) => {
+    csv += r.map((v) => `"${v}"`).join(",") + "\n";
+  });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -2092,6 +2359,1574 @@ function downloadConsumableCsv_(report) {
 }
 
 // ===================================================================
+// DATA ENTRY — Daily Rendering Outflow
+// ===================================================================
+function initRenderingEntry() {
+  const form = document.getElementById("form-rendering");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  // ----- Field references -----
+  const F = {
+    date:    document.getElementById("rndDate"),
+    feather: document.getElementById("rndFeather"),
+    feet:    document.getElementById("rndFeet"),
+    offal:   document.getElementById("rndOffal"),
+    total:   document.getElementById("rndTotal"),
+  };
+
+  // ----- Default today's date -----
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!F.date.value) F.date.value = today;
+
+  // ----- Number formatting helpers -----
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+
+    if (parts.length === 1) {
+      el.value = intFmt;
+      return intNum;
+    }
+
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function setAuto_(el, value, decimals) {
+    if (!isFinite(value) || value === 0) { el.value = ""; return; }
+    el.value = value.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  // ----- Auto-calculate Total Rendering Weight -----
+  function recalc() {
+    const feather = parseNum_(F.feather);
+    const feet    = parseNum_(F.feet);
+    const offal   = parseNum_(F.offal);
+
+    const total = feather + feet + offal;
+    setAuto_(F.total, total, 2);
+  }
+
+  // ----- Attach input events -----
+  [F.feather, F.feet, F.offal].forEach((el) => {
+    el.addEventListener("input", () => { formatDec_(el); recalc(); });
+  });
+
+  // ----- Clear button -----
+  document.getElementById("rndClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset();
+    F.date.value = today;
+    recalc();
+  });
+
+  // ----- Save (placeholder) -----
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const payload = {
+      Date:        F.date.value,
+      Feather:     parseNum_(F.feather),
+      Feet:        parseNum_(F.feet),
+      Offal:       parseNum_(F.offal),
+      TotalFFO:    parseNum_(F.total),
+    };
+
+    console.log("[Rendering Entry] Payload ready:", payload);
+    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
+  });
+
+  recalc();
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Production Detail
+// ===================================================================
+async function initProductionDetailEntry() {
+  const form = document.getElementById("form-production-detail");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  const dateEl      = document.getElementById("prdDate");
+  const searchEl    = document.getElementById("prdSearch");
+  const tbodyEl     = document.getElementById("prdItemsBody");
+  const grandTotalEl = document.getElementById("prdGrandTotal");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // -------------------------------------------------------------------
+  // Number formatting (decimal — #,###.## style)
+  // -------------------------------------------------------------------
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum  = parseInt(intPart, 10);
+    const intFmt  = intNum.toLocaleString("en-US");
+
+    if (parts.length === 1) {
+      el.value = intFmt;
+      return intNum;
+    }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  // -------------------------------------------------------------------
+  // Recalculate grand total
+  // -------------------------------------------------------------------
+  function recalcGrandTotal() {
+    const inputs = tbodyEl.querySelectorAll(".entry-item-qty");
+    let total = 0;
+    inputs.forEach((inp) => {
+      const v = parseNum_(inp);
+      if (isFinite(v)) total += v;
+    });
+    grandTotalEl.textContent = total.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // Load items from MasterItems sheet
+  // -------------------------------------------------------------------
+  let allItems = [];
+  try {
+    const rows = await Api.list("MasterItems");
+    allItems = rows
+      .filter((r) => r.Code && String(r.Code).trim())
+      .map((r) => ({
+        code: String(r.Code).trim(),
+        name: String(r["Item Name"] || r.Item_Name || "").trim(),
+      }));
+
+    // Sort by code alphabetically
+    allItems.sort((a, b) => a.code.localeCompare(b.code));
+
+    if (allItems.length === 0) {
+      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found in MasterItems.</td></tr>`;
+      return;
+    }
+
+    // Build rows
+    let html = "";
+    allItems.forEach((item) => {
+      html += `
+        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td>
+            <input type="text"
+                   class="entry-item-qty"
+                   data-code="${item.code}"
+                   inputmode="decimal"
+                   placeholder="0">
+          </td>
+        </tr>
+      `;
+    });
+    tbodyEl.innerHTML = html;
+
+    // Attach input events
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        formatDec_(inp);
+        recalcGrandTotal();
+      });
+    });
+
+    recalcGrandTotal();
+
+  } catch (err) {
+    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
+    return;
+  }
+
+  // -------------------------------------------------------------------
+  // Search filter (code + name)
+  // -------------------------------------------------------------------
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const code = String(tr.dataset.code || "").toLowerCase();
+      const name = String(tr.dataset.name || "").toLowerCase();
+      const match = !q || code.includes(q) || name.includes(q);
+      tr.classList.toggle("item-hidden", !match);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Clear button
+  // -------------------------------------------------------------------
+  document.getElementById("prdClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    recalcGrandTotal();
+  });
+
+  // -------------------------------------------------------------------
+  // Save (placeholder)
+  // -------------------------------------------------------------------
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const items = [];
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      const qty = parseNum_(inp);
+      if (qty > 0) {
+        const tr = inp.closest("tr");
+        items.push({
+          Item_Code: tr.dataset.code,
+          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
+          Weight: qty,
+        });
+      }
+    });
+
+    const payload = {
+      Date:  dateEl.value,
+      items: items,
+      total: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
+    };
+
+    console.log("[Production Detail Entry] Payload ready:", payload);
+    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nItems: ${items.length}\nTotal: ${payload.total}\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ full payload බලන්න.`);
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — Blast Freezer
+// ===================================================================
+async function initBlastFreezerEntry() {
+  const container = document.getElementById("view-entry-blast-freezer");
+  if (!container || container.dataset.bound === "true") return;
+  container.dataset.bound = "true";
+
+  // -------------------------------------------------------------------
+  // Tab switching
+  // -------------------------------------------------------------------
+  const tabs = container.querySelectorAll(".bf-tab");
+  const contents = container.querySelectorAll(".bf-tab-content");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.bfTab;
+      tabs.forEach((t) => t.classList.toggle("active", t === tab));
+      contents.forEach((c) => {
+        c.classList.toggle("active", c.id === (target === "ledger" ? "bfTabLedger" : "bfTabInOut"));
+      });
+    });
+  });
+
+  // ===================================================================
+  // TAB 1 — Daily Blast Freezer Inward Ledger (= Production Detail)
+  // ===================================================================
+  await initBfLedger_();
+
+  // ===================================================================
+  // TAB 2 — Blast Freezer In Time & Weight
+  // ===================================================================
+  initBfInOut_();
+}
+
+// -------------------------------------------------------------------
+// TAB 1 — Ledger (same as Production Detail)
+// -------------------------------------------------------------------
+async function initBfLedger_() {
+  const form = document.getElementById("form-bf-ledger");
+  if (!form) return;
+
+  const dateEl       = document.getElementById("bflDate");
+  const searchEl     = document.getElementById("bflSearch");
+  const tbodyEl      = document.getElementById("bflItemsBody");
+  const grandTotalEl = document.getElementById("bflGrandTotal");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // Number formatting helpers
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function recalcGrandTotal() {
+    const inputs = tbodyEl.querySelectorAll(".entry-item-qty");
+    let total = 0;
+    inputs.forEach((inp) => { total += parseNum_(inp); });
+    grandTotalEl.textContent = total.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // Load items from MasterItems
+  try {
+    const rows = await Api.list("MasterItems");
+    const items = rows
+      .filter((r) => r.Code && String(r.Code).trim())
+      .map((r) => ({
+        code: String(r.Code).trim(),
+        name: String(r["Item Name"] || r.Item_Name || "").trim(),
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    if (items.length === 0) {
+      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    items.forEach((item) => {
+      html += `
+        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td>
+            <input type="text" class="entry-item-qty" data-code="${item.code}" inputmode="decimal" placeholder="0">
+          </td>
+        </tr>
+      `;
+    });
+    tbodyEl.innerHTML = html;
+
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        formatDec_(inp);
+        recalcGrandTotal();
+      });
+    });
+
+    recalcGrandTotal();
+  } catch (err) {
+    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
+    return;
+  }
+
+  // Search filter
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const code = String(tr.dataset.code || "").toLowerCase();
+      const name = String(tr.dataset.name || "").toLowerCase();
+      tr.classList.toggle("item-hidden", !(!q || code.includes(q) || name.includes(q)));
+    });
+  });
+
+  // Clear
+  document.getElementById("bflClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    recalcGrandTotal();
+  });
+
+  // Save (placeholder)
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const items = [];
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      const qty = parseNum_(inp);
+      if (qty > 0) {
+        const tr = inp.closest("tr");
+        items.push({
+          Item_Code: tr.dataset.code,
+          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
+          Weight: qty,
+        });
+      }
+    });
+    console.log("[BF Ledger Entry] Payload ready:", {
+      Date: dateEl.value,
+      items,
+      total: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
+    });
+    alert("✅ Payload ready! Console එකේ බලන්න.");
+  });
+}
+
+// -------------------------------------------------------------------
+// TAB 2 — Blast Freezer In Time & Weight
+// -------------------------------------------------------------------
+function initBfInOut_() {
+  const form = document.getElementById("form-bf-inout");
+  if (!form) return;
+
+  const dateEl    = document.getElementById("bfDate");
+  const batchEl   = document.getElementById("bfBatchNo");
+  const tbodyEl   = document.getElementById("bfItemsBody");
+  const addRowBtn = document.getElementById("bfAddRowBtn");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // Blast Freezer options
+  const BF_OPTIONS_ = ["BF 01", "BF 02", "BF 03", "BF 04", "BF 05", "BF 06", "BF 07", "BF 08"];
+
+  // -------------------------------------------------------------------
+  // Number formatting (decimal)
+  // -------------------------------------------------------------------
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  // -------------------------------------------------------------------
+  // Update row numbers after add/remove
+  // -------------------------------------------------------------------
+  function renumberRows_() {
+    tbodyEl.querySelectorAll("tr").forEach((tr, i) => {
+      tr.querySelector(".bf-row-num").textContent = i + 1;
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // Add a new row
+  // -------------------------------------------------------------------
+  function addRow_() {
+    const tr = document.createElement("tr");
+
+    // Row number
+    const tdNum = document.createElement("td");
+    tdNum.className = "bf-row-num";
+    tdNum.textContent = "1";
+    tr.appendChild(tdNum);
+
+    // Blast Freezer No — dropdown
+    const tdBF = document.createElement("td");
+    const sel = document.createElement("select");
+    sel.className = "entry-item-select";
+    sel.innerHTML = `<option value="">-- Select --</option>` +
+      BF_OPTIONS_.map((o) => `<option value="${o}">${o}</option>`).join("");
+    tdBF.appendChild(sel);
+    tr.appendChild(tdBF);
+
+    // In Time
+    const tdTime = document.createElement("td");
+    const timeInput = document.createElement("input");
+    timeInput.type = "time";
+    timeInput.step = "60";
+    timeInput.className = "entry-item-time";
+    tdTime.appendChild(timeInput);
+    tr.appendChild(tdTime);
+
+    // Weight
+    const tdW = document.createElement("td");
+    const wInput = document.createElement("input");
+    wInput.type = "text";
+    wInput.className = "entry-item-qty";
+    wInput.inputMode = "decimal";
+    wInput.placeholder = "0.00";
+    wInput.addEventListener("input", () => formatDec_(wInput));
+    tdW.appendChild(wInput);
+    tr.appendChild(tdW);
+
+    // Delete button
+    const tdDel = document.createElement("td");
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn-del-row";
+    delBtn.textContent = "✕";
+    delBtn.title = "Remove row";
+    delBtn.addEventListener("click", () => {
+      tr.remove();
+      renumberRows_();
+    });
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+
+    tbodyEl.appendChild(tr);
+    renumberRows_();
+  }
+
+  // Fix typo helper — actual append
+  // (Handled in addRow_ properly below)
+
+  // -------------------------------------------------------------------
+  // Add Row button
+  // -------------------------------------------------------------------
+  addRowBtn.addEventListener("click", addRow_);
+
+  // Add first row by default
+  addRow_();
+
+  // Clear
+  document.getElementById("bfClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset();
+    dateEl.value = today;
+    tbodyEl.innerHTML = "";
+    addRow_();
+  });
+
+  // Save (placeholder)
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const rows = [];
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const bfNo  = tr.querySelector(".entry-item-select")?.value || "";
+      const time  = tr.querySelector(".entry-item-time")?.value || "";
+      const wtInp = tr.querySelector(".entry-item-qty");
+      const wt    = wtInp ? parseNum_(wtInp) : 0;
+
+      if (bfNo || time || wt > 0) {
+        rows.push({
+          Blast_Freezer_No: bfNo,
+          In_Time:          time,
+          Weight:           wt,
+        });
+      }
+    });
+
+    const payload = {
+      Date:      dateEl.value,
+      Batch_No:  batchEl.value.trim(),
+      rows:      rows,
+    };
+
+    console.log("[BF In/Out Entry] Payload ready:", payload);
+    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nBatch: ${payload.Batch_No}\nRows: ${rows.length}\n\nConsole එකේ බලන්න.`);
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — Giblet Use for W/Chicken
+// ===================================================================
+function initGibletEntry() {
+  const form = document.getElementById("form-giblet");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  const dateEl = document.getElementById("gibDate");
+  const qtyEl  = document.getElementById("gibQty");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // ----- Decimal formatting (#,###.##) -----
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum  = parseInt(intPart, 10);
+    const intFmt  = intNum.toLocaleString("en-US");
+
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  // Input formatter
+  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
+
+  // Clear
+  document.getElementById("gibClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset();
+    dateEl.value = today;
+  });
+
+  // Save (placeholder)
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const payload = {
+      Date:                 dateEl.value,
+      Giblet_Use:           parseNum_(qtyEl),
+    };
+
+    console.log("[Giblet Entry] Payload ready:", payload);
+    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Production Easy Material (WIP)
+// ===================================================================
+function initEasyMaterialEntry() {
+  const form = document.getElementById("form-easy-material");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  const dateEl = document.getElementById("emDate");
+  const qtyEl  = document.getElementById("emQty");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // ----- Decimal formatting (#,###.##) -----
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum  = parseInt(intPart, 10);
+    const intFmt  = intNum.toLocaleString("en-US");
+
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  // Input formatter
+  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
+
+  // Clear
+  document.getElementById("emClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset();
+    dateEl.value = today;
+  });
+
+  // Save (placeholder)
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const payload = {
+      Date:                 dateEl.value,
+      Easy_Material_WIP:    parseNum_(qtyEl),
+    };
+
+    console.log("[Easy Material Entry] Payload ready:", payload);
+    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Easy Production
+// ===================================================================
+async function initEasyProductionEntry() {
+  const form = document.getElementById("form-easy-production");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  const dateEl       = document.getElementById("epDate");
+  const searchEl     = document.getElementById("epSearch");
+  const tbodyEl      = document.getElementById("epItemsBody");
+  const grandTotalEl = document.getElementById("epGrandTotal");
+  const netWeightEl  = document.getElementById("epNetWeight");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // -------------------------------------------------------------------
+  // Number formatting helpers
+  // -------------------------------------------------------------------
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  // -------------------------------------------------------------------
+  // Grand total (sum of all item quantities)
+  // -------------------------------------------------------------------
+  function recalcGrandTotal() {
+    let total = 0;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      total += parseNum_(inp);
+    });
+    grandTotalEl.textContent = total.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // Load items from MasterItemsEasy
+  // -------------------------------------------------------------------
+  try {
+    const rows = await Api.list("MasterItemsEasy");
+    const items = rows
+      .filter((r) => r.Code && String(r.Code).trim())
+      .map((r) => ({
+        code: String(r.Code).trim(),
+        name: String(r["Item Name"] || r.Item_Name || "").trim(),
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    if (items.length === 0) {
+      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found in MasterItemsEasy.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    items.forEach((item) => {
+      html += `
+        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td>
+            <input type="text"
+                   class="entry-item-qty"
+                   data-code="${item.code}"
+                   inputmode="decimal"
+                   placeholder="0">
+          </td>
+        </tr>
+      `;
+    });
+    tbodyEl.innerHTML = html;
+
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        formatDec_(inp);
+        recalcGrandTotal();
+      });
+    });
+
+    recalcGrandTotal();
+
+  } catch (err) {
+    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
+    return;
+  }
+
+  // -------------------------------------------------------------------
+  // Net Weight input formatter
+  // -------------------------------------------------------------------
+  netWeightEl.addEventListener("input", () => formatDec_(netWeightEl));
+
+  // -------------------------------------------------------------------
+  // Search filter
+  // -------------------------------------------------------------------
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const code = String(tr.dataset.code || "").toLowerCase();
+      const name = String(tr.dataset.name || "").toLowerCase();
+      tr.classList.toggle("item-hidden", !(!q || code.includes(q) || name.includes(q)));
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Clear button
+  // -------------------------------------------------------------------
+  document.getElementById("epClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    netWeightEl.value = "";
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    recalcGrandTotal();
+  });
+
+  // -------------------------------------------------------------------
+  // Save (placeholder)
+  // -------------------------------------------------------------------
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const items = [];
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      const qty = parseNum_(inp);
+      if (qty > 0) {
+        const tr = inp.closest("tr");
+        items.push({
+          Item_Code: tr.dataset.code,
+          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
+          Weight: qty,
+        });
+      }
+    });
+
+    const payload = {
+      Date:                  dateEl.value,
+      items:                 items,
+      totalEasyProductWeight: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
+      usedEasyMaterialNetWeight: parseNum_(netWeightEl),
+    };
+
+    console.log("[Easy Production Entry] Payload ready:", payload);
+    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nItems: ${items.length}\nTotal: ${payload.totalEasyProductWeight}\nNet Weight: ${payload.usedEasyMaterialNetWeight}\n\nConsole එකේ full payload බලන්න.`);
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — CSV Uploads
+// ===================================================================
+function initCsvUploadsEntry() {
+  const container = document.getElementById("view-entry-csv-uploads");
+  if (!container || container.dataset.bound === "true") return;
+  container.dataset.bound = "true";
+
+  // Default date for Opening Stock
+  const openingDateEl = document.getElementById("csvOpeningDate");
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!openingDateEl.value) openingDateEl.value = today;
+
+  // Bind all 3 uploaders
+  setupCsvUploader_({
+    formId:     "form-csv-daily-target",
+    fileId:     "csvTargetFile",
+    fileNameId: "csvTargetFileName",
+    previewId:  "csvTargetPreview",
+    clearBtnId: "csvTargetClearBtn",
+    sheetName:  "DailyTarget",
+  });
+
+  setupCsvUploader_({
+    formId:     "form-csv-livebird-req",
+    fileId:     "csvBirdReqFile",
+    fileNameId: "csvBirdReqFileName",
+    previewId:  "csvBirdReqPreview",
+    clearBtnId: "csvBirdReqClearBtn",
+    sheetName:  "DataProductionBirdReq",
+  });
+
+  setupCsvUploader_({
+    formId:     "form-csv-opening-stock",
+    fileId:     "csvOpeningFile",
+    fileNameId: "csvOpeningFileName",
+    previewId:  "csvOpeningPreview",
+    clearBtnId: "csvOpeningClearBtn",
+    sheetName:  "DataProductionStock",
+    dateId:     "csvOpeningDate",
+  });
+}
+
+// -------------------------------------------------------------------
+// Generic CSV/Excel uploader setup
+// -------------------------------------------------------------------
+function setupCsvUploader_({ formId, fileId, fileNameId, previewId, clearBtnId, sheetName, dateId }) {
+  const form       = document.getElementById(formId);
+  const fileInput  = document.getElementById(fileId);
+  const fileName   = document.getElementById(fileNameId);
+  const previewEl  = document.getElementById(previewId);
+  const clearBtn   = document.getElementById(clearBtnId);
+  const dateEl     = dateId ? document.getElementById(dateId) : null;
+
+  if (!form || !fileInput || !fileName || !previewEl) return;
+
+  let parsedData = null;    // { headers, rows, fileName }
+
+  // ----- Update file name label -----
+  function updateFileName_() {
+    if (fileInput.files && fileInput.files.length > 0) {
+      fileName.textContent = fileInput.files[0].name;
+      fileName.classList.remove("empty");
+    } else {
+      fileName.textContent = "No file chosen";
+      fileName.classList.add("empty");
+    }
+  }
+  updateFileName_();
+
+  // ----- File change -----
+  fileInput.addEventListener("change", async () => {
+    updateFileName_();
+    previewEl.classList.remove("visible");
+    previewEl.innerHTML = "";
+    parsedData = null;
+
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const ext = String(file.name).split(".").pop().toLowerCase();
+
+    try {
+      let headers = [];
+      let rows = [];
+
+      if (ext === "csv") {
+        const text = await file.text();
+        const parsed = parseCsvText_(text);
+        headers = parsed.headers;
+        rows    = parsed.rows;
+            } else if (ext === "xlsx" || ext === "xls") {
+        // 🆕 XLSX / XLS — SheetJS use කරන්න
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+
+        // Only the first sheet
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          previewEl.innerHTML = `<div class="csv-preview-error">Excel file has no sheets.</div>`;
+          previewEl.classList.add("visible");
+          return;
+        }
+
+        const ws = workbook.Sheets[firstSheetName];
+        const sheetRows = XLSX.utils.sheet_to_json(ws, {
+          defval: "",
+          raw: false,
+          dateNF: "yyyy-mm-dd",
+        });
+
+        // If sheet is empty
+        if (!sheetRows.length) {
+          previewEl.innerHTML = `<div class="csv-preview-error">Sheet "${escapeHtml_(firstSheetName)}" is empty.</div>`;
+          previewEl.classList.add("visible");
+          return;
+        }
+
+        // Extract headers from the first row
+        headers = Object.keys(sheetRows[0]);
+        rows = sheetRows.map((r) => {
+          const obj = {};
+          headers.forEach((h) => {
+            obj[h] = r[h] !== undefined ? String(r[h]).trim() : "";
+          });
+          return obj;
+        });
+
+      } else {
+        previewEl.innerHTML = `<div class="csv-preview-error">Unsupported file type: .${ext}</div>`;
+        previewEl.classList.add("visible");
+        return;
+      }
+
+      if (!headers.length || !rows.length) {
+        previewEl.innerHTML = `<div class="csv-preview-error">File is empty or invalid.</div>`;
+        previewEl.classList.add("visible");
+        return;
+      }
+
+      parsedData = { headers, rows, fileName: file.name };
+
+      // Preview render
+      const previewRows = rows.slice(0, 5);
+      const headersHtml = headers.map((h) => `<th>${escapeHtml_(h)}</th>`).join("");
+      const rowsHtml = previewRows.map((r) =>
+        "<tr>" + headers.map((h) => `<td>${escapeHtml_(r[h] ?? "")}</td>`).join("") + "</tr>"
+      ).join("");
+
+      previewEl.innerHTML = `
+        <div class="csv-preview-header">
+          <span>📄 ${escapeHtml_(file.name)}</span>
+          <span class="csv-preview-badge">${rows.length} row${rows.length !== 1 ? "s" : ""} loaded</span>
+        </div>
+        <table class="csv-preview-table">
+          <thead><tr>${headersHtml}</tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        ${rows.length > 5 ? `<p style="margin:8px 0 0 0;color:#6b7280;font-size:11px;">Showing first 5 of ${rows.length} rows.</p>` : ""}
+      `;
+      previewEl.classList.add("visible");
+
+    } catch (err) {
+      previewEl.innerHTML = `<div class="csv-preview-error">Failed to parse file: ${escapeHtml_(err.message)}</div>`;
+      previewEl.classList.add("visible");
+    }
+  });
+
+  // ----- Clear -----
+  clearBtn.addEventListener("click", () => {
+    if (!confirm("Clear this upload?")) return;
+    form.reset();
+    updateFileName_();
+    previewEl.classList.remove("visible");
+    previewEl.innerHTML = "";
+    parsedData = null;
+    if (dateEl) dateEl.value = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
+  });
+
+  // ----- Submit (placeholder) -----
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    if (!parsedData) {
+      alert("Please choose a CSV file first.");
+      return;
+    }
+
+    const payload = {
+      sheetName: sheetName,
+      date: dateEl ? dateEl.value : null,
+      fileName: parsedData.fileName,
+      headers: parsedData.headers,
+      rowCount: parsedData.rows.length,
+      rows: parsedData.rows,
+    };
+
+    console.log(`[CSV Upload — ${sheetName}] Payload ready:`, payload);
+    alert(`✅ CSV parsed!\n\nSheet: ${sheetName}\nRows: ${payload.rowCount}\n${dateEl ? "Date: " + payload.date + "\n" : ""}\nBackend integration next step එකේදී upload වෙයි.\n\nConsole එකේ full payload බලන්න.`);
+  });
+}
+
+// ===================================================================
+// DATA ENTRY — Consumable Records (6 tabs)
+// ===================================================================
+async function initConsumableEntry() {
+  const container = document.getElementById("view-entry-consumable");
+  if (!container || container.dataset.bound === "true") return;
+  container.dataset.bound = "true";
+
+  // Tab switching
+  const tabs     = container.querySelectorAll(".cons-tab");
+  const contents = container.querySelectorAll(".cons-tab-content");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.consTab;
+      tabs.forEach((t) => t.classList.toggle("active", t === tab));
+      contents.forEach((c) => {
+        c.classList.toggle("active", c.id === `consTab${target}`);
+      });
+    });
+  });
+
+  // Config for each tab
+  const TABS = [
+    { key: "LB",       sheet: "MasterConsumableLB",       dateId: "consLbDate",       searchId: "consLbSearch",       bodyId: "consLbBody",       totalId: "consLbTotal",       formId: "form-cons-lb" },
+    { key: "EV",       sheet: "MasterConsumableEV",       dateId: "consEvDate",       searchId: "consEvSearch",       bodyId: "consEvBody",       totalId: "consEvTotal",       formId: "form-cons-ev" },
+    { key: "FBP",      sheet: "MasterConsumableFBP",      dateId: "consFbpDate",      searchId: "consFbpSearch",      bodyId: "consFbpBody",      totalId: "consFbpTotal",      formId: "form-cons-fbp" },
+    { key: "Packing",  sheet: "MasterConsumablePacking",  dateId: "consPackingDate",  searchId: "consPackingSearch",  bodyId: "consPackingBody",  totalId: "consPackingTotal",  formId: "form-cons-packing" },
+    { key: "Packing2", sheet: "MasterConsumablePacking2", dateId: "consPacking2Date", searchId: "consPacking2Search", bodyId: "consPacking2Body", totalId: "consPacking2Total", formId: "form-cons-packing2" },
+    { key: "Easy",     sheet: "MasterConsumableEasy",     dateId: "consEasyDate",     searchId: "consEasySearch",     bodyId: "consEasyBody",     totalId: "consEasyTotal",     formId: "form-cons-easy" },
+  ];
+
+  // Initialize each tab sequentially
+  for (const cfg of TABS) {
+    await setupConsumableTab_(cfg);
+  }
+
+  // Clear buttons (event delegation)
+  container.querySelectorAll("[data-cons-clear]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const k = btn.dataset.consClear;
+      const cfg = TABS.find((t) => t.key === k);
+      if (!cfg) return;
+      if (!confirm("Clear all quantities?")) return;
+      const bodyEl  = document.getElementById(cfg.bodyId);
+      const searchEl = document.getElementById(cfg.searchId);
+      const dateEl   = document.getElementById(cfg.dateId);
+      bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+      searchEl.value = "";
+      bodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+      const today = getTodayStr_();
+      if (dateEl) dateEl.value = today;
+      recalcConsumableTotal_(bodyEl, cfg.totalId);
+    });
+  });
+}
+
+// -------------------------------------------------------------------
+// Setup one Consumable tab
+// -------------------------------------------------------------------
+async function setupConsumableTab_(cfg) {
+  const dateEl   = document.getElementById(cfg.dateId);
+  const searchEl = document.getElementById(cfg.searchId);
+  const bodyEl   = document.getElementById(cfg.bodyId);
+  const formEl   = document.getElementById(cfg.formId);
+
+  if (!bodyEl || !formEl) return;
+
+  // Default today's date
+  if (dateEl && !dateEl.value) dateEl.value = getTodayStr_();
+
+  // Load items from sheet
+  try {
+    const rows = await Api.list(cfg.sheet);
+    // Item Name is the header — filter out empties
+    const items = rows
+      .map((r) => String(r["Item Name"] || r.Item_Name || r.ItemName || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    if (items.length === 0) {
+      bodyEl.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">No items found in ${cfg.sheet}.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    items.forEach((name) => {
+      const safe = escapeHtml_(name);
+      html += `
+        <tr data-name="${safe.toLowerCase()}">
+          <td>${safe}</td>
+          <td>
+            <input type="text" class="entry-item-qty" inputmode="decimal" placeholder="0">
+          </td>
+        </tr>
+      `;
+    });
+    bodyEl.innerHTML = html;
+
+    // Attach input events
+    bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        formatConsumableDec_(inp);
+        recalcConsumableTotal_(bodyEl, cfg.totalId);
+      });
+    });
+
+    recalcConsumableTotal_(bodyEl, cfg.totalId);
+
+  } catch (err) {
+    bodyEl.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${escapeHtml_(err.message)}</td></tr>`;
+    return;
+  }
+
+  // Search filter
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    bodyEl.querySelectorAll("tr").forEach((tr) => {
+      const name = String(tr.dataset.name || "").toLowerCase();
+      tr.classList.toggle("item-hidden", !(!q || name.includes(q)));
+    });
+  });
+
+  // Submit (placeholder)
+  formEl.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const items = [];
+    bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      const qty = parseConsumableNum_(inp);
+      if (qty > 0) {
+        const tr = inp.closest("tr");
+        items.push({
+          Item_Name: tr.dataset.name,
+          Qty: qty,
+        });
+      }
+    });
+
+    const payload = {
+      Sheet: cfg.sheet,
+      Date: dateEl ? dateEl.value : null,
+      items,
+      total: items.reduce((s, i) => s + i.Qty, 0),
+    };
+
+    console.log(`[Consumable — ${cfg.key}] Payload ready:`, payload);
+    alert(`✅ Payload ready!\n\nTab: ${cfg.key}\nSheet: ${cfg.sheet}\nItems: ${items.length}\n\nConsole එකේ full payload බලන්න.`);
+  });
+}
+
+// -------------------------------------------------------------------
+// Number formatting + parsing helpers
+// -------------------------------------------------------------------
+function getTodayStr_() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function formatConsumableDec_(el) {
+  let raw = String(el.value).replace(/[^\d.]/g, "");
+  const firstDot = raw.indexOf(".");
+  if (firstDot !== -1) {
+    raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+  }
+  if (raw === "") { el.value = ""; return 0; }
+  const parts = raw.split(".");
+  const intPart = parts[0] === "" ? "0" : parts[0];
+  const intNum  = parseInt(intPart, 10);
+  const intFmt  = intNum.toLocaleString("en-US");
+  if (parts.length === 1) { el.value = intFmt; return intNum; }
+  const decPart = (parts[1] || "").slice(0, 2);
+  el.value = intFmt + "." + decPart;
+  const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+  return isFinite(n) ? n : intNum;
+}
+
+function parseConsumableNum_(el) {
+  const v = String(el.value).replace(/,/g, "");
+  const n = parseFloat(v);
+  return isFinite(n) ? n : 0;
+}
+
+function recalcConsumableTotal_(bodyEl, totalId) {
+  let total = 0;
+  bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+    total += parseConsumableNum_(inp);
+  });
+  const totalEl = document.getElementById(totalId);
+  if (totalEl) {
+    totalEl.textContent = total.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+}
+
+// -------------------------------------------------------------------
+// Simple CSV parser (handles quotes + commas)
+// -------------------------------------------------------------------
+function parseCsvText_(text) {
+  // Normalize line endings
+  const lines = String(text).replace(/\r\n?/g, "\n").split("\n").filter((l) => l.length > 0);
+  if (lines.length === 0) return { headers: [], rows: [] };
+
+  function parseLine_(line) {
+    const cells = [];
+    let cur = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          cur += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          cells.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+    }
+    cells.push(cur);
+    return cells;
+  }
+
+  const headers = parseLine_(lines[0]).map((h) => h.trim());
+  const rows = lines.slice(1).map((line) => {
+    const cells = parseLine_(line);
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = (cells[i] !== undefined ? cells[i] : "").trim();
+    });
+    return obj;
+  });
+
+  return { headers, rows };
+}
+
+// -------------------------------------------------------------------
+// HTML escape
+// -------------------------------------------------------------------
+function escapeHtml_(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Live Birds Input
+// ===================================================================
+function initDailyLbEntry() {
+  const form = document.getElementById("form-daily-lb");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  // ----- Field references -----
+  const F = {
+    date:               document.getElementById("dlbDate"),
+    location:           document.getElementById("dlbLocation"),
+    loadingStart:       document.getElementById("dlbLoadingStart"),
+    unloadingTime:      document.getElementById("dlbUnloadingTime"),
+    birds:              document.getElementById("dlbBirds"),
+    liveWeight:         document.getElementById("dlbLiveWeight"),
+    avgWeight:          document.getElementById("dlbAvgWeight"),
+    transportMort:      document.getElementById("dlbTransportMort"),
+    transportMortW:     document.getElementById("dlbTransportMortWeight"),
+    bayMort:            document.getElementById("dlbBayMort"),
+    bayMortW:           document.getElementById("dlbBayMortWeight"),
+    totalDeadW:         document.getElementById("dlbTotalDeadWeight"),
+    halalRej:           document.getElementById("dlbHalalRej"),
+    halalRejW:          document.getElementById("dlbHalalRejWeight"),
+    otherRej:           document.getElementById("dlbOtherRej"),
+    otherRejW:          document.getElementById("dlbOtherRejWeight"),
+    totalRejW:          document.getElementById("dlbTotalRejWeight"),
+    birdsToPlant:       document.getElementById("dlbBirdsToPlant"),
+    liveWToPlant:       document.getElementById("dlbLiveWeightToPlant"),
+  };
+
+  // ----- Default today's date -----
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!F.date.value) F.date.value = today;
+
+  // ----- Number formatting helpers -----
+  function formatInt_(el) {
+    const raw = String(el.value).replace(/[^\d]/g, "");
+    if (!raw) return 0;
+    const n = parseInt(raw, 10);
+    el.value = n.toLocaleString("en-US");
+    return n;
+  }
+
+  function formatDec_(el) {
+  // Strip non-digit, non-dot chars
+  let raw = String(el.value).replace(/[^\d.]/g, "");
+
+  // Keep only the first dot
+  const firstDot = raw.indexOf(".");
+  if (firstDot !== -1) {
+    raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+  }
+
+  // Empty → nothing to format
+  if (raw === "") {
+    el.value = "";
+    return 0;
+  }
+
+  // Split integer / decimal parts
+  const parts = raw.split(".");
+  const intPart = parts[0] === "" ? "0" : parts[0];
+  const intNum  = parseInt(intPart, 10);
+  const intFmt  = intNum.toLocaleString("en-US");
+
+  if (parts.length === 1) {
+    // No decimal typed → keep integer only (no forced .00)
+    el.value = intFmt;
+    return intNum;
+  }
+
+  // Decimal typed → keep up to 2 digits (trailing typed state preserved)
+  const decPart = (parts[1] || "").slice(0, 2);
+  el.value = intFmt + "." + decPart;
+
+  const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+  return isFinite(n) ? n : intNum;
+}
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function setAuto_(el, value, decimals) {
+  if (!isFinite(value) || value === 0) {
+    el.value = "";
+    return;
+  }
+  el.value = value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,           // 🆕 trailing zeros hide
+    maximumFractionDigits: decimals,    // still capped at 2
+  });
+}
+
+  // ----- Auto-calculation -----
+  function recalc() {
+    const birds          = parseNum_(F.birds);
+    const liveW          = parseNum_(F.liveWeight);
+    const transportMort  = parseNum_(F.transportMort);
+    const transportMortW = parseNum_(F.transportMortW);
+    const bayMort        = parseNum_(F.bayMort);
+    const bayMortW       = parseNum_(F.bayMortW);
+    const halalRej       = parseNum_(F.halalRej);
+    const halalRejW      = parseNum_(F.halalRejW);
+    const otherRej       = parseNum_(F.otherRej);
+    const otherRejW      = parseNum_(F.otherRejW);
+
+    // F7 — Average Weight = Live Weight / No. of Birds
+    const avgW = birds > 0 ? liveW / birds : 0;
+    setAuto_(F.avgWeight, avgW, 2);
+
+    // F12 — Total Dead Weight = Transport Mort W + Bay Mort W
+    const totalDeadW = transportMortW + bayMortW;
+    setAuto_(F.totalDeadW, totalDeadW, 2);
+
+    // F17 — Total Rejected Weight = Halal Rej W + Other Rej W
+    const totalRejW = halalRejW + otherRejW;
+    setAuto_(F.totalRejW, totalRejW, 2);
+
+    // F18 — Birds to Plant = Birds − (TransportMort + BayMort + HalalRej + OtherRej)
+    const birdsToPlant = birds - (transportMort + bayMort + halalRej + otherRej);
+    setAuto_(F.birdsToPlant, birdsToPlant, 0);
+
+    // F19 — Live Weight to Plant = Live W − (TransportMort W + BayMort W + HalalRej W + OtherRej W)
+    const liveWToPlant = liveW - (transportMortW + bayMortW + halalRejW + otherRejW);
+    setAuto_(F.liveWToPlant, liveWToPlant, 2);
+  }
+
+  // ----- Attach events -----
+  const intEls = [F.birds, F.transportMort, F.bayMort, F.halalRej, F.otherRej];
+  const decEls = [F.liveWeight, F.transportMortW, F.bayMortW, F.halalRejW, F.otherRejW];
+
+  intEls.forEach((el) => {
+    el.addEventListener("input", () => { formatInt_(el); recalc(); });
+  });
+  decEls.forEach((el) => {
+    el.addEventListener("input", () => { formatDec_(el); recalc(); });
+  });
+
+  // ----- Clear button -----
+  document.getElementById("dlbClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset();
+    F.date.value = today;
+    recalc();
+  });
+
+  // ----- Save (placeholder — backend next step) -----
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const payload = {
+      Date:                       F.date.value,
+      Location:                   F.location.value.trim(),
+      Loading_Start_Time:         F.loadingStart.value,
+      Unloading_Time:             F.unloadingTime.value,
+      No_of_birds:                parseNum_(F.birds),
+      Live_Weight:                parseNum_(F.liveWeight),
+      Average_Weight:             parseNum_(F.avgWeight),
+      Transport_Mortality:        parseNum_(F.transportMort),
+      Transport_Mortality_Weight: parseNum_(F.transportMortW),
+      Bay_Mortality:              parseNum_(F.bayMort),
+      Bay_Mortality_Weight:       parseNum_(F.bayMortW),
+      Total_Dead_Weight:          parseNum_(F.totalDeadW),
+      Halal_Rejected:             parseNum_(F.halalRej),
+      Halal_Rejected_Weight:      parseNum_(F.halalRejW),
+      Other_Rejected:             parseNum_(F.otherRej),
+      Other_Rejected_Weight:      parseNum_(F.otherRejW),
+      Total_Rejected_Weight:      parseNum_(F.totalRejW),
+      No_of_birds_to_plant:       parseNum_(F.birdsToPlant),
+      Live_weight_to_plant:       parseNum_(F.liveWToPlant),
+    };
+
+    console.log("[Daily LB Entry] Payload ready:", payload);
+    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
+  });
+
+  // Initial calc
+  recalc();
+}
+
+// ===================================================================
 // KPI 01 — Bay Mortality
 // ===================================================================
 function initBayMortalityKpi() {
@@ -2124,20 +3959,16 @@ async function renderBayMortalityKpi() {
   try {
     const report = await buildBayMortalityKpi(year, month);
 
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_BAY_MORTALITY_STANDARD_;
 const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 
 // Actual = month overall = (Total Bay Mortality Birds ÷ Total Birds Received Alive) × 100
 // 🆕 Only days where BOTH totalBirds AND bayMortality > 0
-const dataDays = report.days.filter(d =>
-  d.hasData &&
-  Number(d.totalBirds) > 0 &&
-  Number(d.bayMortality) > 0
-);
-const sumBirds  = dataDays.reduce((s, d) => s + (Number(d.totalBirds) || 0), 0);
-const sumMortal = dataDays.reduce((s, d) => s + (Number(d.bayMortality) || 0), 0);
+const dataDays = report.days.filter(d => d.hasData);
+const sumBirds  = dataDays.reduce((s, d) => s + (d.totalBirds || 0), 0);
+const sumMortal = dataDays.reduce((s, d) => s + (d.bayMortality || 0), 0);
 const actualAvg = sumBirds > 0 ? (sumMortal / sumBirds) * 100 : 0;
 
 // 🆕 Breakdown: total mortality birds ÷ total birds received alive
@@ -2203,26 +4034,47 @@ updateKpiHeader("kpi-01", std, workingDays , actualDays , actualAvg, kpi01Breakd
 
 function renderBayMortalityTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.days.map((d) => {
+  const days = report.days;
+
+  const dateCells = days.map((d) => {
     const cls = getDateHeaderClass_(d.date, holidayMap);
     return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
   }).join("");
-  const birdsCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.totalBirds, 0) : ""}</td>`).join("");
-  const mortalityCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.bayMortality, 0) : ""}</td>`).join("");
-  const pctCells = report.days.map((d) => {
+
+  const birdsCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.totalBirds, 0) : ""}</td>`
+  ).join("");
+
+  const mortalityCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.bayMortality, 0) : ""}</td>`
+  ).join("");
+
+  const pctCells = days.map((d) => {
     if (!d.hasData) return `<td></td>`;
     const cls = bayMortalityColorClass_(d.pct);
     return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
   }).join("");
 
+  // 🆕 Totals
+  const totalBirds = days.reduce((s, d) => s + (d.hasData ? (d.totalBirds || 0) : 0), 0);
+  const totalMort  = days.reduce((s, d) => s + (d.hasData ? (d.bayMortality || 0) : 0), 0);
+  const totalPct   = totalBirds > 0 ? (totalMort / totalBirds) * 100 : 0;
+  const totalPctCls = bayMortalityColorClass_(totalPct);
+
+  const totalCell = `<td class="total-cell">${formatNum_(totalBirds, 0)}</td>`;
+  const totalMortCell = `<td class="total-cell">${formatNum_(totalMort, 0)}</td>`;
+  const totalPctCell = totalBirds > 0
+    ? `<td class="total-cell ${totalPctCls}">${totalPct.toFixed(2)}%</td>`
+    : `<td class="total-cell"></td>`;
+
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-bay-mortality-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Total Birds Received Alive</td>${birdsCells}</tr>
-          <tr><td class="row-label">Bay Mortality Birds</td>${mortalityCells}</tr>
-          <tr><td class="row-label">Bay Mortality %</td>${pctCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Total Birds Received Alive</td>${birdsCells}${totalCell}</tr>
+          <tr><td class="row-label">Bay Mortality Birds</td>${mortalityCells}${totalMortCell}</tr>
+          <tr><td class="row-label">Bay Mortality %</td>${pctCells}${totalPctCell}</tr>
         </tbody>
       </table>
     </div>
@@ -2613,28 +4465,47 @@ function initBirdUnloadKpi() {
 
 function renderBirdUnloadTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.dateRows.map((r) => {
+  const rows = report.dateRows;
+
+  const dateCells = rows.map((r) => {
     const cls = getDateHeaderClass_(r.date, holidayMap);
     return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
   }).join("");
-  const receivedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.receivedBirds, 0) : ""}</td>`).join("");
-  const timeCells = report.dateRows.map((r) =>
-  `<td>${r.hasData ? formatHoursMinutes_(r.unloadingTime) : ""}</td>`
-).join("");
-  const rateCells = report.dateRows.map((r) => {
+
+  const receivedCells = rows.map((r) =>
+    `<td>${r.hasData ? formatNum_(r.receivedBirds, 0) : ""}</td>`
+  ).join("");
+
+  const timeCells = rows.map((r) =>
+    `<td>${r.hasData ? formatHoursMinutes_(r.unloadingTime) : ""}</td>`
+  ).join("");
+
+  const rateCells = rows.map((r) => {
     if (!r.hasData || r.receivedBirds === 0) return `<td></td>`;
     const cls = birdUnloadColorClass_(r.rate);
     return `<td class="${cls}">${formatNum_(r.rate, 0)}</td>`;
   }).join("");
 
+  // 🆕 Totals
+  const totalBirds = rows.reduce((s, r) => s + (r.hasData ? (r.receivedBirds || 0) : 0), 0);
+  const totalTime  = rows.reduce((s, r) => s + (r.hasData ? (r.unloadingTime || 0) : 0), 0);
+  const totalRate  = totalTime > 0 ? (totalBirds / totalTime) : 0;
+  const totalRateCls = totalTime > 0 ? birdUnloadColorClass_(totalRate) : "";
+
+  const totalBirdsCell = `<td class="total-cell">${formatNum_(totalBirds, 0)}</td>`;
+  const totalTimeCell  = `<td class="total-cell">${totalTime > 0 ? formatHoursMinutes_(totalTime) : ""}</td>`;
+  const totalRateCell  = totalTime > 0
+    ? `<td class="total-cell ${totalRateCls}">${formatNum_(totalRate, 0)}</td>`
+    : `<td class="total-cell"></td>`;
+
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Received Birds</td>${receivedCells}</tr>
-          <tr><td class="row-label">Unloading Time</td>${timeCells}</tr>
-          <tr><td class="row-label">Rate (birds/hr)</td>${rateCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Received Birds</td>${receivedCells}${totalBirdsCell}</tr>
+          <tr><td class="row-label">Unloading Time</td>${timeCells}${totalTimeCell}</tr>
+          <tr><td class="row-label">Rate (birds/hr)</td>${rateCells}${totalRateCell}</tr>
         </tbody>
       </table>
     </div>
@@ -2949,26 +4820,19 @@ async function renderBirdUnloadKpi() {
   try {
     const report = await buildBirdUnloadKpi(year, month);
 
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = 4500;
 const actualDays = report.dateRows.filter(r => r.hasData && r.receivedBirds > 0).length;   // 🆕
 
 
 // Actual = overall rate for the month (total received / total time)
 // 🆕 Only days where BOTH receivedBirds AND unloadingTime > 0
-const dataDays = report.dateRows.filter(r =>
-  r.hasData &&
-  Number(r.receivedBirds) > 0 &&
-  Number(r.unloadingTime) > 0
-);
-const totalReceived = dataDays.reduce((s, r) => s + (Number(r.receivedBirds) || 0), 0);
-const totalTime     = dataDays.reduce((s, r) => s + (Number(r.unloadingTime) || 0), 0);
-const actualAvg     = totalTime > 0 ? (totalReceived / totalTime) : 0;
+const actualAvg = report.totals && report.totals.rate ? report.totals.rate : 0;
 
 // 🆕 Breakdown: total received birds ÷ total unloading time
-const kpi02Breakdown = totalTime > 0 ? {
-  figures: `${totalReceived.toLocaleString()} ÷ ${totalTime.toLocaleString()} = ${actualAvg.toFixed(0)}`,
-  formula: `= Total Received Birds ÷ Total Unloading Time\n= ${totalReceived.toLocaleString()} ÷ ${totalTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
+const kpi02Breakdown = (report.totals && report.totals.unloadingTime > 0) ? {
+  figures: `${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)}`,
+  formula: `= Total Received Birds ÷ Total Unloading Time\n= ${report.totals.receivedBirds.toLocaleString()} ÷ ${report.totals.unloadingTime.toLocaleString()} = ${actualAvg.toFixed(0)} birds/hr`
 } : null;
 
 updateKpiHeader("kpi-02", std, workingDays, actualDays, actualAvg, kpi02Breakdown);
@@ -3051,26 +4915,47 @@ function initBirdInputEfficiencyKpi() {
 
 function renderBirdInputTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.days.map((d) => {
+  const days = report.days;
+
+  const dateCells = days.map((d) => {
     const cls = getDateHeaderClass_(d.date, holidayMap);
     return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
   }).join("");
-  const actualCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`).join("");
-  const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
-  const pctCells = report.days.map((d) => {
+
+  const actualCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`
+  ).join("");
+
+  const plannedCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`
+  ).join("");
+
+  const pctCells = days.map((d) => {
     if (!d.hasData) return `<td></td>`;
     const cls = slaughterEfficiencyColorClass_(d.pct);
     return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
   }).join("");
 
+  // 🆕 Totals
+  const totalPlanned = days.reduce((s, d) => s + (d.hasData ? (d.planned || 0) : 0), 0);
+  const totalActual  = days.reduce((s, d) => s + (d.hasData ? (d.actual  || 0) : 0), 0);
+  const totalPct     = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+  const totalPctCls  = totalPlanned > 0 ? slaughterEfficiencyColorClass_(totalPct) : "";
+
+  const totalActualCell  = `<td class="total-cell">${formatNum_(totalActual, "auto")}</td>`;
+  const totalPlannedCell = `<td class="total-cell">${formatNum_(totalPlanned, "auto")}</td>`;
+  const totalPctCell     = totalPlanned > 0
+    ? `<td class="total-cell ${totalPctCls}">${totalPct.toFixed(2)}%</td>`
+    : `<td class="total-cell"></td>`;
+
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Planned birds</td>${plannedCells}</tr>
-          <tr><td class="row-label">Actual birds</td>${actualCells}</tr>
-          <tr><td class="row-label">Efficiency %</td>${pctCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Planned birds</td>${plannedCells}${totalPlannedCell}</tr>
+          <tr><td class="row-label">Actual birds</td>${actualCells}${totalActualCell}</tr>
+          <tr><td class="row-label">Efficiency %</td>${pctCells}${totalPctCell}</tr>
         </tbody>
       </table>
     </div>
@@ -3432,20 +5317,15 @@ async function renderBirdInputEfficiencyKpi() {
   try {
     const report = await buildSlaughterEfficiencyKpi(year, month);
 
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_BIRD_INPUT_STANDARD_;
 const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency for the month (total actual / total planned * 100)
 // 🆕 Only days where BOTH planned AND actual > 0
-const dataDays = report.days.filter(d =>
-  d.hasData &&
-  Number(d.planned) > 0 &&
-  Number(d.actual) > 0
-);
-const totalPlanned = dataDays.reduce((s, d) => s + (Number(d.planned) || 0), 0);
-const totalActual  = dataDays.reduce((s, d) => s + (Number(d.actual)  || 0), 0);
-const actualAvg    = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
+const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
+const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
 // 🆕 Breakdown: total actual ÷ total planned
 const kpi03Breakdown = totalPlanned > 0 ? {
@@ -3535,26 +5415,47 @@ function initPackingEfficiencyKpi() {
 
 function renderPackingEfficiencyTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.days.map((d) => {
+  const days = report.days;
+
+  const dateCells = days.map((d) => {
     const cls = getDateHeaderClass_(d.date, holidayMap);
     return `<td class="${cls}">${String(d.day).padStart(2, "0")}</td>`;
   }).join("");
-  const actualCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`).join("");
-  const plannedCells = report.days.map((d) => `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`).join("");
-  const pctCells = report.days.map((d) => {
+
+  const actualCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.actual, "auto") : ""}</td>`
+  ).join("");
+
+  const plannedCells = days.map((d) =>
+    `<td>${d.hasData ? formatNum_(d.planned, "auto") : ""}</td>`
+  ).join("");
+
+  const pctCells = days.map((d) => {
     if (!d.hasData) return `<td></td>`;
     const cls = packingEfficiencyColorClass_(d.pct);
     return `<td class="${cls}">${d.pct.toFixed(2)}%</td>`;
   }).join("");
 
+  // 🆕 Totals
+  const totalPlanned = days.reduce((s, d) => s + (d.hasData ? (d.planned || 0) : 0), 0);
+  const totalActual  = days.reduce((s, d) => s + (d.hasData ? (d.actual  || 0) : 0), 0);
+  const totalPct     = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+  const totalPctCls  = totalPlanned > 0 ? packingEfficiencyColorClass_(totalPct) : "";
+
+  const totalActualCell  = `<td class="total-cell">${formatNum_(totalActual, "auto")}</td>`;
+  const totalPlannedCell = `<td class="total-cell">${formatNum_(totalPlanned, "auto")}</td>`;
+  const totalPctCell     = totalPlanned > 0
+    ? `<td class="total-cell ${totalPctCls}">${totalPct.toFixed(2)}%</td>`
+    : `<td class="total-cell"></td>`;
+
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Actual Production Qty</td>${actualCells}</tr>
-          <tr><td class="row-label">Planned Production Qty</td>${plannedCells}</tr>
-          <tr><td class="row-label">Efficiency %</td>${pctCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Planned Production Qty</td>${plannedCells}${totalPlannedCell}</tr>
+          <tr><td class="row-label">Actual Production Qty</td>${actualCells}${totalActualCell}</tr>
+          <tr><td class="row-label">Efficiency %</td>${pctCells}${totalPctCell}</tr>
         </tbody>
       </table>
     </div>
@@ -3911,20 +5812,15 @@ async function renderPackingEfficiencyKpi() {
   try {
     const report = await buildPackingEfficiencyKpi(year, month);
 
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_PACKING_EFFICIENCY_STANDARD_;
 const actualDays = report.days.filter(d => d.hasData).length;   // 🆕
 
 // Actual = overall efficiency (total actual / total planned * 100)
 // 🆕 Only days where BOTH planned AND actual > 0
-const dataDays = report.days.filter(d =>
-  d.hasData &&
-  Number(d.planned) > 0 &&
-  Number(d.actual) > 0
-);
-const totalPlanned = dataDays.reduce((s, d) => s + (Number(d.planned) || 0), 0);
-const totalActual  = dataDays.reduce((s, d) => s + (Number(d.actual)  || 0), 0);
-const actualAvg    = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+const totalPlanned = report.days.reduce((s, d) => s + (d.planned || 0), 0);
+const totalActual  = report.days.reduce((s, d) => s + (d.actual  || 0), 0);
+const actualAvg = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
 // 🆕 Breakdown: total actual ÷ total planned
 const kpi04Breakdown = totalPlanned > 0 ? {
@@ -4014,27 +5910,48 @@ function initDressedYieldKpi() {
 
 function renderDressedYieldTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.dateRows.map((r) => {
+  const rows = report.dateRows;
+
+  const dateCells = rows.map((r) => {
     const cls = getDateHeaderClass_(r.date, holidayMap);
     return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
   }).join("");
-  const liveCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.liveWeight, 1) : ""}</td>`).join("");
-  const dressedCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.dressedWeight, 1) : ""}</td>`).join("");
-  const pctCells = report.dateRows.map((r) => {
+
+  const liveCells = rows.map((r) =>
+    `<td>${r.hasData ? formatNum_(r.liveWeight, 1) : ""}</td>`
+  ).join("");
+
+  const dressedCells = rows.map((r) =>
+    `<td>${r.hasData ? formatNum_(r.dressedWeight, 1) : ""}</td>`
+  ).join("");
+
+  const pctCells = rows.map((r) => {
     if (!r.hasData) return `<td></td>`;
     const y = r.yieldPct;
-    const cls = y >= 75 ? "kpi-green" : y >= 70 ? "kpi-yellow" : y >= 65 ? "kpi-orange" : "kpi-red";
+    const cls = dressedYieldColorClass_(y);
     return `<td class="${cls}">${y.toFixed(2)}%</td>`;
   }).join("");
+
+  // 🆕 Totals
+  const totalLive    = rows.reduce((s, r) => s + (r.hasData ? (r.liveWeight || 0) : 0), 0);
+  const totalDressed = rows.reduce((s, r) => s + (r.hasData ? (r.dressedWeight || 0) : 0), 0);
+  const totalPct     = totalLive > 0 ? (totalDressed / totalLive) * 100 : 0;
+  const totalPctCls  = totalLive > 0 ? dressedYieldColorClass_(totalPct) : "";
+
+  const totalLiveCell    = `<td class="total-cell">${formatNum_(totalLive, 1)}</td>`;
+  const totalDressedCell = `<td class="total-cell">${formatNum_(totalDressed, 1)}</td>`;
+  const totalPctCell     = totalLive > 0
+    ? `<td class="total-cell ${totalPctCls}">${totalPct.toFixed(2)}%</td>`
+    : `<td class="total-cell"></td>`;
 
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Live Bird Weight (Kg)</td>${liveCells}</tr>
-          <tr><td class="row-label">Dressed Weight (Kg)</td>${dressedCells}</tr>
-          <tr><td class="row-label">Yield %</td>${pctCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Live Bird Weight (Kg)</td>${liveCells}${totalLiveCell}</tr>
+          <tr><td class="row-label">Dressed Weight (Kg)</td>${dressedCells}${totalDressedCell}</tr>
+          <tr><td class="row-label">Yield %</td>${pctCells}${totalPctCell}</tr>
         </tbody>
       </table>
     </div>
@@ -4411,25 +6328,18 @@ async function renderDressedYieldKpi() {
   try {
     const report = await buildDressedYieldKpi(year, month);
 
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_DRESSED_YIELD_STANDARD_;
 const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall yield % for the month
 // 🆕 Only days where BOTH liveWeight AND dressedWeight > 0
-const dataDays = report.dateRows.filter(r =>
-  r.hasData &&
-  Number(r.liveWeight) > 0 &&
-  Number(r.dressedWeight) > 0
-);
-const totalLive    = dataDays.reduce((s, r) => s + (Number(r.liveWeight)    || 0), 0);
-const totalDressed = dataDays.reduce((s, r) => s + (Number(r.dressedWeight) || 0), 0);
-const actualAvg    = totalLive > 0 ? (totalDressed / totalLive) * 100 : 0;
+const actualAvg = report.totals && report.totals.yieldPct ? report.totals.yieldPct : 0;
 
 // 🆕 Breakdown: total dressed weight ÷ total live weight
-const kpi05Breakdown = totalLive > 0 ? {
-  figures: `${totalDressed.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${totalLive.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
-  formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${totalDressed.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${totalLive.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+const kpi05Breakdown = (report.totals && report.totals.liveWeight > 0) ? {
+  figures: `${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Dress Weight ÷ Total Live Birds Weight) × 100\n= ${report.totals.dressedWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} ÷ ${report.totals.liveWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
 updateKpiHeader("kpi-05", std, workingDays, actualDays, actualAvg, kpi05Breakdown);
@@ -4514,26 +6424,47 @@ function initChillLossKpi() {
 
 function renderChillLossTable_(report) {
   const holidayMap = report.holidayMap || {};
-  const dateCells = report.dateRows.map((r) => {
+  const rows = report.dateRows;
+
+  const dateCells = rows.map((r) => {
     const cls = getDateHeaderClass_(r.date, holidayMap);
     return `<td class="${cls}">${String(r.day).padStart(2, "0")}</td>`;
   }).join("");
-  const chillCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.chillWeight, 1) : ""}</td>`).join("");
-  const diffCells = report.dateRows.map((r) => `<td>${r.hasData ? formatNum_(r.diff, 1) : ""}</td>`).join("");
-  const pctCells = report.dateRows.map((r) => {
+
+  const chillCells = rows.map((r) =>
+    `<td>${r.hasData ? formatNum_(r.chillWeight, 1) : ""}</td>`
+  ).join("");
+
+  const diffCells = rows.map((r) =>
+    `<td>${r.hasData ? formatNum_(r.diff, 1) : ""}</td>`
+  ).join("");
+
+  const pctCells = rows.map((r) => {
     if (!r.hasData) return `<td></td>`;
     const cls = chillLossColorClass_(r.chillLossPct);
     return `<td class="${cls}">${r.chillLossPct.toFixed(2)}%</td>`;
   }).join("");
 
+  // 🆕 Totals
+  const totalChill = rows.reduce((s, r) => s + (r.hasData ? (r.chillWeight || 0) : 0), 0);
+  const totalDiff  = rows.reduce((s, r) => s + (r.hasData ? (r.diff || 0) : 0), 0);
+  const totalPct   = totalChill > 0 ? (totalDiff / totalChill) * 100 : 0;
+  const totalPctCls = totalChill > 0 ? chillLossColorClass_(totalPct) : "";
+
+  const totalChillCell = `<td class="total-cell">${formatNum_(totalChill, 1)}</td>`;
+  const totalDiffCell  = `<td class="total-cell">${formatNum_(totalDiff, 1)}</td>`;
+  const totalPctCell   = totalChill > 0
+    ? `<td class="total-cell ${totalPctCls}">${totalPct.toFixed(2)}%</td>`
+    : `<td class="total-cell"></td>`;
+
   return `
     <div class="kpi-table-scroll">
       <table class="report-table kpi-dressed-yield-table">
         <tbody>
-          <tr><td class="row-label">Date</td>${dateCells}</tr>
-          <tr><td class="row-label">Chill Weight (Kg)</td>${chillCells}</tr>
-          <tr><td class="row-label">Diff (Chill-Dress)</td>${diffCells}</tr>
-          <tr><td class="row-label">Chill Loss %</td>${pctCells}</tr>
+          <tr><td class="row-label">Date</td>${dateCells}<td class="total-cell">Total</td></tr>
+          <tr><td class="row-label">Diff (Chill-Dress)</td>${diffCells}${totalDiffCell}</tr>
+          <tr><td class="row-label">Chill Weight (Kg)</td>${chillCells}${totalChillCell}</tr>
+          <tr><td class="row-label">Chill Loss %</td>${pctCells}${totalPctCell}</tr>
         </tbody>
       </table>
     </div>
@@ -4910,25 +6841,18 @@ async function renderChillLossKpi() {
 
   try {
     const report = await buildChillLossKpi(year, month);
-    const workingDays = countWorkingDaysInMonth_(Number(year), Number(month));
+    const workingDays = await countWorkingDaysInMonth_(Number(year), Number(month));
 const std = KPI_CHILL_LOSS_STANDARD_;
 const actualDays = report.dateRows.filter(r => r.hasData).length;   // 🆕
 
 // Actual = overall chill loss % for the month
 // 🆕 Only days where BOTH chillWeight AND dressWeight > 0
-const dataDays = report.dateRows.filter(r =>
-  r.hasData &&
-  Number(r.chillWeight) > 0 &&
-  Number(r.dressWeight) > 0
-);
-const totalChill = dataDays.reduce((s, r) => s + (Number(r.chillWeight) || 0), 0);
-const totalDress = dataDays.reduce((s, r) => s + (Number(r.dressWeight) || 0), 0);
-const actualAvg  = totalChill > 0 ? ((totalChill - totalDress) / totalChill) * 100 : 0;
+const actualAvg = report.totals && report.totals.chillLossPct ? report.totals.chillLossPct : 0;
 
 // 🆕 Breakdown: (total chill weight − total dress weight) ÷ total chill weight
-const kpi06Breakdown = totalChill > 0 ? {
-  figures: `(${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${totalDress.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
-  formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${totalDress.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${totalChill.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
+const kpi06Breakdown = (report.totals && report.totals.chillWeight > 0) ? {
+  figures: `(${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`,
+  formula: `= (Total Chill Weight − Total Dress Weight) ÷ Total Chill Weight × 100\n= (${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} − ${report.totals.dressWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })}) ÷ ${report.totals.chillWeight.toLocaleString(undefined, { maximumFractionDigits: 0 })} × 100 = ${actualAvg.toFixed(2)}%`
 } : null;
 
 updateKpiHeader("kpi-06", std, workingDays, actualDays, actualAvg, kpi06Breakdown);

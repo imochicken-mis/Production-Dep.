@@ -191,13 +191,11 @@ const CHILL_WEIGHT_LEFT_ = [
   { code: "01CW03", name: "Whole Chicken (XL)" },
   { code: "01CW06", name: "Half Chicken" },
   { code: "02CW01", name: "WOG (S)" },
-  { code: "02CW02", name: "WOG (M)" },
   { code: "02CW03", name: "WOG (L)" },
   { code: "02CW04", name: "WOG (XL)" },
   { code: "02CW05", name: "WOG (XXL)" },
   { code: "02CW09", name: "WOG (M) SP" },
   { code: "03CW01", name: "Skinless Whole Chicken (S)" },
-  { code: "03CW02", name: "Skinless Whole Chicken (M)" },
   { code: "03CW03", name: "Skinless Whole Chicken (L)" },
   { code: "03CW04", name: "Skinless Whole Chicken (XL)" },
   { code: "03CW05", name: "Skinless Whole Chicken (XXL)" },
@@ -208,7 +206,6 @@ const CHILL_WEIGHT_LEFT_ = [
   { code: "04CP04", name: "Skinon Drumstick" },
   { code: "04CP05", name: "Skinon Drumstick SP (100g)" },
   { code: "04CP06", name: "Skinless Thigh" },
-  { code: "04CP07", name: "Skinless Thigh SP (100g)" },
   { code: "04CP08", name: "Skinon Thigh" },
   { code: "04CP09", name: "Skinless Leg" },
   { code: "04CP11", name: "Skinon Leg" },
@@ -222,12 +219,9 @@ const CHILL_WEIGHT_RIGHT_ = [
   { code: "04CP17", name: "Winglet" },
   { code: "04CP19", name: "Chicken Lolipop" },
   { code: "04CP20", name: "Wing Tip 500g" },
-  { code: "04CP22", name: "Neck" },
   { code: "04CP23", name: "Bite Pieces 500g" },
   { code: "04CP24", name: "Liver 500g" },
-  { code: "04CP25", name: "Liver 1 Kg" },
   { code: "04CP26", name: "Gizzard 500g" },
-  { code: "04CP27", name: "Gizzard 1 Kg" },
   { code: "04CP28", name: "Gadget 500g" },
   { code: "04CP29", name: "Curry Pieces 500g" },
   { code: "04CP30", name: "Soup Bone" },
@@ -237,7 +231,6 @@ const CHILL_WEIGHT_RIGHT_ = [
   { code: "04CP34", name: "Production - Pet Food" },
   { code: "04CP36", name: "Kitchen Item" },
   { code: "04CP37", name: "MDM Mat 500g" },
-  { code: "04CP40", name: "Middle Wing" },
   { code: "04CP41", name: "Neck 500g" },
   { code: "05CM01", name: "Skinless Boneless Breast" },
   { code: "05CM02", name: "Skinless Boneless Thigh" },
@@ -248,40 +241,57 @@ const CHILL_WEIGHT_RIGHT_ = [
 ];
 
 async function buildChillWeightReport(dateStr) {
-  const [chillRows, gibletRows, fbpRows] = await Promise.all([
+  const [chillRows, gibletRows] = await Promise.all([
     Api.list("DataPackingChillWeight"),
     Api.list("DataPackingGiblet"),
-    Api.list("DataPackingChillWeight"),
   ]);
 
-  const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
+  const chillDay  = chillRows.filter((r) => String(r.Date) === dateStr);
   const gibletDay = gibletRows.filter((r) => String(r.Date) === dateStr);
-  const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
 
-    // Sum weight per item (code + name for 04CP34, code only for others)
-  const weightByCode = {};
+  // ===================================================================
+  // 🆕 Build item list FROM THE SHEET (not from master list)
+  //    → Only items that have a row for the selected date
+  //    → Aggregate weight per item key (code + name for 04CP34, code only for others)
+  // ===================================================================
+  const itemMap = new Map();      // key → { code, name, value }
+
   chillDay.forEach((r) => {
-    const key = getItemKey_(r.Item_Code, r.Item_Name);
-    weightByCode[key] = (weightByCode[key] || 0) + (Number(r.Weight) || 0);
+    const code = String(r.Item_Code || "").trim();
+    const name = String(r.Item_Name || "").trim();
+    if (!code) return;
+
+    const key = getItemKey_(code, name);
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        code: code,
+        name: name,
+        value: 0,
+        highlight: ["09EM09", "09GP09"].includes(code),   // highlight Pet Food items
+      });
+    }
+    itemMap.get(key).value += (Number(r.Weight) || 0);
   });
 
-  const attachValues = (list) => list.map((item) => {
-    const key = getItemKey_(item.code, item.name);
-    return {
-      ...item,
-      value: weightByCode[key] !== undefined ? weightByCode[key] : 0,
-    };
-  });
+  // Convert map → array
+  const allItems = Array.from(itemMap.values())
+  .sort((a, b) => a.code.localeCompare(b.code));    // 🆕
 
-  const left = attachValues(CHILL_WEIGHT_LEFT_);
-  const right = attachValues(CHILL_WEIGHT_RIGHT_);
+  // Split into left / right halves (same 2-column layout)
+  const half = Math.ceil(allItems.length / 2);
+  const left  = allItems.slice(0, half);
+  const right = allItems.slice(half);
 
+  // ===================================================================
+  // Totals (same as before — from raw sheet values)
+  // ===================================================================
   const totalFinishedGoods = chillDay.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
   const gibletUse = gibletDay.reduce((s, r) => s + (Number(r.Qty) || 0), 0);
-    const petFood = fbpDay
+  const petFood = chillDay
     .filter((r) => String(r.Item_Code) === "04CP34" &&
                    String(r.Item_Name || "").trim() === "Easy - Pet Food")
     .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+
   const chillWeight = totalFinishedGoods - (gibletUse + petFood);
 
   return { date: dateStr, left, right, totalFinishedGoods, gibletUse, petFood, chillWeight };
@@ -299,11 +309,11 @@ async function buildDressWeightReport(dateStr) {
     Api.list("DataPackingGiblet"),
   ]);
 
-  const lbDay = lbRows.filter((r) => String(r.Date) === dateStr);
-  const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+  const lbDay     = lbRows.filter((r) => String(r.Date) === dateStr);
+  const fbpDay    = fbpRows.filter((r) => String(r.Date) === dateStr);
   const gibletDay = gibletRows.filter((r) => String(r.Date) === dateStr);
 
-  // ---- Table 1: one row per farm entry (not deduped/merged) ----
+  // ---- Table 1: one row per farm entry ----
   const farms = lbDay.map((r, i) => ({
     sno: String(i + 1).padStart(2, "0"),
     farmName: r.Location || "-",
@@ -321,27 +331,48 @@ async function buildDressWeightReport(dateStr) {
     liveWeightToPlant: farms.reduce((s, f) => s + f.liveWeightToPlant, 0),
   };
 
-    // ---- Table 2: item weights from DataFBPProduction ----
-  const weightByCode = {};
+  // ===================================================================
+  // 🆕 Table 2: Build items FROM DataFBPProduction (only for this date)
+  //    → Sheet එකේ date එකට enter කරලා තියෙන items විතරක්
+  //    → Master list use කරන්නේ නැහැ
+  // ===================================================================
+  const itemMap = new Map();    // key → { code, name, value }
+
   fbpDay.forEach((r) => {
-    const key = getItemKey_(r.Item_Code, r.Item_Name);
-    weightByCode[key] = (weightByCode[key] || 0) + (Number(r.Weight) || 0);
+    const code = String(r.Item_Code || "").trim();
+    const name = String(r.Item_Name || "").trim();
+    if (!code) return;
+
+    const key = getItemKey_(code, name);
+    if (!itemMap.has(key)) {
+            itemMap.set(key, {
+        code,
+        name,
+        value: 0,
+        highlight: ["09EM09", "09GP09"].includes(code),   // 🆕
+      });
+      itemMap.set(key, { code, name, value: 0 });
+    }
+    
+    itemMap.get(key).value += (Number(r.Weight) || 0);
   });
 
-  const attachValues = (list) => list.map((item) => {
-    const key = getItemKey_(item.code, item.name);
-    return {
-      ...item,
-      value: weightByCode[key] !== undefined ? weightByCode[key] : 0,
-    };
-  });
+  const allItems = Array.from(itemMap.values())
+  .sort((a, b) => a.code.localeCompare(b.code));    // 🆕
 
-  const left = attachValues(CHILL_WEIGHT_LEFT_);
-  const right = attachValues(CHILL_WEIGHT_RIGHT_);
+  // 🆕 Split into 2 columns (left half + right half)
+  const half  = Math.ceil(allItems.length / 2);
+  const left  = allItems.slice(0, half);
+  const right = allItems.slice(half);
 
-  const totalFinishedGoods = [...left, ...right].reduce((s, i) => s + i.value, 0);
+  // ===================================================================
+  // Totals (from raw sheet — same as before)
+  // ===================================================================
+  const totalFinishedGoods = allItems.reduce((s, i) => s + i.value, 0);
+
   const gibletUse = gibletDay.reduce((s, r) => s + (Number(r.Qty) || 0), 0);
-    const petFood = fbpDay
+
+  const petFood = fbpDay
     .filter((r) => String(r.Item_Code) === "04CP34" &&
                    String(r.Item_Name || "").trim() === "Easy - Pet Food")
     .reduce((s, r) => s + (Number(r.Weight) || 0), 0);
@@ -353,7 +384,7 @@ async function buildDressWeightReport(dateStr) {
 
   return {
     date: dateStr,
-    batchNo: getBatchNo_(dateStr),   // ← add කරන්න
+    batchNo: getBatchNo_(dateStr),
     farms, farmTotals, left, right,
     totalFinishedGoods, gibletUse, petFood, dressWeight, yieldPct,
   };
@@ -428,9 +459,12 @@ async function buildChillVsDressReport(dateStr) {
   ]);
 
   const chillDay = chillRows.filter((r) => String(r.Date) === dateStr);
-  const fbpDay = fbpRows.filter((r) => String(r.Date) === dateStr);
+  const fbpDay   = fbpRows.filter((r) => String(r.Date) === dateStr);
 
-    const chillByCode = {};
+  // ===================================================================
+  // Aggregate values per item key
+  // ===================================================================
+  const chillByCode = {};
   chillDay.forEach((r) => {
     const key = getItemKey_(r.Item_Code, r.Item_Name);
     chillByCode[key] = (chillByCode[key] || 0) + (Number(r.Weight) || 0);
@@ -442,31 +476,79 @@ async function buildChillVsDressReport(dateStr) {
     dressByCode[key] = (dressByCode[key] || 0) + (Number(r.Weight) || 0);
   });
 
-  const allItems = [...CHILL_WEIGHT_LEFT_, ...CHILL_WEIGHT_RIGHT_];
+  // ===================================================================
+  // 🆕 UNION — Build item list from BOTH sheets
+  //    → Only items that have data in Chill OR Dress sheet
+  //    → No master list usage
+  // ===================================================================
+  const itemMap = new Map();       // key → { code, name, chillWeight, dressWeight }
 
-  const items = allItems.map((item) => {
-  const key = getItemKey_(item.code, item.name);
-  const chillWeight = chillByCode[key] !== undefined ? chillByCode[key] : 0;
-  const dressWeight = dressByCode[key] !== undefined ? dressByCode[key] : 0;
-  const difference = chillWeight - dressWeight;
-  const differencePct = chillWeight > 0 ? (difference / chillWeight) * 100 : 0;
-  return {
-    code: item.code,
-    name: item.name,
-    highlight: item.highlight,
-    chillWeight,
-    dressWeight,
-    difference,
-    differencePct,
-  };
-});
+  // 1) Add items from Chill sheet
+  chillDay.forEach((r) => {
+    const code = String(r.Item_Code || "").trim();
+    const name = String(r.Item_Name || "").trim();
+    if (!code) return;
 
+    const key = getItemKey_(code, name);
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        code,
+        name,
+        chillWeight: 0,
+        dressWeight: 0,
+        highlight: ["09EM09", "09GP09"].includes(code),    // highlight Pet Food items
+      });
+    }
+    itemMap.get(key).chillWeight += (Number(r.Weight) || 0);
+  });
+
+  // 2) Add items from Dress sheet (FBP Production)
+  fbpDay.forEach((r) => {
+    const code = String(r.Item_Code || "").trim();
+    const name = String(r.Item_Name || "").trim();
+    if (!code) return;
+
+    const key = getItemKey_(code, name);
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        code,
+        name,
+        chillWeight: 0,
+        dressWeight: 0,
+        highlight: ["09EM09", "09GP09"].includes(code),
+      });
+    }
+    itemMap.get(key).dressWeight += (Number(r.Weight) || 0);
+  });
+
+  // 3) Compute differences
+  const items = Array.from(itemMap.values())
+    .map((item) => {
+      const difference    = item.chillWeight - item.dressWeight;
+      const differencePct = item.chillWeight > 0 ? (difference / item.chillWeight) * 100 : 0;
+      return {
+        code: item.code,
+        name: item.name,
+        highlight: item.highlight,
+        chillWeight: item.chillWeight,
+        dressWeight: item.dressWeight,
+        difference,
+        differencePct,
+      };
+    })
+    .sort((a, b) => a.code.localeCompare(b.code));    // 🆕 Code අනුව sort
+
+  // ===================================================================
+  // Totals
+  // ===================================================================
   const totals = {
     chillWeight: items.reduce((s, i) => s + i.chillWeight, 0),
     dressWeight: items.reduce((s, i) => s + i.dressWeight, 0),
-    difference: items.reduce((s, i) => s + i.difference, 0),
+    difference:  items.reduce((s, i) => s + i.difference, 0),
   };
-  totals.differencePct = totals.chillWeight > 0 ? (totals.difference / totals.chillWeight) * 100 : 0;
+  totals.differencePct = totals.chillWeight > 0
+    ? (totals.difference / totals.chillWeight) * 100
+    : 0;
 
   return { date: dateStr, batchNo: getBatchNo_(dateStr), items, totals };
 }
@@ -488,7 +570,6 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "02CW05", name: "WOG (XXL)" },
   { code: "02CW09", name: "WOG (M) SP" },
   { code: "03CW01", name: "Skinless Whole Chicken (S)" },
-  { code: "03CW02", name: "Skinless Whole Chicken (M)" },
   { code: "03CW03", name: "Skinless Whole Chicken (L)" },
   { code: "03CW04", name: "Skinless Whole Chicken (XL)" },
   { code: "03CW05", name: "Skinless Whole Chicken (XXL)" },
@@ -499,7 +580,6 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "04CP04", name: "Skinon Drumstick" },
   { code: "04CP05", name: "Skinon Drumstick SP (100g)" },
   { code: "04CP06", name: "Skinless Thigh" },
-  { code: "04CP07", name: "Skinless Thigh SP (100g)" },
   { code: "04CP08", name: "Skinon Thigh" },
   { code: "04CP09", name: "Skinless Leg" },
   { code: "04CP11", name: "Skinon Leg" },
@@ -513,9 +593,7 @@ const TOTAL_PRODUCTION_ITEMS_ = [
   { code: "04CP22", name: "Neck" },
   { code: "04CP23", name: "Bite Pieces 500g" },
   { code: "04CP24", name: "Liver 500g" },
-  { code: "04CP25", name: "Liver 1 Kg" },
   { code: "04CP26", name: "Gizzard 500g" },
-  { code: "04CP27", name: "Gizzard 1 Kg" },
   { code: "04CP28", name: "Gadget 500g" },
   { code: "04CP29", name: "Curry Pieces 500g" },
   { code: "04CP30", name: "Soup Bone" },
