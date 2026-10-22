@@ -1,5 +1,5 @@
 /* ===================================================================
-   PRODUCTION SYSTEM — GLOBAL STYLESHEET (CLEANED)
+   PRODUCTION SYSTEM — GLOBAL STYLESHEET (CLEANED + DE-DUPLICATED)
    =================================================================== */
 
 /* ===================================================================
@@ -256,7 +256,32 @@ button { font-family: var(--body); cursor: pointer; }
   transition: max-height .25s ease;
 }
 .nav-collapse.open { max-height: 2000px; }
-#reportsCollapse.open { overflow-y: auto; max-height: 550px; }
+
+/* Section-specific scrollbars */
+#reportsCollapse.open,
+#dataEntryCollapse.open,
+#kpiCollapse.open,
+#notificationsCollapse.open {
+  overflow-y: auto;
+  max-height: 550px;
+}
+#reportsCollapse::-webkit-scrollbar,
+#dataEntryCollapse::-webkit-scrollbar,
+#kpiCollapse::-webkit-scrollbar,
+#notificationsCollapse::-webkit-scrollbar { width: 5px; }
+#reportsCollapse::-webkit-scrollbar-thumb,
+#dataEntryCollapse::-webkit-scrollbar-thumb,
+#kpiCollapse::-webkit-scrollbar-thumb,
+#notificationsCollapse::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+#reportsCollapse::-webkit-scrollbar-thumb:hover,
+#dataEntryCollapse::-webkit-scrollbar-thumb:hover,
+#kpiCollapse::-webkit-scrollbar-thumb:hover,
+#notificationsCollapse::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
 
 /* ===================================================================
    5. PANELS
@@ -606,14 +631,11 @@ button { font-family: var(--body); cursor: pointer; }
 .btn-report-action:hover { background: #2c4a7c; color: #fff; }
 
 /* ===================================================================
-   11. PRINT HEADER + PRINT STYLES
+   11. PRINT STYLES
    =================================================================== */
 .print-header { display: none; }
 
 @media print {
-  /* ============================================================
-     1) FORCE PRINT COLORS
-     ============================================================ */
   *,
   *::before,
   *::after {
@@ -621,9 +643,6 @@ button { font-family: var(--body); cursor: pointer; }
     print-color-adjust: exact !important;
   }
 
-  /* ============================================================
-     2) WHITE BACKGROUND EVERYWHERE (structural)
-     ============================================================ */
   html,
   body,
   .app-shell,
@@ -653,9 +672,6 @@ button { font-family: var(--body); cursor: pointer; }
     background-image: none !important;
   }
 
-  /* ============================================================
-     3) RESET LAYOUT
-     ============================================================ */
   html, body {
     height: auto !important;
     min-height: 0 !important;
@@ -676,9 +692,6 @@ button { font-family: var(--body); cursor: pointer; }
     margin: 0 !important;
   }
 
-  /* ============================================================
-     4) HIDE UI CHROME
-     ============================================================ */
   .sidebar,
   .topbar,
   .report-toolbar,
@@ -695,7 +708,9 @@ button { font-family: var(--body); cursor: pointer; }
   .dash-kpi-cards,
   .dash-pie-wrap,
   .dash-charts-grid,
-  .dash-summary-section {
+  .dash-summary-section,
+  .entry-form-preview-wrap .entry-preview,
+  .entry-table-view {
     display: none !important;
   }
 
@@ -725,9 +740,6 @@ button { font-family: var(--body); cursor: pointer; }
     background: #ffffff !important;
   }
 
-  /* ============================================================
-     5) REPORT SUBHEADINGS — WHITE BG, BLACK TEXT
-     ============================================================ */
   .report-subhead,
   h3.report-subhead {
     background: #ffffff !important;
@@ -743,9 +755,6 @@ button { font-family: var(--body); cursor: pointer; }
     font-weight: 700 !important;
   }
 
-    /* ============================================================
-     6) PRINT HEADER — SOLID BLUE, TEXT VISIBLE
-     ============================================================ */
   .print-header {
     display: flex !important;
     align-items: center;
@@ -764,7 +773,6 @@ button { font-family: var(--body); cursor: pointer; }
     margin: 0 0 8px 0 !important;
   }
 
-  /* 🆕 Header children — transparent (inherit blue) */
   .print-header * {
     background: transparent !important;
     background-color: transparent !important;
@@ -776,19 +784,16 @@ button { font-family: var(--body); cursor: pointer; }
     width: auto;
     background: transparent !important;
   }
-
   .print-header-text {
     flex: 1;
     background: transparent !important;
   }
-
   .print-company {
     font-size: 12px;
     font-weight: 700;
     color: #E3B23C !important;
     background: transparent !important;
   }
-
   .print-report-title {
     font-size: 16px;
     font-weight: 600;
@@ -796,7 +801,6 @@ button { font-family: var(--body); cursor: pointer; }
     color: #ffffff !important;
     background: transparent !important;
   }
-
   .print-meta {
     font-size: 11px;
     text-align: right;
@@ -804,20 +808,15 @@ button { font-family: var(--body); cursor: pointer; }
     color: #ffffff !important;
     background: transparent !important;
   }
-
   .print-meta span {
     color: #ffffff !important;
     background: transparent !important;
   }
-
   .print-meta span:first-child {
     font-weight: 600;
     margin-right: 4px;
   }
 
-  /* ============================================================
-     7) REPORT TABLES — KEEP COLORS
-     ============================================================ */
   .report-table {
     min-width: 0 !important;
     border-radius: 0 !important;
@@ -839,43 +838,28 @@ button { font-family: var(--body); cursor: pointer; }
     background-color: #7a7a7a !important;
     color: #ffffff !important;
   }
-
-  /* Body rows — alternating */
   .report-table tbody tr:nth-child(even) { background: #ececec !important; }
   .report-table tbody tr:nth-child(odd)  { background: #f8f8f8 !important; }
-
-  /* Total cells + footer */
   .report-table td.total-cell,
   .report-table tfoot td {
     background: #dcdcdc !important;
     background-color: #dcdcdc !important;
     color: #1a3a5c !important;
   }
-
-  /* KPI color cells */
   .report-table td.kpi-green  { background: #66f182 !important; color: #1b5e20 !important; }
   .report-table td.kpi-yellow { background: #ffec8a !important; color: #7a5c00 !important; }
   .report-table td.kpi-orange { background: #fbb65c !important; color: #8a4b00 !important; }
   .report-table td.kpi-red    { background: #f48080 !important; color: #7a1414 !important; }
 
-  /* Chill summary rows */
   .chill-summary,
-  .cw-row {
-    background: #ffffff !important;
-  }
+  .cw-row { background: #ffffff !important; }
   .cw-total {
     background: #eef1f7 !important;
     border-top: 2px solid #2c4a7c !important;
   }
 
-  /* ============================================================
-     8) PAGE SETUP
-     ============================================================ */
   @page { margin: 10mm; }
 
-  /* ============================================================
-     9) PER-VIEW OVERRIDES
-     ============================================================ */
   #view-lbtarget-vs-actual .lta-table {
     min-width: 0; width: 100%; font-size: 8px;
   }
@@ -910,15 +894,11 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-dressed-yield-table tr:first-child td.date-poya { background: #fff2b2 !important; }
 
 /* ===================================================================
-   13. KPI HEADER — 3-COLUMN LAYOUT (CLEAN)
-   ─────────────────────────────────────────────────────────────────
-   LEFT    : Title + Year/Month filters
-   MIDDLE  : Light blue wrapper (Status pill + Month Overall + Standard)
-   RIGHT   : Today + Total Working Days
+   13. KPI HEADER — 4-COLUMN LAYOUT
    =================================================================== */
 .kpi-header-grid {
   display: grid;
-  grid-template-columns: 1.05fr 0.8fr 0.8fr 0.3fr;   /* ← 4 columns */
+  grid-template-columns: 1.05fr 0.8fr 0.8fr 0.3fr;
   gap: 10px;
   padding: 10px;
   background: transparent;
@@ -927,13 +907,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   align-items: stretch;
 }
 
-/* NEW — Empty placeholder column */
-.kpi-grid-empty {
-  min-width: 0;
-  /* intentionally blank — reserved space */
-}
+.kpi-grid-empty { min-width: 0; }
 
-/* ---------- LEFT COLUMN ---------- */
+/* LEFT COLUMN */
 .kpi-grid-left {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -967,7 +943,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-grid-left .kpi-grid-year  { grid-column: 1; grid-row: 2; }
 .kpi-grid-left .kpi-grid-month { grid-column: 2; grid-row: 2; }
 
-/* ---------- MIDDLE COLUMN — LIGHT BLUE WRAPPER ---------- */
+/* MIDDLE COLUMN — Light blue wrapper */
 .kpi-grid-metrics-group {
   display: flex;
   flex-direction: column;
@@ -982,7 +958,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
     inset 0 -3px 6px rgba(0, 0, 0, 0.25),
     0 2px 8px rgba(0, 0, 0, 0.20);
 }
-
 .kpi-grid-metrics-group .kpi-grid-status-cell {
   order: 1;
   width: 100%;
@@ -990,10 +965,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   align-items: center;
   justify-content: center;
   padding: 6px;
-  background: none;
-  border-radius: none;
 }
-
 .kpi-grid-metrics-row {
   order: 2;
   display: grid;
@@ -1002,25 +974,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   width: 100%;
   min-width: 0;
 }
-
-/* Month Overall — LEFT half */
-.kpi-grid-metrics-row .kpi-grid-actual-cell {
-  background: #00245E;
-  border-radius: 8px;
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-width: 0;
-  width: 100%;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.30);
-}
-
-/* Standard — RIGHT half */
+.kpi-grid-metrics-row .kpi-grid-actual-cell,
 .kpi-grid-metrics-row .kpi-grid-std-cell {
   background: #00245E;
   border-radius: 8px;
@@ -1036,7 +990,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
     inset 0 -2px 4px rgba(0, 0, 0, 0.30);
 }
-
 .kpi-grid-metrics-row .kpi-grid-label {
   font-size: 10px;
   letter-spacing: 0.3px;
@@ -1045,26 +998,23 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   max-width: 100%;
   color: #A7B8CC;
 }
-
 .kpi-grid-metrics-row .kpi-grid-value {
   font-size: 22px;
   font-weight: 700;
   white-space: wrap;
 }
+.kpi-grid-metrics-row .kpi-grid-value.kpi-actual-value.kpi-actual-achieved { color: #7EE787 !important; }
+.kpi-grid-metrics-row .kpi-grid-value.kpi-actual-value.kpi-actual-notachieved { color: #FF8A80 !important; }
 
-/* ===================================================================
-   STATUS PILL — Blinking icon on the right side
-   =================================================================== */
-
-/* Pill — flex container for text + icon */
+/* STATUS PILL */
 .kpi-grid-status-cell .kpi-grid-value.kpi-status-value {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 16px !important;              /* ← 0 → 8px (හොඳ gap) */
+  gap: 16px !important;
   padding: 8px 24px;
-  border-radius: 6px;
-  font-size: 17px;
+  border-radius: 999px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: 0.4px;
   min-width: 140px;
@@ -1075,8 +1025,25 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border: 1px solid rgba(255, 255, 255, 0.20);
   transition: all 0.25s ease;
 }
-
-/* ACHIEVED — Check mark (✓) blinking */
+.kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-achieved {
+  background: linear-gradient(180deg, #7EE787 0%, #0fcd3c 100%);
+  border: 1px solid #0A5C1F;
+  color: #FFFFFF !important;
+  box-shadow:
+    0 3px 10px rgba(27, 158, 58, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.20);
+}
+.kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-not-achieved {
+  background: linear-gradient(180deg, #FF8A80 0%, #C62828 100%);
+  border: 1px solid #7A1414;
+  color: #FFFFFF !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+  box-shadow:
+    0 3px 10px rgba(198, 40, 40, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.20);
+}
 .kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-achieved::after {
   content: "✓";
   display: inline-block;
@@ -1088,8 +1055,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
   animation: pill-icon-blink 1.2s ease-in-out infinite;
 }
-
-/* NOT ACHIEVED — Cross mark (✗) blinking */
 .kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-not-achieved::after {
   content: "✗";
   display: inline-block;
@@ -1101,32 +1066,18 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
   animation: pill-icon-blink 1.2s ease-in-out infinite;
 }
-
-/* Blink animation */
 @keyframes pill-icon-blink {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.6));
-  }
-  50% {
-    opacity: 0.30;
-    transform: scale(0.85);
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
-  }
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.6)); }
+  50%      { opacity: 0.30; transform: scale(0.85); filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1)); }
 }
 
-/* ===================================================================
-   BAR + FORMULA COLUMN (replaces empty column)
-   =================================================================== */
+/* BAR + FORMULA COLUMN */
 .kpi-grid-bar-formula {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 6px;
   min-width: 0;
 }
-
-/* ---------- BAR CELL (Row 1 — matches Today height) ---------- */
 .kpi-grid-bar-cell {
   background: rgba(255, 255, 255, 0.10);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -1137,7 +1088,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   justify-content: center;
   min-width: 0;
 }
-
 .kpi-bar-track {
   position: relative;
   width: 100%;
@@ -1147,20 +1097,15 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   overflow: hidden;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
 }
-
-/* Fill — actual value, from left */
 .kpi-bar-fill {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, #6EE87C 0%, #1B9E3A 100%);
   transition: width 0.6s ease, background 0.3s ease;
   z-index: 1;
 }
-
-/* Standard mark — vertical line */
 .kpi-bar-std-mark {
   position: absolute;
   top: 0;
@@ -1171,8 +1116,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   z-index: 3;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
 }
-
-/* Standard label above the mark */
 .kpi-bar-std-label {
   position: absolute;
   top: 2px;
@@ -1189,12 +1132,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   line-height: 1.2;
   pointer-events: none;
 }
-
-/* Achieved / Not Achieved text centered on bar */
 .kpi-bar-status {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   font-family: 'Inter', sans-serif;
   font-size: 13px;
@@ -1206,8 +1146,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   pointer-events: none;
   white-space: nowrap;
 }
-
-/* Deviation label — shows how much over/under standard */
 .kpi-bar-deviation {
   position: absolute;
   top: 2px;
@@ -1216,7 +1154,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   font-size: 8px;
   font-weight: 800;
   color: #FFFFFF;
-  background: rgba(27, 158, 58, 0.90);   /* default green */
+  background: rgba(27, 158, 58, 0.90);
   padding: 1px 5px;
   border-radius: 3px;
   z-index: 4;
@@ -1226,33 +1164,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   transition: left 0.5s ease, background 0.3s ease;
 }
+.kpi-bar-deviation.negative { background: rgba(198, 40, 40, 0.90); }
+.kpi-bar-deviation.hidden { display: none; }
 
-/* Red variant when Not Achieved */
-.kpi-bar-deviation.negative {
-  background: rgba(198, 40, 40, 0.90);
-}
-
-/* ===================================================================
-   MONTH OVERALL — Achieved = Green, Not Achieved = Red
-   =================================================================== */
-.kpi-grid-metrics-row .kpi-grid-value.kpi-actual-value.kpi-actual-achieved {
-  color: #7EE787 !important;        /* bright green */
-}
-
-.kpi-grid-metrics-row .kpi-grid-value.kpi-actual-value.kpi-actual-notachieved {
-  color: #FF8A80 !important;        /* bright red */
-}
-
-/* Missing! */
-.kpi-actual-achieved     { color: green; }
-.kpi-actual-notachieved  { color: red; }
-
-/* Hide when no data */
-.kpi-bar-deviation.hidden {
-  display: none;
-}
-
-/* ---------- FORMULA CELL (Row 2 — matches Total WD height) ---------- */
 .kpi-grid-formula-cell {
   background: rgba(255, 255, 255, 0.10);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -1265,9 +1179,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   overflow: hidden;
 }
 
-/* ===================================================================
-   KPI FORMULA — Text / Numbers / Operators styling
-   =================================================================== */
+/* FORMULA styling */
 .kpi-actual-formula {
   font-family: 'JetBrains Mono', monospace;
   font-size: 14px;
@@ -1277,33 +1189,27 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   line-height: 1.5;
   text-align: left;
 }
-
-/* Numbers — larger + gold */
 .kpi-actual-formula .formula-num {
   font-size: 18px;
   font-weight: 600;
   color: #FFFFFF;
   letter-spacing: 0.2px;
 }
-
-/* 🆕 Operators (× ÷ = + −) — larger to match numbers */
 .kpi-actual-formula .formula-op {
   font-size: 14px;
   font-weight: 700;
-  color: #FFFFFF;        /* ← cyan to distinguish from text/numbers */
+  color: #FFFFFF;
   padding: 0 2px;
   display: inline-block;
 }
-
-/* පළවෙනි line — text-only, numbers නොපෙන්නන්නේ නැහැ */
 .kpi-actual-formula .formula-text-line {
-  color: #A7B8CC;            /* text color */
-  font-size: 14px;           /* normal text size */
-  font-weight: 500;          /* normal weight */
+  color: #A7B8CC;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: 0;
 }
 
-/* ---------- RIGHT COLUMN ---------- */
+/* RIGHT COLUMN */
 .kpi-grid-right {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -1322,9 +1228,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   min-width: 0;
 }
 
-/* ===================================================================
-   WORKING DAYS CELL — STD vs ACT
-   =================================================================== */
+/* WORKING DAYS */
 .kpi-grid-wd-cell {
   display: flex;
   flex-direction: column;
@@ -1335,7 +1239,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
 }
-
 .kpi-wd-row {
   display: flex;
   align-items: baseline;
@@ -1343,7 +1246,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   gap: 8px;
   width: 100%;
 }
-
 .kpi-wd-tag {
   font-size: 9px;
   font-weight: 800;
@@ -1351,30 +1253,12 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
+.kpi-grid-value.kpi-wd-std-value { color: #7FD1FF; font-size: 18px; font-weight: 800; }
+.kpi-grid-value.kpi-wd-actual-value { color: #7EE787; font-size: 18px; font-weight: 800; }
+.kpi-grid-value.kpi-wd-actual-value.wd-over { color: #FFD54F; }
+.kpi-grid-value.kpi-wd-actual-value.wd-under { color: #FF8A80; }
 
-.kpi-grid-value.kpi-wd-std-value {
-  color: #7FD1FF;              /* cyan — standard */
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.kpi-grid-value.kpi-wd-actual-value {
-  color: #7EE787;              /* green — actual */
-  font-size: 18px;
-  font-weight: 800;
-}
-
-/* Alert: actual > standard (worked extra days) */
-.kpi-grid-value.kpi-wd-actual-value.wd-over {
-  color: #FFD54F;
-}
-
-/* Alert: actual < standard (missed days) */
-.kpi-grid-value.kpi-wd-actual-value.wd-under {
-  color: #FF8A80;
-}
-
-/* ---------- Title text ---------- */
+/* Title text */
 .kpi-title-text { min-width: 0; }
 .kpi-grid-title h1 {
   font-size: 22px;
@@ -1396,7 +1280,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   white-space: nowrap;
 }
 
-/* ---------- Labels + values ---------- */
+/* Labels + values */
 .kpi-grid-label {
   font-size: 11px;
   font-weight: 700;
@@ -1419,47 +1303,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-grid-value.kpi-wd-value     { color: #7EE787; font-size: 20px; font-weight: 800; }
 .kpi-grid-value.kpi-today-value  { color: #FFFFFF; font-size: 16px; font-weight: 700; }
 
-/* ---------- Status Pill ---------- */
-.kpi-grid-status-cell .kpi-grid-value.kpi-status-value {
-  display: inline-block;
-  padding: 8px 24px;
-  border-radius: 999px;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  min-width: 140px;
-  max-width: 100%;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.08);
-  color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  transition: all 0.25s ease;
-}
-
-/* ACHIEVED — green gradient */
-.kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-achieved {
-  background: linear-gradient(180deg, #7EE787 0%, #0fcd3c 100%);
-  border: 1px solid #0A5C1F;
-  color: #FFFFFF !important;
-  box-shadow:
-    0 3px 10px rgba(27, 158, 58, 0.45),
-    inset 0 2px 0 rgba(255, 255, 255, 0.40),
-    inset 0 -3px 5px rgba(0, 0, 0, 0.20);
-}
-
-/* NOT ACHIEVED — red gradient */
-.kpi-grid-status-cell .kpi-grid-value.kpi-status-value.kpi-not-achieved {
-  background: linear-gradient(180deg, #FF8A80 0%, #C62828 100%);
-  border: 1px solid #7A1414;
-  color: #FFFFFF !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
-  box-shadow:
-    0 3px 10px rgba(198, 40, 40, 0.45),
-    inset 0 2px 0 rgba(255, 255, 255, 0.40),
-    inset 0 -3px 5px rgba(0, 0, 0, 0.20);
-}
-
-/* ---------- Filter selects ---------- */
+/* Filter selects */
 .kpi-grid-filter .kpi-grid-label {
   margin-bottom: 0;
   flex-shrink: 0;
@@ -1479,19 +1323,14 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   cursor: pointer;
   font-weight: 600;
 }
-.kpi-grid-filter select option {
-  background: #00245E;
-  color: #FFFFFF;
-}
+.kpi-grid-filter select option { background: #00245E; color: #FFFFFF; }
 .kpi-grid-filter select:focus {
   outline: none;
   border-color: #7FD1FF;
   box-shadow: 0 0 0 2px rgba(127, 209, 255, 0.30);
 }
 
-/* ===================================================================
-   KPI HEADER — RESPONSIVE
-   =================================================================== */
+/* KPI HEADER RESPONSIVE */
 @media (max-width: 1280px) {
   .kpi-grid-title h1 { font-size: 16px; }
   .kpi-grid-title .sub { font-size: 11px; }
@@ -1504,25 +1343,18 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
     font-size: 15px;
   }
 }
-
 @media (max-width: 1024px) {
-  .kpi-header-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  .kpi-grid-empty { display: none; }   /* 🆕 hide on tablet/mobile */
-  .kpi-grid-metrics-group { order: 1; }
-  .kpi-grid-left          { order: 2; }
-  .kpi-grid-right         { order: 3; grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .kpi-header-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi-grid-empty { display: none; }
+  .kpi-grid-left,
+  .kpi-grid-metrics-group,
+  .kpi-grid-bar-formula,
+  .kpi-grid-right { grid-column: 1 / -1; }
 }
-
 @media (max-width: 640px) {
   .kpi-grid-left,
   .kpi-grid-metrics-row,
-  .kpi-grid-right {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
+  .kpi-grid-right { grid-template-columns: 1fr; grid-template-rows: auto; }
   .kpi-grid-left .kpi-grid-title { grid-column: 1; }
   .kpi-grid-left .kpi-grid-year  { grid-column: 1; grid-row: auto; }
   .kpi-grid-left .kpi-grid-month { grid-column: 1; grid-row: auto; }
@@ -1535,24 +1367,19 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   }
 }
 
-@media (max-width: 1024px) {
-  .kpi-header-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .kpi-grid-left,
-  .kpi-grid-metrics-group,
-  .kpi-grid-bar-formula,
-  .kpi-grid-right {
-    grid-column: 1 / -1;
-  }
-}
-
 /* ===================================================================
    14. REPORT — Daily LB Input
    =================================================================== */
 #view-daily-lb-input .report-table th,
 #view-daily-lb-input .report-table td { padding: 3px 8px; line-height: 1.2; }
+
+#view-daily-lb-input .unloading-rows td {
+  background: #f0f7ff !important;
+}
+#view-daily-lb-input .unloading-rows td.row-label {
+  background: #e0ecf8 !important;
+  font-weight: 600;
+}
 
 /* ===================================================================
    15. REPORT — Total LB
@@ -1681,6 +1508,14 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 #view-production-weight .easy-product-table td:nth-child(3) { width: 100px; }
 #view-production-weight .easy-product-table tfoot td {
   background: #dcdcdc; font-weight: 700; border-top: 2px solid #2c4a7c;
+}
+#view-production-weight .easy-product-table tfoot tr td:first-child {
+  text-align: left !important;
+  padding-left: 14px !important;
+}
+#view-production-weight .easy-product-table tfoot tr td:last-child {
+  text-align: right !important;
+  padding-right: 14px !important;
 }
 
 /* ===================================================================
@@ -2065,7 +1900,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-card-days { font-size: 13px; font-weight: 500; opacity: 0.85; }
 .kpi-card-pct { font-size: 26px; font-weight: 700; }
 
-/* KPI status cards — accent top border, white fill */
+/* KPI status cards */
 .kpi-card-green,
 .kpi-card-yellow,
 .kpi-card-orange,
@@ -2108,7 +1943,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .kpi-card-orange .kpi-card-icon { color: #E65C00; }
 .kpi-card-red    .kpi-card-icon { color: #B71C1C; }
 
-/* KPI Chart Panel — white */
+/* KPI Chart Panel */
 .kpi-chart-panel {
   margin: 20px 0;
   padding: 12px 8px;
@@ -2118,9 +1953,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   overflow-x: auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
-.kpi-chart-panel .panel-body {
-  background: #ffffff;
-}
+.kpi-chart-panel .panel-body { background: #ffffff; }
 
 .kpi-table-scroll { overflow-x: auto; max-width: 100%; }
 
@@ -2200,7 +2033,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 #view-kpi-03 .kpi-red,    #view-kpi-04 .kpi-red,
 #view-kpi-05 .kpi-red,    #view-kpi-06 .kpi-red    { background: #f48080; color: #7a1414; font-weight: 600; }
 
-/* KPI toggle buttons */
 .kpi-view-toggle { display: flex; gap: 6px; justify-self: start; }
 .kpi-toggle-btn {
   border: 1px solid #2c4a7c;
@@ -2222,10 +2054,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
    =================================================================== */
 .dash-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -2240,40 +2071,73 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border: none;
   border-radius: 0;
   margin-bottom: 20px;
-  overflow: visible;   /* 🆕 was: hidden */
+  overflow: visible;
   box-shadow: 0 4px 12px rgba(0, 36, 94, 0.35);
 }
-.dash-header-left h1 { font-size: 26px; font-weight: 700; color: #14213D; margin: 0 0 4px 0; }
-.dash-subtitle { color: #6b7a8f; font-size: 14px; margin: 0; }
+
+.dash-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.dash-header-top .dash-header-left h1 {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: "Inter", sans-serif;
+  margin: 0 0 4px 0;
+  color: #FFFFFF !important;
+}
+.dash-header-top .dash-subtitle {
+  color: #A7B8CC !important;
+  font-size: 14px;
+  margin: 0;
+}
+.dash-header-top .btn-refresh { margin-top: 0 !important; }
+
+.dash-header-bottom {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
 .dash-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-group { display: flex; flex-direction: column; gap: 2px; }
 .filter-group label {
   font-size: 11px;
   font-weight: 600;
-  color: #6b7a8f;
+  color: #9CC5E8 !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .filter-group select {
   padding: 6px 12px;
-  border: 1.5px solid #dce1e9;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
   border-radius: 8px;
-  background: white;
+  background: rgba(255, 255, 255, 0.12) !important;
   font-size: 14px;
-  font-weight: 500;
-  color: #14213D;
+  font-weight: 600 !important;
+  color: #FFFFFF !important;
   cursor: pointer;
   transition: border-color 0.2s;
   min-width: 100px;
 }
-.filter-group select:focus { border-color: #2c4a7c; outline: none; }
+.filter-group select:focus {
+  border-color: #7FD1FF !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(127, 209, 255, 0.30) !important;
+}
+.filter-group select option { background: #00245E; color: #FFFFFF; }
 
 .btn-refresh {
   padding: 8px 16px;
-  background: #2c4a7c;
-  color: white;
-  border: none;
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.30) !important;
   border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
@@ -2281,16 +2145,29 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   transition: all 0.2s;
   margin-top: 16px;
 }
-.btn-refresh:hover { background: #1a3560; transform: translateY(-1px); }
+.btn-refresh:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+/* View toggle row */
+.dash-view-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
 
 .dash-view-toggle {
   display: flex;
   gap: 6px;
-  background: #ffffff !important;
+  background: rgba(139, 139, 139, 0.1) !important;
   padding: 4px;
   border: 1px solid rgb(81, 81, 81);
   border-radius: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   width: fit-content;
 }
 .dash-view-btn {
@@ -2300,20 +2177,58 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
-  color: #8279ff !important;
+  color: #6e7986 !important;
   cursor: pointer;
   transition: all 0.25s ease;
 }
-.dash-view-btn:hover { color: #14213D; }
+.dash-view-btn:hover { color: #000971 !important; background: rgb(131, 131, 131); }
 .dash-view-btn.active {
-  background: white;
-  color: #14213D;
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #00245E !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* ===================================================================
-   DASHBOARD KPI CARDS — Taller with pie chart inside
-   =================================================================== */
+/* Chart type checkboxes */
+.dash-chart-type-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chart-type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #14213D;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: #f0f2f6;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin: 0;
+}
+.chart-type-option:hover { background: #e4e9f2; }
+.chart-type-option input[type="checkbox"] {
+  width: 14px; height: 14px;
+  cursor: pointer;
+  accent-color: #2c4a7c;
+  margin: 0;
+}
+.chart-type-option:has(input:checked) {
+  background: #2c4a7c;
+  color: #ffffff;
+  border-color: #1a3560;
+  box-shadow: 0 2px 6px rgba(44, 74, 124, 0.25);
+}
+.chart-type-option:has(input:checked) input[type="checkbox"] {
+  accent-color: #ffffff;
+}
+
+/* KPI CARDS */
 .dash-kpi-cards {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -2333,14 +2248,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border-radius: 14px;
   padding: 16px 18px 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-
-  /* Base border */
   border: 1px solid rgba(0, 0, 0, 0.04);
-
-  /* 🆕 Status-colored LEFT + TOP borders */
   border-left: 4px solid var(--card-accent, #e4e8ee);
   border-top: 4px solid var(--card-accent, #e4e8ee);
-
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   position: relative;
@@ -2349,15 +2259,11 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   display: flex;
   flex-direction: column;
 }
-
-/* 🆕 Top-left corner accent triangle */
 .dash-kpi-card::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 70px;
-  height: 70px;
+  top: 0; left: 0;
+  width: 70px; height: 70px;
   background: linear-gradient(135deg,
     var(--card-accent, #9e9e9e) 0%,
     var(--card-accent, #9e9e9e) 12%,
@@ -2366,12 +2272,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   z-index: 1;
   opacity: 0.35;
 }
-
-/* Keep card content above the corner */
-.dash-kpi-card > * {
-  position: relative;
-  z-index: 2;
-}
+.dash-kpi-card > * { position: relative; z-index: 2; }
 .dash-kpi-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
@@ -2432,9 +2333,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .dash-kpi-card .card-status.warning  { background: #fff3e0; color: #e65100; }
 .dash-kpi-card .card-status.critical { background: #ffebee; color: #c62828; }
 .dash-kpi-card .card-status.no-data  { background: #f5f5f5; color: #9e9e9e; }
-.dash-kpi-card .card-trend { font-size: 12px; font-weight: 600; margin-left: 8px; }
-.dash-kpi-card .card-trend.up { color: #2e7d32; }
-.dash-kpi-card .card-trend.down { color: #c62828; }
+.dash-kpi-card .card-trend { display: none !important; }
 .dash-kpi-card .card-bar {
   width: 100%;
   height: 4px;
@@ -2445,7 +2344,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 .dash-kpi-card .card-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
 
-/* 🆕 Pie chart inside each card */
 .dash-kpi-card .card-pie-wrap {
   margin-top: auto;
   padding-top: 10px;
@@ -2565,10 +2463,90 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 .dash-no-data { text-align: center; padding: 30px; color: #6b7a8f; font-size: 14px; }
 .dash-no-data .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
 
-/* ===================================================================
-   DASHBOARD PIE CHARTS — Now inside cards, hide standalone section
-   =================================================================== */
+/* Pie wrap hidden — inside cards now */
 .dash-pie-wrap { display: none !important; }
+
+/* ===================================================================
+   30. MULTI-SELECT (Dashboard filters)
+   =================================================================== */
+.multi-select-group { position: relative; }
+.multi-select { position: relative; }
+
+.multi-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 170px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.multi-select-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.multi-arrow {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.multi-select.open .multi-arrow { transform: rotate(180deg); }
+
+.multi-select-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  background: #00245E;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  z-index: 9999;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.multi-select-panel::-webkit-scrollbar { width: 6px; }
+.multi-select-panel::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 3px; }
+.multi-select-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 3px; }
+
+.multi-select.open .multi-select-panel { display: block; }
+
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #FFFFFF;
+  transition: background 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+.ms-option:hover { background: rgba(255, 255, 255, 0.10); }
+.ms-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+  accent-color: #7FD1FF;
+}
+.ms-option.ms-all { font-weight: 700; color: #7FD1FF; }
+.ms-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 6px 4px;
+}
+.ms-option:has(input:checked):not(.ms-all) { background: #1976D2; }
 
 /* ===================================================================
    31. CHART TOOLBAR
@@ -2598,7 +2576,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 /* ===================================================================
-   32. HEADERS OVERRIDE — Blue Gradient (sidebar-style)
+   32. HEADERS OVERRIDE — Blue
    =================================================================== */
 .sticky-report-header,
 .dash-header {
@@ -2608,46 +2586,9 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   box-shadow: 0 4px 12px rgba(0, 36, 94, 0.35) !important;
 }
 
-/* Dashboard header text */
 .dash-header-left h1 { color: #FFFFFF !important; }
 .dash-subtitle { color: #A7B8CC !important; }
 
-.filter-group label { color: #9CC5E8 !important; }
-.filter-group select {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: #FFFFFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.28) !important;
-  font-weight: 600 !important;
-}
-.filter-group select:focus {
-  outline: none !important;
-  border-color: #7FD1FF !important;
-  box-shadow: 0 0 0 2px rgba(127, 209, 255, 0.30) !important;
-}
-.filter-group select option {
-  background: #00245E;
-  color: #FFFFFF;
-}
-
-.btn-refresh {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: #FFFFFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.30) !important;
-}
-.btn-refresh:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
-  transform: translateY(-1px);
-}
-
-.dash-view-toggle { background: rgba(139, 139, 139, 0.1) !important; }
-.dash-view-btn { color: #6e7986 !important; }
-.dash-view-btn:hover { color: #000971 !important; background: rgb(131, 131, 131);}
-.dash-view-btn.active {
-  background: rgba(255, 255, 255, 0.95) !important;
-  color: #00245E !important;
-}
-
-/* Report header text */
 .sticky-report-header .view-head h1,
 .header-row-flex .view-head h1 {
   color: #FFFFFF !important;
@@ -2658,7 +2599,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   color: #A7B8CC !important;
 }
 
-/* Report toolbar */
 .sticky-report-header .report-toolbar label,
 .header-row-flex .report-toolbar label {
   color: #9CC5E8 !important;
@@ -2693,7 +2633,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   cursor: pointer;
 }
 
-/* Batch display */
 .sticky-report-header .batch-display,
 .header-row-flex .batch-display {
   background: rgba(255, 255, 255, 0.15) !important;
@@ -2702,7 +2641,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   font-weight: 700;
 }
 
-/* Report action buttons */
 .sticky-report-header .btn-report-action,
 .header-row-flex .btn-report-action {
   background: rgba(255, 255, 255, 0.15) !important;
@@ -2718,7 +2656,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 /* ===================================================================
-   33. KPI — Master chart + Status cards SIDE-BY-SIDE
+   33. KPI — Chart + Status cards SIDE-BY-SIDE
    =================================================================== */
 .kpi-chart-cards-flex {
   display: flex;
@@ -2744,7 +2682,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   display: flex;
   align-items: center;
 }
-
 .kpi-chart-cards-flex .kpi-chart-cards-side {
   flex: 0 0 200px;
   display: flex;
@@ -2784,542 +2721,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 /* ===================================================================
-   DASHBOARD — View toggle row + Chart type checkboxes
-   =================================================================== */
-.dash-view-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.dash-view-row .dash-view-toggle {
-  margin-bottom: 0;    /* row already handles spacing */
-}
-
-.dash-chart-type-toggle {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.chart-type-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #14213D;
-  cursor: pointer;
-  padding: 7px 14px;
-  border-radius: 9px;
-  background: #f0f2f6;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
-  user-select: none;
-  margin: 0;
-}
-
-.chart-type-option:hover {
-  background: #e4e9f2;
-}
-
-.chart-type-option input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  accent-color: #2c4a7c;
-  margin: 0;
-}
-
-.chart-type-option:has(input:checked) {
-  background: #2c4a7c;
-  color: #ffffff;
-  border-color: #1a3560;
-  box-shadow: 0 2px 6px rgba(44, 74, 124, 0.25);
-}
-
-.chart-type-option:has(input:checked) input[type="checkbox"] {
-  accent-color: #ffffff;
-}
-
-/* ===================================================================
-   DASHBOARD HEADER — 2-row layout (taller)
-   =================================================================== */
-.dash-header {
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 14px !important;
-  padding: 20px 32px !important;
-}
-
-.dash-header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.dash-header-top .dash-header-left h1 {
-  font-size: 28px;
-  font-weight: 700;
-  font-family: "Inter", sans-serif;
-  margin: 0 0 4px 0;
-  color: #FFFFFF;
-}
-.dash-header-top .dash-subtitle {
-  color: #A7B8CC;
-  font-size: 14px;
-  margin: 0;
-}
-
-.dash-header-top .btn-refresh {
-  margin-top: 0 !important;
-}
-
-.dash-header-bottom {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-/* Multi-select dropdown */
-.multi-select-group { position: relative; }
-.multi-select { position: relative; }
-
-.multi-select-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 170px;
-  padding: 7px 12px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.multi-select-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.45);
-}
-.multi-arrow {
-  font-size: 10px;
-  transition: transform 0.2s;
-}
-.multi-select.open .multi-arrow {
-  transform: rotate(180deg);
-}
-
-/* ===================================================================
-   MULTI-SELECT — Match Month/Year dropdown style (dark navy)
-   =================================================================== */
-.multi-select-panel {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 240px;
-  background: #00245E;                    /* ← dark navy */
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  padding: 6px;
-  z-index: 9999;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-/* Custom scrollbar */
-.multi-select-panel::-webkit-scrollbar { width: 6px; }
-.multi-select-panel::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-.multi-select-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 3px;
-}
-
-.multi-select.open .multi-select-panel {
-  display: block;
-}
-
-/* Individual option */
-.ms-option {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #FFFFFF;                          /* ← white text */
-  transition: background 0.15s;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.ms-option:hover {
-  background: rgba(255, 255, 255, 0.10);
-}
-
-.ms-option input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  margin: 0;
-  accent-color: #7FD1FF;                   /* ← bright cyan */
-}
-
-/* "All" option — highlighted */
-.ms-option.ms-all {
-  font-weight: 700;
-  color: #7FD1FF;                          /* ← cyan */
-}
-
-/* Divider */
-.ms-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 6px 4px;
-}
-
-/* Highlight the last-selected option (like October in Month dropdown) */
-.ms-option:has(input:checked):not(.ms-all) {
-  background: #1976D2;                     /* ← bright blue */
-}
-
-/* ===================================================================
-   DASHBOARD CARD — Hide trend indicator
-   =================================================================== */
-.dash-kpi-card .card-trend {
-  display: none !important;
-}
-
-
-/* ===================================================================
-   DATA ENTERING FORMS — Shared
-   =================================================================== */
-.entry-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  background: #ffffff;                    /* 🆕 white fill */
-  padding: 26px 30px 20px;                /* 🆕 inner spacing */
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e4e8ee;
-  margin: 4px 0;
-}
-
-.entry-row {
-  display: grid;
-  gap: 16px;
-}
-.entry-row-2 { grid-template-columns: repeat(2, 1fr); }
-.entry-row-3 { grid-template-columns: repeat(3, 1fr); }
-.entry-row-4 { grid-template-columns: repeat(4, 1fr); }
-
-.entry-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.entry-field label {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #14213D;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.entry-field input {
-  padding: 11px 13px;
-  border: 1.5px solid #b0bccd;            /* 🆕 clear border */
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: 'Inter', 'Calibri', sans-serif;
-  color: #14213D;
-  background: #ffffff;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.entry-field input:hover {
-  border-color: #7f8fa6;                   /* 🆕 hover darker */
-}
-
-.entry-field input:focus {
-  outline: none;
-  border-color: #1976D2;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
-}
-
-/* Readonly (auto-calculated) fields */
-.entry-field input[readonly] {
-  background: #eef3fb;
-  color: #0b3475;
-  font-weight: 700;
-  cursor: not-allowed;
-  border: 1.5px solid #c5d5eb;            /* 🆕 also bordered */
-}
-
-.entry-field input[readonly]:focus {
-  border-color: #c5d5eb;
-  box-shadow: none;
-}
-
-/* Date / Time picker icon tint */
-.entry-field input[type="date"]::-webkit-calendar-picker-indicator,
-.entry-field input[type="time"]::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.65;
-}
-.entry-field input[type="date"]:hover::-webkit-calendar-picker-indicator,
-.entry-field input[type="time"]:hover::-webkit-calendar-picker-indicator {
-  opacity: 1;
-}
-
-/* Actions row */
-.entry-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 6px;
-  padding-top: 18px;
-  border-top: 1px solid #e4e8ee;
-}
-
-.btn-entry-save,
-.btn-entry-clear {
-  padding: 11px 26px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'Inter', sans-serif;
-}
-
-.btn-entry-save {
-  background: #2c4a7c;
-  color: #fff;
-  border: 1.5px solid #2c4a7c;
-}
-.btn-entry-save:hover {
-  background: #1a3560;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(44, 74, 124, 0.25);
-}
-
-.btn-entry-clear {
-  background: #ffffff;
-  color: #2c4a7c;
-  border: 1.5px solid #2c4a7c;
-}
-.btn-entry-clear:hover {
-  background: #eef3fb;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .entry-row-4 { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 640px) {
-  .entry-row-2,
-  .entry-row-3,
-  .entry-row-4 { grid-template-columns: 1fr; }
-  .entry-actions { flex-direction: column-reverse; }
-  .btn-entry-save, .btn-entry-clear { width: 100%; }
-}
-
-/* Entry forms — panel is transparent, only the form is white */
-#view-entry-daily-lb .panel,
-#view-entry-chill-weight .panel,
-#view-entry-dress-weight .panel,
-#view-entry-production .panel,
-#view-entry-giblet .panel,
-#view-entry-easy .panel,
-#view-entry-consumable-lb .panel,
-#view-entry-consumable-ev .panel,
-#view-entry-consumable-fbp .panel,
-#view-entry-consumable-packing .panel,
-#view-entry-consumable-packing2 .panel,
-#view-entry-consumable-easy .panel {
-  background: transparent;
-}
-
-#view-entry-daily-lb .panel-body,
-#view-entry-chill-weight .panel-body,
-#view-entry-dress-weight .panel-body,
-#view-entry-production .panel-body,
-#view-entry-giblet .panel-body,
-#view-entry-easy .panel-body,
-#view-entry-consumable-lb .panel-body,
-#view-entry-consumable-ev .panel-body,
-#view-entry-consumable-fbp .panel-body,
-#view-entry-consumable-packing .panel-body,
-#view-entry-consumable-packing2 .panel-body,
-#view-entry-consumable-easy .panel-body {
-  padding: 12px 18px 18px;
-  background: transparent;
-}
-
-/* ===================================================================
-   DATA ENTRY — Items table (form 03+)
-   =================================================================== */
-.entry-table-wrap {
-  max-height: 520px;
-  overflow-y: auto;
-  border: 1px solid #e4e8ee;
-  border-radius: 10px;
-  background: #ffffff;
-  margin-top: 4px;
-}
-
-.entry-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'Inter', 'Calibri', sans-serif;
-  font-size: 13px;
-}
-
-.entry-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-.entry-table thead th {
-  background: #00245E;
-  color: #ffffff;
-  font-weight: 700;
-  padding: 11px 12px;
-  text-align: left;
-  border-bottom: 2px solid #2c4a7c;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.entry-table tbody tr {
-  border-bottom: 1px solid #eef1f7;
-  transition: background 0.1s;
-}
-
-.entry-table tbody tr:nth-child(even) {
-  background: #fafbfd;
-}
-
-.entry-table tbody tr:hover {
-  background: #eef3fb;
-}
-
-.entry-table tbody td {
-  padding: 7px 12px;
-  color: #14213D;
-  vertical-align: middle;
-}
-
-.entry-table tbody td:first-child {
-  font-family: arial;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0b3475;
-  width: 100px;
-}
-
-.entry-table tbody td:nth-child(2) {
-  color: #14213D;
-}
-
-.entry-table tbody input.entry-item-qty {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1.5px solid #b0bccd;
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: 'Inter', 'Calibri', sans-serif;
-  color: #14213D;
-  background: #ffffff;
-  text-align: right;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  box-sizing: border-box;
-}
-
-.entry-table tbody input.entry-item-qty:hover {
-  border-color: #7f8fa6;
-}
-
-.entry-table tbody input.entry-item-qty:focus {
-  outline: none;
-  border-color: #1976D2;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
-}
-
-/* Hide empty rows when searching */
-.entry-table tbody tr.item-hidden {
-  display: none;
-}
-
-/* Footer / total row */
-.entry-table-total td {
-  background: #eef3fb;
-  border-top: 2px solid #2c4a7c;
-  padding: 11px 12px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0b3475;
-}
-
-#prdGrandTotal {
-  display: inline-block;
-  min-width: 120px;
-  text-align: right;
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0b3475;
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-  .entry-table-wrap { max-height: 420px; }
-  .entry-table thead th:nth-child(1) { display: none; }
-  .entry-table tbody td:nth-child(1) { display: none; }
-}
-
-/* 🆕 Highlight row when quantity has a value */
-.entry-table tbody tr:has(.entry-item-qty:not(:placeholder-shown)) {
-  background: #e8f5e9 !important;         /* light green */
-  border-left: 4px solid #1B9E3A;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-/* Also highlight on focus (while typing) */
-.entry-table tbody tr:has(.entry-item-qty:focus) {
-  background: #dbeafe !important;         /* light blue while typing */
-  border-left: 4px solid #1976D2;
-}
-
-/* ===================================================================
-   BLAST FREEZER — Tabs
+   34. BLAST FREEZER — Tabs
    =================================================================== */
 .bf-tabs {
   display: flex;
@@ -3329,7 +2731,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   border-radius: 10px;
   flex-wrap: wrap;
 }
-
 .bf-tab {
   border: none;
   background: transparent;
@@ -3343,146 +2744,67 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   white-space: nowrap;
   font-family: 'Inter', sans-serif;
 }
-
-.bf-tab:hover {
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.08);
-}
-
+.bf-tab:hover { color: #FFFFFF; background: rgba(255, 255, 255, 0.08); }
 .bf-tab.active {
   background: rgba(255, 255, 255, 0.95);
   color: #00245E;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
 }
-
-/* Tab content */
 .bf-tab-content { display: none; }
 .bf-tab-content.active { display: block; }
 
-/* ===================================================================
-   BLAST FREEZER — Add Row button
-   =================================================================== */
-.entry-add-row-wrap {
-  display: flex;
-  justify-content: flex-start;
-  margin-top: 4px;
-}
-
-.btn-add-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #eef3fb;
-  color: #2c4a7c;
-  border: 1.5px dashed #2c4a7c;
-  padding: 9px 20px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: 'Inter', sans-serif;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-add-row:hover {
-  background: #2c4a7c;
-  color: #ffffff;
-  border-style: solid;
-}
-
-/* ===================================================================
-   BLAST FREEZER — Row cells in table
-   =================================================================== */
-.entry-table tbody input.entry-item-qty,
-.entry-table tbody select.entry-item-select,
-.entry-table tbody input.entry-item-time {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1.5px solid #b0bccd;
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: 'Inter', 'Calibri', sans-serif;
-  color: #14213D;
-  background: #ffffff;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  box-sizing: border-box;
-}
-
-.entry-table tbody input.entry-item-qty {
-  text-align: right;
-}
-
-.entry-table tbody input.entry-item-qty:hover,
-.entry-table tbody select.entry-item-select:hover,
-.entry-table tbody input.entry-item-time:hover {
-  border-color: #7f8fa6;
-}
-
-.entry-table tbody input.entry-item-qty:focus,
-.entry-table tbody select.entry-item-select:focus,
-.entry-table tbody input.entry-item-time:focus {
-  outline: none;
-  border-color: #1976D2;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
-}
-
-/* Row number column */
-.entry-table tbody td.bf-row-num {
-  text-align: center;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: #6b7280;
-  background: #f8fafc;
-  width: 50px;
-}
-
-/* Delete row button */
-.entry-table tbody .btn-del-row {
-  background: none;
-  border: none;
-  color: #c62828;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.15s;
-  line-height: 1;
-}
-
-.entry-table tbody .btn-del-row:hover {
-  background: #fdecea;
-}
-
-/* Row highlight when has value (Blast Freezer tab) */
-.entry-table tbody tr:has(input.entry-item-qty:not(:placeholder-shown)),
-.entry-table tbody tr:has(select.entry-item-select:valid):not(:has(option[value=""]:checked)) {
-  background: #e8f5e9;
-  border-left: 4px solid #1B9E3A;
-}
-
-/* ===================================================================
-   RESPONSIVE — Blast Freezer
-   =================================================================== */
 @media (max-width: 768px) {
   .bf-tabs { width: 100%; }
   .bf-tab { flex: 1 1 auto; text-align: center; font-size: 11px; padding: 8px 12px; }
 }
 
 /* ===================================================================
-   CSV UPLOADS
+   35. CONSUMABLE — Tabs
    =================================================================== */
-.csv-upload-block {
-  margin-bottom: 32px;
+.cons-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.10);
+  padding: 5px;
+  border-radius: 10px;
+  flex-wrap: wrap;
 }
+.cons-tab {
+  border: none;
+  background: transparent;
+  color: #A7B8CC;
+  padding: 9px 18px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+  min-width: 80px;
+  text-align: center;
+  flex: 1 1 0;
+}
+.cons-tab:hover { color: #FFFFFF; background: rgba(255, 255, 255, 0.08); }
+.cons-tab.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #00245E;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+}
+.cons-tab-content { display: none; }
+.cons-tab-content.active { display: block; }
+
+@media (max-width: 768px) {
+  .cons-tabs { width: 100%; flex-wrap: wrap; }
+  .cons-tab { flex: 1 1 calc(33.33% - 4px); font-size: 11px; padding: 8px 10px; min-width: 0; }
+}
+
+/* ===================================================================
+   36. CSV UPLOADS
+   =================================================================== */
+.csv-upload-block { margin-bottom: 32px; }
 .csv-upload-block:last-child { margin-bottom: 0; }
-
-.csv-upload-header {
-  margin-bottom: 10px;
-  padding-left: 4px;
-}
-
+.csv-upload-header { margin-bottom: 10px; padding-left: 4px; }
 .csv-upload-title {
   font-size: 17px;
   font-weight: 700;
@@ -3490,26 +2812,15 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   margin: 0 0 3px 0;
   letter-spacing: 0.2px;
 }
+.csv-upload-sub { font-size: 12.5px; color: #6b7280; margin: 0; }
 
-.csv-upload-sub {
-  font-size: 12.5px;
-  color: #6b7280;
-  margin: 0;
-}
-
-/* ---- Custom file input ---- */
-.csv-file-input {
-  position: relative;
-  width: 100%;
-}
+.csv-file-input { position: relative; width: 100%; }
 .csv-file-input input[type="file"] {
   position: absolute;
   left: -9999px;
   opacity: 0;
-  width: 0;
-  height: 0;
+  width: 0; height: 0;
 }
-
 .csv-file-label {
   display: flex;
   align-items: center;
@@ -3523,18 +2834,15 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   min-height: 46px;
   box-sizing: border-box;
 }
-.csv-file-label:hover {
-  border-color: #7f8fa6;
-}
+.csv-file-label:hover { border-color: #7f8fa6; }
 .csv-file-input input[type="file"]:focus + .csv-file-label {
   border-color: #1976D2;
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
 }
-
 .csv-file-btn {
   display: inline-block;
   padding: 7px 16px;
-  background: #29ABE2;               /* bright blue (screenshot match) */
+  background: #29ABE2;
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
@@ -3543,10 +2851,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   white-space: nowrap;
   transition: background 0.15s;
 }
-.csv-file-label:hover .csv-file-btn {
-  background: #1d8fbf;
-}
-
+.csv-file-label:hover .csv-file-btn { background: #1d8fbf; }
 .csv-file-name {
   font-size: 14px;
   font-weight: 600;
@@ -3557,12 +2862,8 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   min-width: 0;
   flex: 1;
 }
-.csv-file-name.empty {
-  color: #6b7280;
-  font-weight: 500;
-}
+.csv-file-name.empty { color: #6b7280; font-weight: 500; }
 
-/* ---- Info hint ---- */
 .csv-hint {
   display: flex;
   align-items: flex-start;
@@ -3581,7 +2882,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   color: #0b3475;
 }
 
-/* ---- CSV Preview panel ---- */
 .csv-preview {
   display: none;
   margin-top: 12px;
@@ -3603,7 +2903,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   align-items: center;
   gap: 10px;
 }
-
 .csv-preview-badge {
   display: inline-block;
   padding: 3px 10px;
@@ -3613,7 +2912,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   font-size: 11px;
   font-weight: 700;
 }
-
 .csv-preview-table {
   width: 100%;
   border-collapse: collapse;
@@ -3644,171 +2942,24 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   max-width: 180px;
 }
 .csv-preview-table tr:last-child td { border-bottom: none; }
-
-.csv-preview-error {
-  color: #c62828;
-  font-weight: 600;
-}
+.csv-preview-error { color: #c62828; font-weight: 600; }
 
 /* ===================================================================
-   CONSUMABLE — Tabs (6 equal width)
-   =================================================================== */
-.cons-tabs {
-  display: flex;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.10);
-  padding: 5px;
-  border-radius: 10px;
-  flex-wrap: wrap;
-}
-
-.cons-tab {
-  border: none;
-  background: transparent;
-  color: #A7B8CC;
-  padding: 9px 18px;
-  border-radius: 7px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  font-family: 'Inter', sans-serif;
-  min-width: 80px;                /* 🆕 same width baseline */
-  text-align: center;
-  flex: 1 1 0;                    /* 🆕 equal flex width */
-}
-
-.cons-tab:hover {
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.cons-tab.active {
-  background: rgba(255, 255, 255, 0.95);
-  color: #00245E;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
-}
-
-/* Tab content */
-.cons-tab-content { display: none; }
-.cons-tab-content.active { display: block; }
-
-/* Responsive — Mobile */
-@media (max-width: 768px) {
-  .cons-tabs {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-  .cons-tab {
-    flex: 1 1 calc(33.33% - 4px);   /* 3 per row on mobile */
-    font-size: 11px;
-    padding: 8px 10px;
-    min-width: 0;
-  }
-}
-
-/* ===================================================================
-   PRODUCTION REPORT — Easy Production Summary Tfoot alignment
-   =================================================================== */
-#view-production-weight .easy-product-table tfoot tr td:first-child {
-  text-align: left !important;
-  padding-left: 14px !important;
-}
-
-#view-production-weight .easy-product-table tfoot tr td:last-child {
-  text-align: right !important;
-  padding-right: 14px !important;
-}
-
-/* Daily LB Input Report — Unloading rows */
-#view-daily-lb-input .unloading-rows td {
-  background: #f0f7ff !important;
-}
-
-#view-daily-lb-input .unloading-rows td.row-label {
-  background: #e0ecf8 !important;
-  font-weight: 600;
-}
-
-/* ===================================================================
-   DATA ENTERING — Vertical scrollbar (matches Reports)
-   =================================================================== */
-#dataEntryCollapse.open {
-  overflow-y: auto;
-  max-height: 550px;
-}
-
-/* Custom scrollbar — matches Reports */
-#dataEntryCollapse::-webkit-scrollbar {
-  width: 5px;
-}
-
-#dataEntryCollapse::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-}
-
-#dataEntryCollapse::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* ===================================================================
-   KPI's & Notifications — Vertical scrollbar (matches Reports)
-   =================================================================== */
-#kpiCollapse.open {
-  overflow-y: auto;
-  max-height: 550px;
-}
-
-#notificationsCollapse.open {
-  overflow-y: auto;
-  max-height: 550px;
-}
-
-/* Custom scrollbar — KPI's */
-#kpiCollapse::-webkit-scrollbar {
-  width: 5px;
-}
-#kpiCollapse::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-}
-#kpiCollapse::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* Custom scrollbar — Notifications */
-#notificationsCollapse::-webkit-scrollbar {
-  width: 5px;
-}
-#notificationsCollapse::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-}
-#notificationsCollapse::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* ===================================================================
-   DATA ENTERING FORMS — Grid Layout + Styling
+   37. DATA ENTRY — Form (single source of truth)
    =================================================================== */
 .entry-form {
   display: flex;
   flex-direction: column;
   gap: 18px;
   background: #ffffff;
-  padding: 26px 30px 20px;
+  padding: 24px 26px 30px;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   border: 1px solid #e4e8ee;
-  margin: 4px 0;
+  margin: 0;
 }
 
-.entry-row {
-  display: grid;
-  gap: 16px;
-}
+.entry-row { display: grid; gap: 16px; }
 .entry-row-2 { grid-template-columns: repeat(2, 1fr); }
 .entry-row-3 { grid-template-columns: repeat(3, 1fr); }
 .entry-row-4 { grid-template-columns: repeat(4, 1fr); }
@@ -3819,7 +2970,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   gap: 6px;
   min-width: 0;
 }
-
 .entry-field label {
   font-size: 11.5px;
   font-weight: 700;
@@ -3827,7 +2977,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
-
 .entry-field input {
   padding: 11px 13px;
   border: 1.5px solid #b0bccd;
@@ -3840,17 +2989,12 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   width: 100%;
   box-sizing: border-box;
 }
-
-.entry-field input:hover {
-  border-color: #7f8fa6;
-}
-
+.entry-field input:hover { border-color: #7f8fa6; }
 .entry-field input:focus {
   outline: none;
   border-color: #1976D2;
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
 }
-
 .entry-field input[readonly] {
   background: #eef3fb;
   color: #0b3475;
@@ -3858,24 +3002,19 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   cursor: not-allowed;
   border: 1.5px solid #c5d5eb;
 }
-
 .entry-field input[readonly]:focus {
   border-color: #c5d5eb;
   box-shadow: none;
 }
-
-/* Date / Time picker icon */
 .entry-field input[type="date"]::-webkit-calendar-picker-indicator,
 .entry-field input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 0.65;
 }
 .entry-field input[type="date"]:hover::-webkit-calendar-picker-indicator,
-.entry-field input[type="time"]:hover::-webkit-calendar-picker-indicator {
-  opacity: 1;
-}
+.entry-field input[type="time"]:hover::-webkit-calendar-picker-indicator { opacity: 1; }
 
-/* ---- Actions row ---- */
+/* Actions row */
 .entry-actions {
   display: flex;
   justify-content: flex-end;
@@ -3884,7 +3023,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   padding-top: 18px;
   border-top: 1px solid #e4e8ee;
 }
-
 .btn-entry-save,
 .btn-entry-clear {
   padding: 11px 26px;
@@ -3895,7 +3033,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   transition: all 0.15s;
   font-family: 'Inter', sans-serif;
 }
-
 .btn-entry-save {
   background: #2c4a7c;
   color: #fff;
@@ -3906,17 +3043,56 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(44, 74, 124, 0.25);
 }
-
+.btn-entry-save:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
 .btn-entry-clear {
   background: #ffffff;
   color: #2c4a7c;
   border: 1.5px solid #2c4a7c;
 }
-.btn-entry-clear:hover {
-  background: #eef3fb;
+.btn-entry-clear:hover { background: #eef3fb; }
+
+/* Panel wrappers transparent */
+#view-entry-daily-lb .panel,
+#view-entry-rendering .panel,
+#view-entry-production .panel,
+#view-entry-blast-freezer .panel,
+#view-entry-giblet .panel,
+#view-entry-easy-material .panel,
+#view-entry-easy-production .panel,
+#view-entry-csv-uploads .panel,
+#view-entry-consumable .panel { background: transparent; }
+
+#view-entry-daily-lb .panel-body,
+#view-entry-rendering .panel-body,
+#view-entry-production .panel-body,
+#view-entry-blast-freezer .panel-body,
+#view-entry-giblet .panel-body,
+#view-entry-easy-material .panel-body,
+#view-entry-easy-production .panel-body,
+#view-entry-csv-uploads .panel-body,
+#view-entry-consumable .panel-body {
+  padding: 0 !important;
+  background: transparent;
 }
 
-/* ---- Entry Table (forms with dynamic items) ---- */
+@media (max-width: 1024px) {
+  .entry-row-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .entry-row-2,
+  .entry-row-3,
+  .entry-row-4 { grid-template-columns: 1fr; }
+  .entry-actions { flex-direction: column-reverse; }
+  .btn-entry-save, .btn-entry-clear { width: 100%; }
+}
+
+/* ===================================================================
+   38. DATA ENTRY — Items Table (Production/Consumable)
+   =================================================================== */
 .entry-table-wrap {
   max-height: 520px;
   overflow-y: auto;
@@ -3938,7 +3114,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   top: 0;
   z-index: 5;
 }
-
 .entry-table thead th {
   background: #00245E;
   color: #ffffff;
@@ -3950,26 +3125,17 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
-
 .entry-table tbody tr {
   border-bottom: 1px solid #eef1f7;
   transition: background 0.1s;
 }
-
-.entry-table tbody tr:nth-child(even) {
-  background: #fafbfd;
-}
-
-.entry-table tbody tr:hover {
-  background: #eef3fb;
-}
-
+.entry-table tbody tr:nth-child(even) { background: #fafbfd; }
+.entry-table tbody tr:hover { background: #eef3fb; }
 .entry-table tbody td {
   padding: 7px 12px;
   color: #14213D;
   vertical-align: middle;
 }
-
 .entry-table tbody td:first-child {
   font-family: 'Rajdhani', 'Inter', sans-serif;
   font-size: 14px;
@@ -3993,17 +3159,10 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
 }
-
-.entry-table tbody input.entry-item-qty {
-  text-align: right;
-}
-
+.entry-table tbody input.entry-item-qty { text-align: right; }
 .entry-table tbody input.entry-item-qty:hover,
 .entry-table tbody select.entry-item-select:hover,
-.entry-table tbody input.entry-item-time:hover {
-  border-color: #7f8fa6;
-}
-
+.entry-table tbody input.entry-item-time:hover { border-color: #7f8fa6; }
 .entry-table tbody input.entry-item-qty:focus,
 .entry-table tbody select.entry-item-select:focus,
 .entry-table tbody input.entry-item-time:focus {
@@ -4012,9 +3171,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
 }
 
-.entry-table tbody tr.item-hidden {
-  display: none;
-}
+.entry-table tbody tr.item-hidden { display: none; }
 
 .entry-table-total td {
   background: #eef3fb;
@@ -4026,11 +3183,18 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
 }
 
 /* Row highlight when value present */
+.entry-table tbody tr:has(.entry-item-qty:not(:placeholder-shown)) {
+  background: #e8f5e9 !important;
+  border-left: 4px solid #1B9E3A;
+}
+.entry-table tbody tr:has(.entry-item-qty:focus) {
+  background: #dbeafe !important;
+  border-left: 4px solid #1976D2;
+}
 .entry-table tbody tr.row-has-value {
   background: #e8f5e9 !important;
   border-left: 4px solid #1B9E3A;
 }
-
 .entry-table tbody tr.row-focus {
   background: #dbeafe !important;
   border-left: 4px solid #1976D2;
@@ -4042,7 +3206,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   justify-content: flex-start;
   margin-top: 4px;
 }
-
 .btn-add-row {
   display: inline-flex;
   align-items: center;
@@ -4058,7 +3221,6 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   cursor: pointer;
   transition: all 0.15s;
 }
-
 .btn-add-row:hover {
   background: #2c4a7c;
   color: #ffffff;
@@ -4078,10 +3240,7 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   transition: background 0.15s;
   line-height: 1;
 }
-
-.entry-table tbody .btn-del-row:hover {
-  background: #fdecea;
-}
+.entry-table tbody .btn-del-row:hover { background: #fdecea; }
 
 /* Row number column */
 .entry-table tbody td.bf-row-num {
@@ -4094,41 +3253,717 @@ td.dow-saturday, th.dow-saturday { background: #e2e2e2 !important; }
   width: 50px;
 }
 
-/* ---- Entry forms panel — transparent outside ---- */
-#view-entry-daily-lb .panel,
-#view-entry-rendering .panel,
-#view-entry-production .panel,
-#view-entry-blast-freezer .panel,
-#view-entry-giblet .panel,
-#view-entry-easy-material .panel,
-#view-entry-easy-production .panel,
-#view-entry-csv-uploads .panel,
-#view-entry-consumable .panel {
-  background: transparent;
-}
-
-#view-entry-daily-lb .panel-body,
-#view-entry-rendering .panel-body,
-#view-entry-production .panel-body,
-#view-entry-blast-freezer .panel-body,
-#view-entry-giblet .panel-body,
-#view-entry-easy-material .panel-body,
-#view-entry-easy-production .panel-body,
-#view-entry-csv-uploads .panel-body,
-#view-entry-consumable .panel-body {
-  padding: 12px 18px 18px;
-  background: transparent;
-}
-
-/* ---- Responsive ---- */
-@media (max-width: 1024px) {
-  .entry-row-4 { grid-template-columns: repeat(2, 1fr); }
-}
-
 @media (max-width: 640px) {
-  .entry-row-2,
-  .entry-row-3,
-  .entry-row-4 { grid-template-columns: 1fr; }
-  .entry-actions { flex-direction: column-reverse; }
-  .btn-entry-save, .btn-entry-clear { width: 100%; }
+  .entry-table-wrap { max-height: 420px; }
+  .entry-table thead th:nth-child(1) { display: none; }
+  .entry-table tbody td:nth-child(1) { display: none; }
+}
+
+/* ===================================================================
+   39. DATA ENTRY — Preview Panel (side-by-side with form)
+   =================================================================== */
+.entry-form-preview-wrap {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;   /* equal height */
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.entry-form-preview-wrap .entry-form {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  transition: flex-basis 0.3s ease;
+}
+
+.entry-form-preview-wrap .entry-preview {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  transition: flex-basis 0.35s ease, width 0.35s ease, opacity 0.25s ease;
+  opacity: 0;
+}
+
+.entry-form-preview-wrap.preview-active .entry-form {
+  flex: 1 1 50%;
+}
+
+.entry-form-preview-wrap.preview-active .entry-preview {
+  flex: 1 1 50%;
+  width: auto;
+  opacity: 1;
+  display: flex !important;
+}
+
+/* Preview panel — compact */
+.entry-preview {
+  background: #ffffff;
+  border: 2px solid #2c4a7c;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 0;
+  box-shadow: 0 4px 16px rgba(44, 74, 124, 0.15);
+  animation: previewFadeIn 0.25s ease-out;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+@keyframes previewFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Preview Header (flex, compact, with Entry No badge) */
+.entry-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1.5px solid #e4e8ee;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.entry-preview-header-text { flex: 1; min-width: 0; }
+.entry-preview-header h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0b3475;
+  margin: 0 0 2px 0;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.2;
+}
+.entry-preview-header p {
+  font-size: 10.5px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.entry-preview-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.entry-preview-no-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  padding: 5px 10px;
+  background: linear-gradient(135deg, #0b3475 0%, #2c4a7c 100%);
+  color: #ffffff;
+  border-radius: 7px;
+  box-shadow: 0 2px 6px rgba(11, 52, 117, 0.25);
+  white-space: nowrap;
+  line-height: 1.1;
+}
+.entry-preview-no-badge .label {
+  font-family: 'Inter', sans-serif;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+.entry-preview-no-badge .value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.entry-preview-by-badge {
+  font-family: 'Inter', sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #6b7280;
+  padding-right: 1px;
+}
+.entry-preview-by-badge strong { color: #0b3475; font-weight: 800; }
+
+/* Preview Body (single column, scrollable) */
+.entry-preview-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  margin-bottom: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.entry-preview-body::-webkit-scrollbar { width: 4px; }
+.entry-preview-body::-webkit-scrollbar-thumb {
+  background: #c5d5eb;
+  border-radius: 4px;
+}
+.entry-preview-body::-webkit-scrollbar-thumb:hover { background: #a4bcd9; }
+
+.preview-section {
+  font-size: 9px;
+  font-weight: 800;
+  color: #2c4a7c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 0 3px 0;
+  border-bottom: 1px solid #e4e8ee;
+  margin-top: 3px;
+}
+.preview-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px dashed #f0f2f6;
+}
+.preview-item .preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.preview-item .preview-value {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #14213D;
+  text-align: right;
+  word-break: break-word;
+}
+.preview-item.highlight {
+  background: #eef3fb;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border-bottom: none;
+}
+.preview-item.highlight .preview-label {
+  color: #0b3475;
+  font-size: 9.5px;
+}
+.preview-item.highlight .preview-value {
+  color: #0b3475;
+  font-size: 12px;
+}
+
+/* Preview action buttons */
+.entry-preview .entry-actions {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 1.5px solid #e4e8ee;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.entry-preview .btn-entry-save,
+.entry-preview .btn-entry-clear {
+  padding: 8px 18px;
+  font-size: 12.5px;
+  border-radius: 7px;
+}
+
+/* Responsive — stack on mobile */
+@media (max-width: 1100px) {
+  .entry-form-preview-wrap.preview-active { flex-direction: column; }
+  .entry-form-preview-wrap.preview-active .entry-form,
+  .entry-form-preview-wrap.preview-active .entry-preview {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+/* ===================================================================
+   40. DATA ENTRY — Table View (Entered Entries)
+   =================================================================== */
+.entry-table-view {
+  background: #ffffff;
+  border-radius: 12px;
+  margin-top: 24px;              /* gap between form and table */
+  padding: 24px 26px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e4e8ee;
+  animation: tableFadeIn 0.25s ease-out;
+}
+@keyframes tableFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.entry-table-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e4e8ee;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.entry-table-view-header h3 {
+  font-size: 19px;
+  font-weight: 700;
+  color: #0b3475;
+  margin: 0 0 4px 0;
+  font-family: 'Inter', sans-serif;
+}
+.entry-table-view-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Filters */
+.entry-table-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.entry-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.entry-filter-group label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding-left: 2px;
+}
+.entry-filter-group input[type="date"] {
+  padding: 9px 12px;
+  border: 1.5px solid #b0bccd;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: 'Calibri', 'Inter', sans-serif;
+  color: #14213D;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.entry-filter-group input[type="date"]:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+.entry-filter-group.entry-filter-search {
+  flex: 1;
+  min-width: 220px;
+}
+.entry-filter-group.entry-filter-search input[type="text"] {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1.5px solid #b0bccd;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: 'Inter', 'Calibri', sans-serif;
+  color: #14213D;
+  background: #ffffff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.entry-filter-group.entry-filter-search input[type="text"]:focus {
+  outline: none;
+  border-color: #1976D2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+}
+
+.btn-filter-clear {
+  padding: 9px 18px;
+  background: #ffffff;
+  color: #6b7280;
+  border: 1.5px solid #b0bccd;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  height: 38px;
+}
+.btn-filter-clear:hover {
+  background: #f2f5fa;
+  color: #2c4a7c;
+  border-color: #2c4a7c;
+}
+
+.entry-table-count {
+  margin-left: auto;
+  font-family: 'Inter', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0b3475;
+  background: #eef3fb;
+  padding: 8px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+  height: fit-content;
+}
+
+/* Table scroll container with sticky header */
+.entry-table-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #e4e8ee;
+  border-radius: 10px;
+  position: relative;
+}
+.entry-table-scroll table {
+  margin: 0;
+  border: none;
+  min-width: 1250px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.entry-table-scroll table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #00245E !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  border-bottom: 2px solid #2c4a7c !important;
+}
+.entry-table-scroll table thead th:first-child { border-top-left-radius: 9px; }
+.entry-table-scroll table thead th:last-child { border-top-right-radius: 9px; }
+
+/* Empty state */
+.entry-table-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Entry No mono font */
+#dlbEntriesTable tbody td:first-child {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #0b3475;
+  font-size: 12.5px;
+}
+
+/* ===================================================================
+   DAILY LB — Row Action Buttons (Edit / Delete)
+   =================================================================== */
+.entry-table-scroll table tbody td.row-actions {
+  text-align: center;
+  white-space: nowrap;
+  padding: 4px 6px;
+}
+
+.row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  margin: 0 2px;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.btn-row-edit {
+  color: #1976D2;
+  border-color: #b8d4f0;
+  background: #eef5fd;
+}
+.btn-row-edit:hover {
+  background: #1976D2;
+  color: #ffffff;
+  border-color: #1976D2;
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.35);
+}
+
+.btn-row-delete {
+  color: #c62828;
+  border-color: #f0b8b8;
+  background: #fdecea;
+}
+.btn-row-delete:hover {
+  background: #c62828;
+  color: #ffffff;
+  border-color: #c62828;
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.35);
+}
+
+.row-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Highlight row when editing */
+.entry-table-scroll table tbody tr.editing-row {
+  background: #fff8e1 !important;
+  border-left: 4px solid #d4a017;
+}
+
+@media (max-width: 768px) {
+  .entry-table-view-header { flex-direction: column; }
+}
+
+/* ===================================================================
+   DAILY LB — New Record & Cancel Buttons
+   =================================================================== */
+.btn-new-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #0b3475 0%, #2c4a7c 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 3px 10px rgba(11, 52, 117, 0.25);
+}
+
+.btn-new-record:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(11, 52, 117, 0.35);
+  background: linear-gradient(135deg, #0a2d66 0%, #24406e 100%);
+}
+
+.btn-entry-cancel {
+  padding: 11px 26px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+  background: #f8fafc;
+  color: #475569;
+  border: 1.5px solid #cbd5e1;
+  margin-right: auto; /* 🆕 Left align */
+}
+
+.btn-entry-cancel:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+/* Force buttons to show properly */
+.entry-form .entry-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 15px !important;
+}
+
+/* Force the cancel button to show on the left */
+.btn-entry-cancel {
+  display: inline-block !important;
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+  border: 1.5px solid #94a3b8 !important;
+  padding: 11px 26px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  margin-right: auto !important;
+}
+
+/* ===================================================================
+   DAILY LB — Compact Table Adjustments
+   =================================================================== */
+
+/* 1. Table එකේ min-width එක ටිකක් අඩු කරමු (scroll එක අඩු වෙන්න) */
+.entry-table-scroll table {
+  min-width: 1100px !important;
+}
+
+/* 2. Header Wrap කිරීම සහ Padding අඩු කිරීම */
+.entry-table-scroll table thead th {
+  white-space: normal !important; /* අකුරු කැඩිලා යටට එන්න */
+  word-wrap: break-word;
+  padding: 6px 4px !important;    /* උඩ/යට gap එක අඩු කිරීම */
+  font-size: 10.5px !important;
+  line-height: 1.2 !important;
+  vertical-align: middle;
+}
+
+/* 3. Location Column එකට වැඩිපුර ඉඩ දීම (width වැඩි කිරීම) */
+.entry-table-scroll table th:nth-child(3),
+.entry-table-scroll table td:nth-child(3) {
+  width: 25% !important;
+  min-width: 220px !important;
+}
+
+/* 4. Row එකේ Height එක අඩු කිරීම (Padding අඩු කිරීම) */
+.entry-table-scroll table tbody td {
+  padding: 4px 4px !important;
+  font-size: 11.5px !important;
+}
+
+/* 5. Edit / Delete Icon වල Size එක පොඩි කිරීම */
+.entry-table-scroll table tbody td.row-actions {
+  padding: 2px 4px !important;
+}
+
+.row-action-btn {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+  margin: 0 1px !important;
+  border-radius: 4px !important;
+}
+
+.row-action-btn:hover {
+  transform: scale(1.1) !important;
+}
+
+/* ===================================================================
+   DAILY LB TABLE — Remove Vertical Lines
+   =================================================================== */
+
+/* 1. සිරස් ඉරි (Left & Right) අයින් කිරීම */
+.entry-table-scroll table th,
+.entry-table-scroll table td {
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important; /* උඩ ඉරි අයින් කරලා double lines වෙන එක නවත්තමු */
+  border-bottom: 1px solid #e2e8f0 !important; /* යට තිරස් ඉරි විතරක් තියමු */
+}
+
+/* 2. Table එකේ වම් සහ දකුණු කෙළවරට එක ඉරි ගානේ තියමු (frame එකක් වගේ) */
+.entry-table-scroll table {
+  border-left: 1px solid #cbd5e1 !important;
+  border-right: 1px solid #cbd5e1 !important;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+/* 3. Header එකේ යට තියෙන ඉරි එක තද කරමු (පැහැදිලිව පේන්න) */
+.entry-table-scroll table thead th {
+  border-bottom: 2px solid #2c4a7c !important;
+}
+
+/* ===================================================================
+   DAILY LB TABLE — Auto Height & No Inner Scrollbar
+   =================================================================== */
+
+/* 1. Table Scroll container එකේ max-height සහ overflow-y අයින් කිරීම */
+.entry-table-scroll {
+  max-height: none !important;      /* උස limit එක අයින් කළා */
+  overflow-y: visible !important;   /* Scroll bar එක අයින් කළා */
+  overflow-x: auto;                 /* Columns වැඩි නම් horizontal scroll එක තියමු */
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px;
+  position: relative;
+}
+
+/* 2. Table එක monitor එකේ උසට ගැලපෙන්න සහ gap එක අයින් වෙන්න */
+.entry-table-view {
+  min-height: calc(100vh - 220px) !important; /* Screen උස අනුව auto adjust වේ */
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0 !important;
+}
+
+/* 3. Table එක ඉතුරු ඉඩ පුරවන්න */
+.entry-table-scroll {
+  flex: 1 1 auto;
+}
+
+/* 4. Sticky Header එක හරියට වැඩ කරන්න (Page scroll එකේදී) */
+.entry-table-scroll table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #00245E !important;
+}
+
+/* ===================================================================
+   DAILY LB TABLE — Sticky Header Fix
+   =================================================================== */
+
+/* 1. Parent containers වල overflow එක අයින් කිරීම (මේක නැතුව sticky වැඩ කරන්නේ නෑ) */
+#view-entry-daily-lb .panel-body {
+  overflow: visible !important;
+}
+
+.entry-table-scroll {
+  max-height: none !important;
+  overflow: visible !important; /* Scroll bar එක අයින් කරලා නිදහස් කළා */
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px;
+  position: relative;
+}
+
+/* 2. Table Header එක Freeze කිරීම */
+.entry-table-scroll table thead th {
+  position: sticky !important;
+  /* 👇 ඔබේ උඩ තියෙන නිල් පාට header එකේ උස අනුව මේ අගය වෙනස් කරන්න */
+  top: 75px !important; 
+  z-index: 20 !important;
+  background: #00245E !important;
+  border-bottom: 2px solid #2c4a7c !important;
+  box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.15); /* පහළින් සෙවනැල්ලක් (shadow) */
+}
+
+/* ===================================================================
+   DAILY LB TABLE — Horizontal Scroll for Laptop
+   =================================================================== */
+
+/* 1. Container එකට horizontal scroll bar එක දෙන්න */
+.entry-table-scroll {
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: auto !important; /* 👈 මේකෙන් තමයි horizontal scroll bar එක එන්නේ */
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px;
+  position: relative;
+  width: 100%;
+}
+
+/* 2. Table එක හැකිලෙන එක නවත්තලා, අවම පළලක් දෙන්න */
+#dlbEntriesTable {
+  min-width: 1400px !important; /* 👈 Laptop එකේ fit වෙන්නේ නැති වෙන්න මේ ප්‍රමාණය දුන්නා */
+  width: max-content !important; /* Columns ඒවගේ natural size එකට තියාගන්න */
+}
+
+/* 3. Sticky Header එක අලුතෙන් හදනවා (overflow-x එක්ක වැඩ කරන්න) */
+.entry-table-scroll table thead th {
+  position: sticky !important;
+  top: 0 !important; /* scroll කරද්දී table එකේ උඩම කෙළවරේ රැඳෙන්න */
+  z-index: 20 !important;
+  background: #00245E !important;
+  border-bottom: 2px solid #2c4a7c !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

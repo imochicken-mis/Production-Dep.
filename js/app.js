@@ -177,6 +177,7 @@ function showView(key) {
   if (key === "entry-easy-production") initEasyProductionEntry();      // 🆕
   if (key === "entry-csv-uploads") initCsvUploadsEntry();      // 🆕
   if (key === "entry-consumable") initConsumableEntry();      // 🆕
+  if (key === "entry-slaughtered-checklist") initBirdsSlaughteredChecklistEntry();
 
   // Notifications
   if (key === "notify-kpi-01") initNotifyKpi("01");
@@ -297,6 +298,52 @@ async function countWorkingDaysInMonth_(year, month) {
     count++;
   }
   return count;
+}
+
+// ===================================================================
+// Generate next Entry No (format: LBD-000001)
+// ===================================================================
+// ===================================================================
+// Generate next Entry No (format: LBD-000001)
+// ===================================================================
+async function generateNextEntryNo_(cachedRows) {
+  try {
+    let rows = cachedRows;
+
+    // 🆕 If cache is not passed or empty, fallback to API
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      rows = await Api.list("DataLBSummary", { force: true });
+    }
+
+    let maxNum = 0;
+    rows.forEach((r) => {
+      const val = String(r.Entry_No || "").trim();
+      const match = val.match(/^LBD-(\d+)$/i);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (isFinite(n) && n > maxNum) maxNum = n;
+      }
+    });
+
+    const nextNum = maxNum + 1;
+    return "LBD-" + String(nextNum).padStart(6, "0");
+  } catch (err) {
+    console.warn("[Entry No] Failed to generate:", err);
+    // Fallback — timestamp-based (rare)
+    return "LBD-" + String(Date.now()).slice(-6);
+  }
+}
+
+// ===================================================================
+// Get current logged-in username
+// ===================================================================
+function getCurrentUsername_() {
+  try {
+    const user = JSON.parse(sessionStorage.getItem("qa_user") || "null");
+    return user?.username || "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 // ===================================================================
@@ -2462,232 +2509,47 @@ function initRenderingEntry() {
 }
 
 // ===================================================================
-// DATA ENTRY — Daily Production Detail
+// DATA ENTRY — Daily Production Detail (Form 03)
 // ===================================================================
 async function initProductionDetailEntry() {
   const form = document.getElementById("form-production-detail");
   if (!form || form.dataset.bound === "true") return;
   form.dataset.bound = "true";
 
-  const dateEl      = document.getElementById("prdDate");
-  const searchEl    = document.getElementById("prdSearch");
-  const tbodyEl     = document.getElementById("prdItemsBody");
+  // ---- State Variables ----
+  let allMasterItems = [];
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let originalItemsMap_ = {}; 
+  let pendingData_ = null;
+
+  // ---- DOM Elements ----
+  const formWrap = document.getElementById("prdFormPreviewWrap");
+  const tableWrap = document.getElementById("prdTableView");
+  const newRecordBtn = document.getElementById("prdNewRecordBtn");
+  const cancelBtn = document.getElementById("prdCancelBtn");
+  const previewEl = document.getElementById("prdPreview");
+  
+  const dateEl = document.getElementById("prdDate");
+  const searchEl = document.getElementById("prdSearch");
+  const tbodyEl = document.getElementById("prdItemsBody");
   const grandTotalEl = document.getElementById("prdGrandTotal");
 
+  const entriesBody = document.getElementById("prdEntriesBody");
+  const searchTableEl = document.getElementById("prdTableSearch");
+  const fromDateEl = document.getElementById("prdTableFromDate");
+  const toDateEl = document.getElementById("prdTableToDate");
+  const clearFilterBtn = document.getElementById("prdTableClearFilter");
+  const countEl = document.getElementById("prdTableCount");
+
   // Default today's date
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   if (!dateEl.value) dateEl.value = today;
 
-  // -------------------------------------------------------------------
-  // Number formatting (decimal — #,###.## style)
-  // -------------------------------------------------------------------
-  function formatDec_(el) {
-    let raw = String(el.value).replace(/[^\d.]/g, "");
-    const firstDot = raw.indexOf(".");
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-    }
-    if (raw === "") { el.value = ""; return 0; }
-
-    const parts = raw.split(".");
-    const intPart = parts[0] === "" ? "0" : parts[0];
-    const intNum  = parseInt(intPart, 10);
-    const intFmt  = intNum.toLocaleString("en-US");
-
-    if (parts.length === 1) {
-      el.value = intFmt;
-      return intNum;
-    }
-    const decPart = (parts[1] || "").slice(0, 2);
-    el.value = intFmt + "." + decPart;
-    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
-    return isFinite(n) ? n : intNum;
-  }
-
-  function parseNum_(el) {
-    const v = String(el.value).replace(/,/g, "");
-    const n = parseFloat(v);
-    return isFinite(n) ? n : 0;
-  }
-
-  // -------------------------------------------------------------------
-  // Recalculate grand total
-  // -------------------------------------------------------------------
-  function recalcGrandTotal() {
-    const inputs = tbodyEl.querySelectorAll(".entry-item-qty");
-    let total = 0;
-    inputs.forEach((inp) => {
-      const v = parseNum_(inp);
-      if (isFinite(v)) total += v;
-    });
-    grandTotalEl.textContent = total.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  // -------------------------------------------------------------------
-  // Load items from MasterItems sheet
-  // -------------------------------------------------------------------
-  let allItems = [];
-  try {
-    const rows = await Api.list("MasterItems");
-    allItems = rows
-      .filter((r) => r.Code && String(r.Code).trim())
-      .map((r) => ({
-        code: String(r.Code).trim(),
-        name: String(r["Item Name"] || r.Item_Name || "").trim(),
-      }));
-
-    // Sort by code alphabetically
-    allItems.sort((a, b) => a.code.localeCompare(b.code));
-
-    if (allItems.length === 0) {
-      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found in MasterItems.</td></tr>`;
-      return;
-    }
-
-    // Build rows
-    let html = "";
-    allItems.forEach((item) => {
-      html += `
-        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
-          <td>${item.code}</td>
-          <td>${item.name}</td>
-          <td>
-            <input type="text"
-                   class="entry-item-qty"
-                   data-code="${item.code}"
-                   inputmode="decimal"
-                   placeholder="0">
-          </td>
-        </tr>
-      `;
-    });
-    tbodyEl.innerHTML = html;
-
-    // Attach input events
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        formatDec_(inp);
-        recalcGrandTotal();
-      });
-    });
-
-    recalcGrandTotal();
-
-  } catch (err) {
-    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
-    return;
-  }
-
-  // -------------------------------------------------------------------
-  // Search filter (code + name)
-  // -------------------------------------------------------------------
-  searchEl.addEventListener("input", () => {
-    const q = String(searchEl.value || "").trim().toLowerCase();
-    tbodyEl.querySelectorAll("tr").forEach((tr) => {
-      const code = String(tr.dataset.code || "").toLowerCase();
-      const name = String(tr.dataset.name || "").toLowerCase();
-      const match = !q || code.includes(q) || name.includes(q);
-      tr.classList.toggle("item-hidden", !match);
-    });
-  });
-
-  // -------------------------------------------------------------------
-  // Clear button
-  // -------------------------------------------------------------------
-  document.getElementById("prdClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all quantities?")) return;
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
-    searchEl.value = "";
-    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
-    recalcGrandTotal();
-  });
-
-  // -------------------------------------------------------------------
-  // Save (placeholder)
-  // -------------------------------------------------------------------
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const items = [];
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      const qty = parseNum_(inp);
-      if (qty > 0) {
-        const tr = inp.closest("tr");
-        items.push({
-          Item_Code: tr.dataset.code,
-          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
-          Weight: qty,
-        });
-      }
-    });
-
-    const payload = {
-      Date:  dateEl.value,
-      items: items,
-      total: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
-    };
-
-    console.log("[Production Detail Entry] Payload ready:", payload);
-    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nItems: ${items.length}\nTotal: ${payload.total}\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ full payload බලන්න.`);
-  });
-}
-
-// ===================================================================
-// DATA ENTRY — Blast Freezer
-// ===================================================================
-async function initBlastFreezerEntry() {
-  const container = document.getElementById("view-entry-blast-freezer");
-  if (!container || container.dataset.bound === "true") return;
-  container.dataset.bound = "true";
-
-  // -------------------------------------------------------------------
-  // Tab switching
-  // -------------------------------------------------------------------
-  const tabs = container.querySelectorAll(".bf-tab");
-  const contents = container.querySelectorAll(".bf-tab-content");
-
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const target = tab.dataset.bfTab;
-      tabs.forEach((t) => t.classList.toggle("active", t === tab));
-      contents.forEach((c) => {
-        c.classList.toggle("active", c.id === (target === "ledger" ? "bfTabLedger" : "bfTabInOut"));
-      });
-    });
-  });
-
   // ===================================================================
-  // TAB 1 — Daily Blast Freezer Inward Ledger (= Production Detail)
+  // Number Formatting Helpers
   // ===================================================================
-  await initBfLedger_();
-
-  // ===================================================================
-  // TAB 2 — Blast Freezer In Time & Weight
-  // ===================================================================
-  initBfInOut_();
-}
-
-// -------------------------------------------------------------------
-// TAB 1 — Ledger (same as Production Detail)
-// -------------------------------------------------------------------
-async function initBfLedger_() {
-  const form = document.getElementById("form-bf-ledger");
-  if (!form) return;
-
-  const dateEl       = document.getElementById("bflDate");
-  const searchEl     = document.getElementById("bflSearch");
-  const tbodyEl      = document.getElementById("bflItemsBody");
-  const grandTotalEl = document.getElementById("bflGrandTotal");
-
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  if (!dateEl.value) dateEl.value = today;
-
-  // Number formatting helpers
   function formatDec_(el) {
     let raw = String(el.value).replace(/[^\d.]/g, "");
     const firstDot = raw.indexOf(".");
@@ -2712,450 +2574,6 @@ async function initBfLedger_() {
     return isFinite(n) ? n : 0;
   }
 
-  function recalcGrandTotal() {
-    const inputs = tbodyEl.querySelectorAll(".entry-item-qty");
-    let total = 0;
-    inputs.forEach((inp) => { total += parseNum_(inp); });
-    grandTotalEl.textContent = total.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  // Load items from MasterItems
-  try {
-    const rows = await Api.list("MasterItems");
-    const items = rows
-      .filter((r) => r.Code && String(r.Code).trim())
-      .map((r) => ({
-        code: String(r.Code).trim(),
-        name: String(r["Item Name"] || r.Item_Name || "").trim(),
-      }))
-      .sort((a, b) => a.code.localeCompare(b.code));
-
-    if (items.length === 0) {
-      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    items.forEach((item) => {
-      html += `
-        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
-          <td>${item.code}</td>
-          <td>${item.name}</td>
-          <td>
-            <input type="text" class="entry-item-qty" data-code="${item.code}" inputmode="decimal" placeholder="0">
-          </td>
-        </tr>
-      `;
-    });
-    tbodyEl.innerHTML = html;
-
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        formatDec_(inp);
-        recalcGrandTotal();
-      });
-    });
-
-    recalcGrandTotal();
-  } catch (err) {
-    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
-    return;
-  }
-
-  // Search filter
-  searchEl.addEventListener("input", () => {
-    const q = String(searchEl.value || "").trim().toLowerCase();
-    tbodyEl.querySelectorAll("tr").forEach((tr) => {
-      const code = String(tr.dataset.code || "").toLowerCase();
-      const name = String(tr.dataset.name || "").toLowerCase();
-      tr.classList.toggle("item-hidden", !(!q || code.includes(q) || name.includes(q)));
-    });
-  });
-
-  // Clear
-  document.getElementById("bflClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all quantities?")) return;
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
-    searchEl.value = "";
-    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
-    recalcGrandTotal();
-  });
-
-  // Save (placeholder)
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const items = [];
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      const qty = parseNum_(inp);
-      if (qty > 0) {
-        const tr = inp.closest("tr");
-        items.push({
-          Item_Code: tr.dataset.code,
-          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
-          Weight: qty,
-        });
-      }
-    });
-    console.log("[BF Ledger Entry] Payload ready:", {
-      Date: dateEl.value,
-      items,
-      total: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
-    });
-    alert("✅ Payload ready! Console එකේ බලන්න.");
-  });
-}
-
-// -------------------------------------------------------------------
-// TAB 2 — Blast Freezer In Time & Weight
-// -------------------------------------------------------------------
-function initBfInOut_() {
-  const form = document.getElementById("form-bf-inout");
-  if (!form) return;
-
-  const dateEl    = document.getElementById("bfDate");
-  const batchEl   = document.getElementById("bfBatchNo");
-  const tbodyEl   = document.getElementById("bfItemsBody");
-  const addRowBtn = document.getElementById("bfAddRowBtn");
-
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  if (!dateEl.value) dateEl.value = today;
-
-  // Blast Freezer options
-  const BF_OPTIONS_ = ["BF 01", "BF 02", "BF 03", "BF 04", "BF 05", "BF 06", "BF 07", "BF 08"];
-
-  // -------------------------------------------------------------------
-  // Number formatting (decimal)
-  // -------------------------------------------------------------------
-  function formatDec_(el) {
-    let raw = String(el.value).replace(/[^\d.]/g, "");
-    const firstDot = raw.indexOf(".");
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-    }
-    if (raw === "") { el.value = ""; return 0; }
-    const parts = raw.split(".");
-    const intPart = parts[0] === "" ? "0" : parts[0];
-    const intNum = parseInt(intPart, 10);
-    const intFmt = intNum.toLocaleString("en-US");
-    if (parts.length === 1) { el.value = intFmt; return intNum; }
-    const decPart = (parts[1] || "").slice(0, 2);
-    el.value = intFmt + "." + decPart;
-    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
-    return isFinite(n) ? n : intNum;
-  }
-
-  function parseNum_(el) {
-    const v = String(el.value).replace(/,/g, "");
-    const n = parseFloat(v);
-    return isFinite(n) ? n : 0;
-  }
-
-  // -------------------------------------------------------------------
-  // Update row numbers after add/remove
-  // -------------------------------------------------------------------
-  function renumberRows_() {
-    tbodyEl.querySelectorAll("tr").forEach((tr, i) => {
-      tr.querySelector(".bf-row-num").textContent = i + 1;
-    });
-  }
-
-  // -------------------------------------------------------------------
-  // Add a new row
-  // -------------------------------------------------------------------
-  function addRow_() {
-    const tr = document.createElement("tr");
-
-    // Row number
-    const tdNum = document.createElement("td");
-    tdNum.className = "bf-row-num";
-    tdNum.textContent = "1";
-    tr.appendChild(tdNum);
-
-    // Blast Freezer No — dropdown
-    const tdBF = document.createElement("td");
-    const sel = document.createElement("select");
-    sel.className = "entry-item-select";
-    sel.innerHTML = `<option value="">-- Select --</option>` +
-      BF_OPTIONS_.map((o) => `<option value="${o}">${o}</option>`).join("");
-    tdBF.appendChild(sel);
-    tr.appendChild(tdBF);
-
-    // In Time
-    const tdTime = document.createElement("td");
-    const timeInput = document.createElement("input");
-    timeInput.type = "time";
-    timeInput.step = "60";
-    timeInput.className = "entry-item-time";
-    tdTime.appendChild(timeInput);
-    tr.appendChild(tdTime);
-
-    // Weight
-    const tdW = document.createElement("td");
-    const wInput = document.createElement("input");
-    wInput.type = "text";
-    wInput.className = "entry-item-qty";
-    wInput.inputMode = "decimal";
-    wInput.placeholder = "0.00";
-    wInput.addEventListener("input", () => formatDec_(wInput));
-    tdW.appendChild(wInput);
-    tr.appendChild(tdW);
-
-    // Delete button
-    const tdDel = document.createElement("td");
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "btn-del-row";
-    delBtn.textContent = "✕";
-    delBtn.title = "Remove row";
-    delBtn.addEventListener("click", () => {
-      tr.remove();
-      renumberRows_();
-    });
-    tdDel.appendChild(delBtn);
-    tr.appendChild(tdDel);
-
-    tbodyEl.appendChild(tr);
-    renumberRows_();
-  }
-
-  // Fix typo helper — actual append
-  // (Handled in addRow_ properly below)
-
-  // -------------------------------------------------------------------
-  // Add Row button
-  // -------------------------------------------------------------------
-  addRowBtn.addEventListener("click", addRow_);
-
-  // Add first row by default
-  addRow_();
-
-  // Clear
-  document.getElementById("bfClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all fields?")) return;
-    form.reset();
-    dateEl.value = today;
-    tbodyEl.innerHTML = "";
-    addRow_();
-  });
-
-  // Save (placeholder)
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const rows = [];
-    tbodyEl.querySelectorAll("tr").forEach((tr) => {
-      const bfNo  = tr.querySelector(".entry-item-select")?.value || "";
-      const time  = tr.querySelector(".entry-item-time")?.value || "";
-      const wtInp = tr.querySelector(".entry-item-qty");
-      const wt    = wtInp ? parseNum_(wtInp) : 0;
-
-      if (bfNo || time || wt > 0) {
-        rows.push({
-          Blast_Freezer_No: bfNo,
-          In_Time:          time,
-          Weight:           wt,
-        });
-      }
-    });
-
-    const payload = {
-      Date:      dateEl.value,
-      Batch_No:  batchEl.value.trim(),
-      rows:      rows,
-    };
-
-    console.log("[BF In/Out Entry] Payload ready:", payload);
-    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nBatch: ${payload.Batch_No}\nRows: ${rows.length}\n\nConsole එකේ බලන්න.`);
-  });
-}
-
-// ===================================================================
-// DATA ENTRY — Giblet Use for W/Chicken
-// ===================================================================
-function initGibletEntry() {
-  const form = document.getElementById("form-giblet");
-  if (!form || form.dataset.bound === "true") return;
-  form.dataset.bound = "true";
-
-  const dateEl = document.getElementById("gibDate");
-  const qtyEl  = document.getElementById("gibQty");
-
-  // Default today's date
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  if (!dateEl.value) dateEl.value = today;
-
-  // ----- Decimal formatting (#,###.##) -----
-  function formatDec_(el) {
-    let raw = String(el.value).replace(/[^\d.]/g, "");
-    const firstDot = raw.indexOf(".");
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-    }
-    if (raw === "") { el.value = ""; return 0; }
-
-    const parts = raw.split(".");
-    const intPart = parts[0] === "" ? "0" : parts[0];
-    const intNum  = parseInt(intPart, 10);
-    const intFmt  = intNum.toLocaleString("en-US");
-
-    if (parts.length === 1) { el.value = intFmt; return intNum; }
-    const decPart = (parts[1] || "").slice(0, 2);
-    el.value = intFmt + "." + decPart;
-    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
-    return isFinite(n) ? n : intNum;
-  }
-
-  function parseNum_(el) {
-    const v = String(el.value).replace(/,/g, "");
-    const n = parseFloat(v);
-    return isFinite(n) ? n : 0;
-  }
-
-  // Input formatter
-  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
-
-  // Clear
-  document.getElementById("gibClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all fields?")) return;
-    form.reset();
-    dateEl.value = today;
-  });
-
-  // Save (placeholder)
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const payload = {
-      Date:                 dateEl.value,
-      Giblet_Use:           parseNum_(qtyEl),
-    };
-
-    console.log("[Giblet Entry] Payload ready:", payload);
-    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
-  });
-}
-
-// ===================================================================
-// DATA ENTRY — Daily Production Easy Material (WIP)
-// ===================================================================
-function initEasyMaterialEntry() {
-  const form = document.getElementById("form-easy-material");
-  if (!form || form.dataset.bound === "true") return;
-  form.dataset.bound = "true";
-
-  const dateEl = document.getElementById("emDate");
-  const qtyEl  = document.getElementById("emQty");
-
-  // Default today's date
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  if (!dateEl.value) dateEl.value = today;
-
-  // ----- Decimal formatting (#,###.##) -----
-  function formatDec_(el) {
-    let raw = String(el.value).replace(/[^\d.]/g, "");
-    const firstDot = raw.indexOf(".");
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-    }
-    if (raw === "") { el.value = ""; return 0; }
-
-    const parts = raw.split(".");
-    const intPart = parts[0] === "" ? "0" : parts[0];
-    const intNum  = parseInt(intPart, 10);
-    const intFmt  = intNum.toLocaleString("en-US");
-
-    if (parts.length === 1) { el.value = intFmt; return intNum; }
-    const decPart = (parts[1] || "").slice(0, 2);
-    el.value = intFmt + "." + decPart;
-    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
-    return isFinite(n) ? n : intNum;
-  }
-
-  function parseNum_(el) {
-    const v = String(el.value).replace(/,/g, "");
-    const n = parseFloat(v);
-    return isFinite(n) ? n : 0;
-  }
-
-  // Input formatter
-  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
-
-  // Clear
-  document.getElementById("emClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all fields?")) return;
-    form.reset();
-    dateEl.value = today;
-  });
-
-  // Save (placeholder)
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const payload = {
-      Date:                 dateEl.value,
-      Easy_Material_WIP:    parseNum_(qtyEl),
-    };
-
-    console.log("[Easy Material Entry] Payload ready:", payload);
-    alert("✅ Payload ready!\n\nBackend API integration next step එකේදී save වෙයි.\n\nConsole එකේ payload බලන්න.");
-  });
-}
-
-// ===================================================================
-// DATA ENTRY — Daily Easy Production
-// ===================================================================
-async function initEasyProductionEntry() {
-  const form = document.getElementById("form-easy-production");
-  if (!form || form.dataset.bound === "true") return;
-  form.dataset.bound = "true";
-
-  const dateEl       = document.getElementById("epDate");
-  const searchEl     = document.getElementById("epSearch");
-  const tbodyEl      = document.getElementById("epItemsBody");
-  const grandTotalEl = document.getElementById("epGrandTotal");
-  const netWeightEl  = document.getElementById("epNetWeight");
-
-  // Default today's date
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  if (!dateEl.value) dateEl.value = today;
-
-  // -------------------------------------------------------------------
-  // Number formatting helpers
-  // -------------------------------------------------------------------
-  function formatDec_(el) {
-    let raw = String(el.value).replace(/[^\d.]/g, "");
-    const firstDot = raw.indexOf(".");
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-    }
-    if (raw === "") { el.value = ""; return 0; }
-    const parts = raw.split(".");
-    const intPart = parts[0] === "" ? "0" : parts[0];
-    const intNum = parseInt(intPart, 10);
-    const intFmt = intNum.toLocaleString("en-US");
-    if (parts.length === 1) { el.value = intFmt; return intNum; }
-    const decPart = (parts[1] || "").slice(0, 2);
-    el.value = intFmt + "." + decPart;
-    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
-    return isFinite(n) ? n : intNum;
-  }
-
-  function parseNum_(el) {
-    const v = String(el.value).replace(/,/g, "");
-    const n = parseFloat(v);
-    return isFinite(n) ? n : 0;
-  }
-
-  // -------------------------------------------------------------------
-  // Grand total (sum of all item quantities)
-  // -------------------------------------------------------------------
   function recalcGrandTotal() {
     let total = 0;
     tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
@@ -3167,9 +2585,1923 @@ async function initEasyProductionEntry() {
     });
   }
 
-  // -------------------------------------------------------------------
-  // Load items from MasterItemsEasy
-  // -------------------------------------------------------------------
+  // ===================================================================
+  // Load Items into Form
+  // ===================================================================
+  async function loadMasterItems_() {
+    try {
+      const rows = await Api.list("MasterItems");
+      allMasterItems = rows
+        .filter((r) => r.Code && String(r.Code).trim())
+        .map((r) => ({
+          code: String(r.Code).trim(),
+          name: String(r["Item Name"] || r.Item_Name || "").trim(),
+        }))
+        .sort((a, b) => a.code.localeCompare(b.code));
+
+      if (allMasterItems.length === 0) {
+        tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      allMasterItems.forEach((item) => {
+        html += `
+          <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>
+              <input type="text" class="entry-item-qty" data-code="${item.code}" inputmode="decimal" placeholder="0">
+            </td>
+          </tr>
+        `;
+      });
+      tbodyEl.innerHTML = html;
+
+      tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+        inp.addEventListener("input", () => {
+          formatDec_(inp);
+          recalcGrandTotal();
+        });
+      });
+
+      recalcGrandTotal();
+    } catch (err) {
+      tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
+    }
+  }
+
+  // ===================================================================
+  // Table View Logic (Render & Load)
+  // ===================================================================
+  function renderPrdEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    const fromDate = fromDateEl.value;
+    const toDate = toDateEl.value;
+
+    let rows = allEntries_;
+
+    if (q) {
+      rows = rows.filter(r => String(r.Entry_No || "").toLowerCase().includes(q) || String(r.Date || "").includes(q));
+    }
+    if (fromDate) rows = rows.filter(r => String(r.Date || "") >= fromDate);
+    if (toDate) rows = rows.filter(r => String(r.Date || "") <= toDate);
+
+    const totalCount = allEntries_.length;
+    const filteredCount = rows.length;
+    const hasFilter = q || fromDate || toDate;
+    countEl.textContent = hasFilter ? `${filteredCount} of ${totalCount}` : `${totalCount} entries`;
+
+    // Sort newest first (by Entry_No)
+    rows = rows.slice().sort((a, b) => {
+      const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+      const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+      return nb - na;
+    });
+
+    if (rows.length === 0) {
+      entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    const fmtNum = (v, dec = 0) => (Number(v) || 0).toLocaleString("en-US", {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
+    });
+
+    entriesBody.innerHTML = rows.map(r => {
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td>${fmtNum(r.totalItems)}</td>
+          <td>${fmtNum(r.totalWeight, 2)}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No || '')}" title="Edit">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No || '')}" data-date="${escapeHtml_(r.Date || '')}" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function loadPrdEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    countEl.textContent = "loading...";
+
+    try {
+      const data = await Api.list("DataFBPProduction", { force: true });
+      
+      // Group by Entry_No
+      const grouped = {};
+      data.filter(r => String(r.Entry_No || "").trim() !== "").forEach(r => {
+        const en = String(r.Entry_No).trim();
+        if (!grouped[en]) {
+          grouped[en] = {
+            Entry_No: en,
+            Date: r.Date,
+            Entered_By: r.Entered_By,
+            totalItems: 0,
+            totalWeight: 0
+          };
+        }
+        grouped[en].totalItems += 1;
+        grouped[en].totalWeight += Number(r.Weight) || 0;
+      });
+
+      allEntries_ = Object.values(grouped);
+      renderPrdEntriesTable_();
+    } catch (err) {
+      console.error("[Production] Load entries failed:", err);
+      entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#b23b3b;">❌ Failed: ${escapeHtml_(err.message)}</td></tr>`;
+      countEl.textContent = "error";
+    }
+  }
+
+  // ===================================================================
+  // Event Delegation for Table Actions
+  // ===================================================================
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) {
+      handleEditPrdRow_(editBtn.dataset.entryNo);
+      return;
+    }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) {
+      handleDeletePrdRow_(delBtn.dataset.entryNo, delBtn.dataset.date);
+      return;
+    }
+  });
+
+  // ===================================================================
+  // Generate Next Entry No (PRD-000001)
+  // ===================================================================
+  async function generateNextPrdEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataFBPProduction", { force: true });
+        const grouped = {};
+        rows.forEach(r => { if (r.Entry_No) grouped[r.Entry_No] = true; });
+        entries = Object.keys(grouped).map(k => ({ Entry_No: k }));
+      }
+
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const val = String(r.Entry_No || "").trim();
+        const match = val.match(/^PRD-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+
+      const nextNum = maxNum + 1;
+      return "PRD-" + String(nextNum).padStart(6, "0");
+    } catch (err) {
+      console.warn("[PRD Entry No] Failed:", err);
+      return "PRD-" + String(Date.now()).slice(-6);
+    }
+  }
+
+  // ===================================================================
+  // Edit & Delete Handlers
+  // ===================================================================
+  async function handleEditPrdRow_(entryNo) {
+    if (!entryNo) return;
+    try {
+      const rows = await Api.list("DataFBPProduction", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      if (entryRows.length === 0) {
+        alert("❌ Entry not found.");
+        return;
+      }
+
+      editingEntryNo_ = entryNo;
+      originalItemsMap_ = {}; // Reset map
+      
+      // Store original map for comparison later
+      entryRows.forEach(r => {
+        const code = String(r.Item_Code).trim();
+        originalItemsMap_[code] = {
+          weight: Number(r.Weight) || 0,
+          rowIndex: r._rowIndex
+        };
+      });
+
+      // Fill Form
+      dateEl.value = entryRows[0].Date;
+      tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => {
+        const code = inp.dataset.code;
+        const qty = originalItemsMap_[code] ? originalItemsMap_[code].weight : 0;
+        inp.value = qty > 0 ? qty.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : "";
+      });
+      recalcGrandTotal();
+
+      // UI Changes
+      document.getElementById("prdSaveBtn").innerHTML = "🔄 Update Record";
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) {
+      alert(`❌ Failed to load entry: ${err.message}`);
+    }
+  }
+
+  async function handleDeletePrdRow_(entryNo, dateStr) {
+    if (!entryNo) return;
+    const ok = confirm(`🗑️ Delete Entry ${entryNo} (Date: ${formatDateDMY_(dateStr)})?\n\nThis will move all items to the archive and remove them from the active list.`);
+    if (!ok) return;
+
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      // Fetch fresh data to get _rowIndex
+      const rows = await Api.list("DataFBPProduction", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      const now = new Date();
+      const delTs = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const delUser = getCurrentUsername_();
+
+      // Archive and Delete
+      for (const r of entryRows) {
+        const archiveData = { ...r };
+        delete archiveData._rowIndex;
+        archiveData.Deleted_At = delTs;
+        archiveData.Deleted_By = delUser;
+        
+        await Api.append("Deleted_DataFBPProduction", [archiveData]);
+        await Api.delete("DataFBPProduction", r._rowIndex);
+      }
+
+      if (editingEntryNo_ === entryNo) resetPrdEditState_();
+      await loadPrdEntries_();
+      alert(`✅ Entry ${entryNo} deleted and archived.`);
+    } catch (err) {
+      alert(`❌ Delete failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  function resetPrdEditState_() {
+    editingEntryNo_ = null;
+    originalItemsMap_ = {};
+    document.getElementById("prdSaveBtn").innerHTML = "💾 Save Record";
+  }
+
+  // ===================================================================
+  // Form Submit -> Preview
+  // ===================================================================
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a date."); return; }
+
+    // Collect items with weight > 0
+    const items = [];
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => {
+      const qty = parseNum_(inp);
+      if (qty > 0) {
+        const tr = inp.closest("tr");
+        items.push({
+          Item_Code: tr.dataset.code,
+          Item_Name: tr.querySelector("td:nth-child(2)").textContent.trim(),
+          Weight: qty
+        });
+      }
+    });
+
+    if (items.length === 0) {
+      alert("Please enter weight for at least one item.");
+      return;
+    }
+
+    // Create Preview HTML
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>`;
+    items.forEach(it => {
+      previewHtml += `
+        <div class="preview-item">
+          <span class="preview-label">${escapeHtml_(it.Item_Code)} - ${escapeHtml_(it.Item_Name)}</span>
+          <span class="preview-value">${formatNum_(it.Weight, 2)} kg</span>
+        </div>
+      `;
+    });
+    previewHtml += `
+      <div class="preview-item highlight" style="margin-top:10px;">
+        <span class="preview-label">Total Weight</span>
+        <span class="preview-value" style="font-size:16px;">${grandTotalEl.textContent} kg</span>
+      </div>
+    `;
+    document.getElementById("prdPreviewBody").innerHTML = previewHtml;
+
+    // Setup Entry No
+    const entryNoEl = document.getElementById("prdPreviewEntryNo");
+    const enteredByEl = document.getElementById("prdPreviewEnteredBy");
+    
+    let currentEntryNo = editingEntryNo_;
+    if (!currentEntryNo) {
+      entryNoEl.textContent = "loading...";
+      currentEntryNo = await generateNextPrdEntryNo_(allEntries_);
+    }
+    entryNoEl.textContent = currentEntryNo;
+    enteredByEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    // Store Pending Data
+    pendingData_ = {
+      entryNo: currentEntryNo,
+      date: dateEl.value,
+      items: items,
+      enteredBy: getCurrentUsername_()
+    };
+
+    // Show Preview
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  // ===================================================================
+  // Preview Buttons (Edit / Confirm)
+  // ===================================================================
+  document.getElementById("prdEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none";
+    formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("prdConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const confirmBtn = document.getElementById("prdConfirmBtn");
+    const ogText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ Saving...";
+
+    try {
+      const now = new Date();
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      
+      const isUpdate = !!editingEntryNo_;
+
+      if (!isUpdate) {
+        // --- APPEND NEW ---
+        const rowsToAppend = pendingData_.items.map(it => ({
+          Timestamp: ts,
+          Date: pendingData_.date,
+          Item_Code: it.Item_Code,
+          Item_Name: it.Item_Name,
+          Weight: it.Weight,
+          Entry_No: pendingData_.entryNo,
+          Entered_By: pendingData_.enteredBy
+        }));
+        await Api.append("DataFBPProduction", rowsToAppend);
+      } else {
+        // --- UPDATE EXISTING (Row by Row Logic) ---
+        // 1. Fetch fresh rows to get rowIndexes
+        const freshRows = await Api.list("DataFBPProduction", { force: true });
+        const currentEntryRows = freshRows.filter(r => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+        
+        const currentEntryMap = {};
+        currentEntryRows.forEach(r => { currentEntryMap[String(r.Item_Code).trim()] = r; });
+
+        // 2. Compare and Update/Append
+        for (const item of pendingData_.items) {
+          const code = item.Item_Code;
+          const oldRow = currentEntryMap[code];
+
+          if (oldRow) {
+            // Row exists. Did weight change?
+            if (Number(oldRow.Weight) !== item.Weight || oldRow.Date !== pendingData_.date) {
+              await Api.update("DataFBPProduction", oldRow._rowIndex, {
+                Date: pendingData_.date,
+                Weight: item.Weight,
+                Edit_Date_Time: ts,
+                Edited_By: user
+              });
+            }
+          } else {
+            // Row is new to this entry
+            await Api.append("DataFBPProduction", [{
+              Timestamp: ts,
+              Date: pendingData_.date,
+              Item_Code: code,
+              Item_Name: item.Item_Name,
+              Weight: item.Weight,
+              Entry_No: pendingData_.entryNo,
+              Entered_By: pendingData_.enteredBy,
+              Edit_Date_Time: ts,
+              Edited_By: user
+            }]);
+          }
+        }
+
+        // 3. Check for deleted items (exists in sheet but not in form)
+        for (const oldRow of currentEntryRows) {
+          if (!pendingData_.items.find(i => i.Item_Code === oldRow.Item_Code)) {
+            await Api.delete("DataFBPProduction", oldRow._rowIndex);
+          }
+        }
+      }
+
+      alert(`✅ Record ${isUpdate ? 'updated' : 'saved'} successfully!\nEntry No: ${pendingData_.entryNo}`);
+      
+      // Reset UI
+      pendingData_ = null;
+      form.reset();
+      dateEl.value = today;
+      recalcGrandTotal();
+      previewEl.style.display = "none";
+      formWrap.classList.remove("preview-active");
+      resetPrdEditState_();
+      
+      await loadPrdEntries_();
+      formWrap.style.display = "none";
+      tableWrap.style.display = "block";
+
+    } catch (err) {
+      console.error("[PRD Save] Failed:", err);
+      alert(`❌ Failed: ${err.message}`);
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = ogText;
+    }
+  });
+
+  // ===================================================================
+  // View Toggles & Initialization
+  // ===================================================================
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none";
+    formWrap.style.display = "flex";
+    form.reset();
+    dateEl.value = today;
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach(tr => tr.classList.remove("item-hidden"));
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => inp.value = "");
+    recalcGrandTotal();
+    resetPrdEditState_();
+    formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none";
+    tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("prdClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => inp.value = "");
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach(tr => tr.classList.remove("item-hidden"));
+    recalcGrandTotal();
+  });
+
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const code = String(tr.dataset.code || "").toLowerCase();
+      const name = String(tr.dataset.name || "").toLowerCase();
+      tr.classList.toggle("item-hidden", !(!q || code.includes(q) || name.includes(q)));
+    });
+  });
+
+  let searchTimer_ = null;
+  searchTableEl.addEventListener("input", () => {
+    clearTimeout(searchTimer_);
+    searchTimer_ = setTimeout(renderPrdEntriesTable_, 150);
+  });
+  fromDateEl.addEventListener("change", renderPrdEntriesTable_);
+  toDateEl.addEventListener("change", renderPrdEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => {
+    searchTableEl.value = "";
+    fromDateEl.value = "";
+    toDateEl.value = "";
+    renderPrdEntriesTable_();
+  });
+
+  // Initial Load
+  await loadMasterItems_();
+  await loadPrdEntries_();
+  
+  // Default to Table View
+  formWrap.style.display = "none";
+  tableWrap.style.display = "block";
+}
+
+// ===================================================================
+// DATA ENTRY — Blast Freezer (Both Tabs)
+// ===================================================================
+async function initBlastFreezerEntry() {
+  const container = document.getElementById("view-entry-blast-freezer");
+  if (!container || container.dataset.bound === "true") return;
+  container.dataset.bound = "true";
+
+  // Tab Switching Logic
+  const tabs = container.querySelectorAll(".bf-tab");
+  const contents = container.querySelectorAll(".bf-tab-content");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.bfTab;
+      tabs.forEach((t) => t.classList.toggle("active", t === tab));
+      contents.forEach((c) => {
+        c.classList.toggle("active", c.id === (target === "ledger" ? "bfTabLedger" : "bfTabInOut"));
+      });
+    });
+  });
+
+  // Helpers
+  const getCurrentUsername_ = () => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("qa_user") || "null");
+      return user?.username || "unknown";
+    } catch { return "unknown"; }
+  };
+
+  const formatDec_ = (el) => {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  };
+
+  const parseNum_ = (el) => {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  };
+
+  // =================================================================
+  // TAB 1: LEDGER LOGIC
+  // =================================================================
+  await initBfl_(container, getCurrentUsername_, formatDec_, parseNum_);
+
+  // =================================================================
+  // TAB 2: IN/OUT LOGIC
+  // =================================================================
+  initBfi_(container, getCurrentUsername_, formatDec_, parseNum_);
+}
+
+// ===================================================================
+// TAB 1 — Ledger Logic
+// ===================================================================
+async function initBfl_(container, getCurrentUsername_, formatDec_, parseNum_) {
+  const form = document.getElementById("form-bf-ledger");
+  if (!form) return;
+
+  let allMasterItems = [];
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let originalItemsMap_ = {};
+  let pendingData_ = null;
+
+  const formWrap = document.getElementById("bflFormPreviewWrap");
+  const tableWrap = document.getElementById("bflTableView");
+  const newRecordBtn = document.getElementById("bflNewRecordBtn");
+  const cancelBtn = document.getElementById("bflCancelBtn");
+  const previewEl = document.getElementById("bflPreview");
+  
+  const dateEl = document.getElementById("bflDate");
+  const searchEl = document.getElementById("bflSearch");
+  const tbodyEl = document.getElementById("bflItemsBody");
+  const grandTotalEl = document.getElementById("bflGrandTotal");
+
+  const entriesBody = document.getElementById("bflEntriesBody");
+  const searchTableEl = document.getElementById("bflTableSearch");
+  const fromDateEl = document.getElementById("bflTableFromDate");
+  const toDateEl = document.getElementById("bflTableToDate");
+  const clearFilterBtn = document.getElementById("bflTableClearFilter");
+  const countEl = document.getElementById("bflTableCount");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // Load Master Items
+  try {
+    const rows = await Api.list("MasterItems");
+    allMasterItems = rows
+      .filter((r) => r.Code && String(r.Code).trim())
+      .map((r) => ({ code: String(r.Code).trim(), name: String(r["Item Name"] || "").trim() }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    let html = "";
+    allMasterItems.forEach((item) => {
+      html += `<tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+          <td>${item.code}</td><td>${item.name}</td>
+          <td><input type="text" class="entry-item-qty" data-code="${item.code}" inputmode="decimal" placeholder="0"></td>
+      </tr>`;
+    });
+    tbodyEl.innerHTML = html;
+
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      inp.addEventListener("input", () => { formatDec_(inp); recalcGrandTotal(); });
+    });
+    recalcGrandTotal();
+  } catch (err) {
+    tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed: ${err.message}</td></tr>`;
+  }
+
+  function recalcGrandTotal() {
+    let total = 0;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { total += parseNum_(inp); });
+    grandTotalEl.textContent = total.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  // Render Table
+  function renderBflEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter(r => {
+      const matchQ = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo = !toDateEl.value || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    entriesBody.innerHTML = rows.map(r => `
+      <tr data-entry-no="${r.Entry_No}" class="${editingEntryNo_ === r.Entry_No ? 'editing-row' : ''}">
+        <td>${r.Entry_No}</td>
+        <td>${formatDateDMY_(r.Date)}</td>
+        <td>${r.totalItems}</td>
+        <td>${(r.totalWeight).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+        <td>${r.Entered_By}</td>
+        <td class="row-actions">
+          <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${r.Entry_No}" title="Edit">✏️</button>
+          <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${r.Entry_No}" data-date="${r.Date}" title="Delete">🗑️</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  async function loadBflEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    try {
+      const data = await Api.list("DataPackingChillWeight", { force: true });
+      const grouped = {};
+      data.filter(r => String(r.Entry_No || "").trim() !== "").forEach(r => {
+        const en = String(r.Entry_No).trim();
+        if (!grouped[en]) grouped[en] = { Entry_No: en, Date: r.Date, Entered_By: r.Entered_By, totalItems: 0, totalWeight: 0 };
+        grouped[en].totalItems += 1;
+        grouped[en].totalWeight += Number(r.Weight) || 0;
+      });
+      allEntries_ = Object.values(grouped);
+      renderBflEntriesTable_();
+    } catch (err) {
+      entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#b23b3b;">Error: ${err.message}</td></tr>`;
+    }
+  }
+
+  // Event Delegation
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) handleEditBfl_(editBtn.dataset.entryNo);
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) handleDeleteBfl_(delBtn.dataset.entryNo, delBtn.dataset.date);
+  });
+
+  async function handleEditBfl_(entryNo) {
+    try {
+      const rows = await Api.list("DataPackingChillWeight", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      if (!entryRows.length) return alert("Entry not found.");
+
+      editingEntryNo_ = entryNo;
+      originalItemsMap_ = {};
+      entryRows.forEach(r => {
+        originalItemsMap_[String(r.Item_Code).trim()] = { weight: Number(r.Weight) || 0, rowIndex: r._rowIndex };
+      });
+
+      dateEl.value = entryRows[0].Date;
+      tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => {
+        const qty = originalItemsMap_[inp.dataset.code]?.weight || 0;
+        inp.value = qty > 0 ? qty.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : "";
+      });
+      recalcGrandTotal();
+
+      document.getElementById("bflSaveBtn").innerHTML = "🔄 Update Record";
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) { alert(`Failed: ${err.message}`); }
+  }
+
+  async function handleDeleteBfl_(entryNo, dateStr) {
+    if (!confirm(`🗑️ Delete Entry ${entryNo}?\nThis will archive it.`)) return;
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${entryNo}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+    try {
+      const rows = await Api.list("DataPackingChillWeight", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      const now = new Date();
+      const delTs = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      
+      for (const r of entryRows) {
+        const arch = { ...r }; delete arch._rowIndex;
+        arch.Deleted_At = delTs; arch.Deleted_By = getCurrentUsername_();
+        await Api.append("Deleted_Data_Packing_ChillWeight", [arch]);
+        await Api.delete("DataPackingChillWeight", r._rowIndex);
+      }
+      if (editingEntryNo_ === entryNo) resetBflEdit_();
+      await loadBflEntries_();
+      alert(`✅ Entry ${entryNo} archived.`);
+    } catch (err) { alert(`Failed: ${err.message}`); if (btn) { btn.disabled = false; btn.textContent = "🗑️"; } }
+  }
+
+    // ===================================================================
+  // 🆕 Generate Next Entry No (BFL-000001)
+  // ===================================================================
+  async function generateNextBflEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      // Fallback to API if cache is empty
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataPackingChillWeight", { force: true });
+        const grouped = {};
+        rows.forEach(r => { if (r.Entry_No) grouped[r.Entry_No] = true; });
+        entries = Object.keys(grouped).map(k => ({ Entry_No: k }));
+      }
+
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const val = String(r.Entry_No || "").trim();
+        const match = val.match(/^BFL-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+
+      const nextNum = maxNum + 1;
+      return "BFL-" + String(nextNum).padStart(6, "0");
+    } catch (err) {
+      console.warn("[BFL Entry No] Failed:", err);
+      return "BFL-" + String(Date.now()).slice(-6);
+    }
+  }
+
+  function resetBflEdit_() {
+    editingEntryNo_ = null;
+    originalItemsMap_ = {};
+    document.getElementById("bflSaveBtn").innerHTML = "💾 Save Record";
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const items = [];
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => {
+      const qty = parseNum_(inp);
+      if (qty > 0) items.push({ Item_Code: inp.dataset.code, Item_Name: inp.closest("tr").querySelector("td:nth-child(2)").textContent, Weight: qty });
+    });
+    if (!items.length) return alert("Enter at least one weight.");
+
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>`;
+    items.forEach(it => previewHtml += `<div class="preview-item"><span class="preview-label">${it.Item_Code} - ${it.Item_Name}</span><span class="preview-value">${it.Weight.toLocaleString()} kg</span></div>`);
+    document.getElementById("bflPreviewBody").innerHTML = previewHtml;
+
+    const enEl = document.getElementById("bflPreviewEntryNo");
+    const ebEl = document.getElementById("bflPreviewEnteredBy");
+    
+    let en = editingEntryNo_;
+    if (!en) { enEl.textContent = "loading..."; en = await generateNextBflEntryNo_(allEntries_); }
+    enEl.textContent = en;
+    ebEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    pendingData_ = { entryNo: en, date: dateEl.value, items, enteredBy: getCurrentUsername_() };
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  document.getElementById("bflEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none"; formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("bflConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const btn = document.getElementById("bflConfirmBtn"); btn.disabled = true; btn.textContent = "⏳ Saving...";
+    try {
+      const now = new Date();
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      
+      if (!editingEntryNo_) {
+        const toApp = pendingData_.items.map(it => ({
+          Timestamp: ts, Date: pendingData_.date, Item_Code: it.Item_Code, Item_Name: it.Item_Name, Weight: it.Weight, Entry_No: pendingData_.entryNo, Entered_By: pendingData_.enteredBy
+        }));
+        await Api.append("DataPackingChillWeight", toApp);
+      } else {
+        const fresh = await Api.list("DataPackingChillWeight", { force: true });
+        const cRows = fresh.filter(r => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+        const cMap = {}; cRows.forEach(r => cMap[String(r.Item_Code).trim()] = r);
+
+        for (const item of pendingData_.items) {
+          const old = cMap[item.Item_Code];
+          if (old) {
+            if (Number(old.Weight) !== item.Weight || old.Date !== pendingData_.date) {
+              await Api.update("DataPackingChillWeight", old._rowIndex, { Date: pendingData_.date, Weight: item.Weight, Edit_Date_Time: ts, Edited_By: user });
+            }
+          } else {
+            await Api.append("DataPackingChillWeight", [{ Timestamp: ts, Date: pendingData_.date, Item_Code: item.Item_Code, Item_Name: item.Item_Name, Weight: item.Weight, Entry_No: pendingData_.entryNo, Entered_By: pendingData_.enteredBy, Edit_Date_Time: ts, Edited_By: user }]);
+          }
+        }
+        for (const old of cRows) {
+          if (!pendingData_.items.find(i => i.Item_Code === old.Item_Code)) await Api.delete("DataPackingChillWeight", old._rowIndex);
+        }
+      }
+      alert(`✅ Saved! Entry: ${pendingData_.entryNo}`);
+      pendingData_ = null; form.reset(); dateEl.value = today; recalcGrandTotal();
+      previewEl.style.display = "none"; formWrap.classList.remove("preview-active"); resetBflEdit_();
+      await loadBflEntries_(); formWrap.style.display = "none"; tableWrap.style.display = "block";
+    } catch (err) { alert(`Failed: ${err.message}`); } finally { btn.disabled = false; btn.textContent = "✅ Confirm & Save"; }
+  });
+
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none"; formWrap.style.display = "flex";
+    form.reset(); dateEl.value = today; searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach(tr => tr.classList.remove("item-hidden"));
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => inp.value = "");
+    recalcGrandTotal(); resetBflEdit_(); formWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none"; tableWrap.style.display = "block";
+  });
+
+  document.getElementById("bflClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach(inp => inp.value = "");
+    searchEl.value = ""; tbodyEl.querySelectorAll("tr").forEach(tr => tr.classList.remove("item-hidden")); recalcGrandTotal();
+  });
+
+  searchEl.addEventListener("input", () => {
+    const q = String(searchEl.value || "").trim().toLowerCase();
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const match = !q || String(tr.dataset.code).includes(q) || String(tr.dataset.name).includes(q);
+      tr.classList.toggle("item-hidden", !match);
+    });
+  });
+
+  let st1 = null;
+  searchTableEl.addEventListener("input", () => { clearTimeout(st1); st1 = setTimeout(renderBflEntriesTable_, 150); });
+  fromDateEl.addEventListener("change", renderBflEntriesTable_);
+  toDateEl.addEventListener("change", renderBflEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => { searchTableEl.value = ""; fromDateEl.value = ""; toDateEl.value = ""; renderBflEntriesTable_(); });
+
+  await loadBflEntries_();
+  formWrap.style.display = "none"; tableWrap.style.display = "block";
+}
+
+// ===================================================================
+// TAB 2 — In Time & Weight Logic
+// ===================================================================
+function initBfi_(container, getCurrentUsername_, formatDec_, parseNum_) {
+  const form = document.getElementById("form-bf-inout");
+  if (!form) return;
+
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let originalRowsMap_ = {};
+  let pendingData_ = null;
+
+  const formWrap = document.getElementById("bfiFormPreviewWrap");
+  const tableWrap = document.getElementById("bfiTableView");
+  const newRecordBtn = document.getElementById("bfiNewRecordBtn");
+  const cancelBtn = document.getElementById("bfiCancelBtn");
+  const previewEl = document.getElementById("bfiPreview");
+  
+  const dateEl = document.getElementById("bfDate");
+  const batchEl = document.getElementById("bfBatchNo");
+  const tbodyEl = document.getElementById("bfItemsBody");
+  const addRowBtn = document.getElementById("bfAddRowBtn");
+
+  const entriesBody = document.getElementById("bfiEntriesBody");
+  const searchTableEl = document.getElementById("bfiTableSearch");
+  const fromDateEl = document.getElementById("bfiTableFromDate");
+  const toDateEl = document.getElementById("bfiTableToDate");
+  const clearFilterBtn = document.getElementById("bfiTableClearFilter");
+  const countEl = document.getElementById("bfiTableCount");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  const BF_OPTIONS_ = ["BF 01", "BF 02", "BF 03", "BF 04", "BF 05", "BF 06", "BF 07", "BF 08"];
+
+  function renumberRows_() {
+    tbodyEl.querySelectorAll("tr").forEach((tr, i) => { tr.querySelector(".bf-row-num").textContent = i + 1; });
+  }
+
+  function addRow_(data = null) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="bf-row-num">1</td>
+      <td>
+        <select class="entry-item-select">
+          <option value="">-- Select --</option>
+          ${BF_OPTIONS_.map(o => `<option value="${o}">${o}</option>`).join("")}
+        </select>
+      </td>
+      <td><input type="time" step="60" class="entry-item-time"></td>
+      <td><input type="text" class="entry-item-qty" inputmode="decimal" placeholder="0.00"></td>
+      <td><button type="button" class="btn-del-row" title="Remove">✕</button></td>
+    `;
+
+    if (data) {
+      tr.querySelector(".entry-item-select").value = data.bfNo || "";
+      tr.querySelector(".entry-item-time").value = data.time || "";
+      const wInp = tr.querySelector(".entry-item-qty");
+      wInp.value = data.wt > 0 ? Number(data.wt).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}) : "";
+    }
+
+    const wInp = tr.querySelector(".entry-item-qty");
+    wInp.addEventListener("input", () => formatDec_(wInp));
+    tr.querySelector(".btn-del-row").addEventListener("click", () => { tr.remove(); renumberRows_(); });
+    
+    tbodyEl.appendChild(tr);
+    renumberRows_();
+  }
+
+  // Render Table
+  function renderBfiEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter(r => {
+      const matchQ = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q) || String(r.Batch_No).toLowerCase().includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo = !toDateEl.value || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="7" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    entriesBody.innerHTML = rows.map(r => `
+      <tr data-entry-no="${r.Entry_No}" class="${editingEntryNo_ === r.Entry_No ? 'editing-row' : ''}">
+        <td>${r.Entry_No}</td>
+        <td>${formatDateDMY_(r.Date)}</td>
+        <td>${r.Batch_No}</td>
+        <td>${r.totalRows}</td>
+        <td>${(r.totalWeight).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+        <td>${r.Entered_By}</td>
+        <td class="row-actions">
+          <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${r.Entry_No}" title="Edit">✏️</button>
+          <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${r.Entry_No}" data-date="${r.Date}" title="Delete">🗑️</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  async function loadBfiEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    try {
+      const data = await Api.list("DataPackingBlastFreezerTime", { force: true });
+      const grouped = {};
+      data.filter(r => String(r.Entry_No || "").trim() !== "").forEach(r => {
+        const en = String(r.Entry_No).trim();
+        if (!grouped[en]) grouped[en] = { Entry_No: en, Date: r.Date, Batch_No: r["Batch No"] || r.Batch_No, Entered_By: r.Entered_By, totalRows: 0, totalWeight: 0 };
+        grouped[en].totalRows += 1;
+        grouped[en].totalWeight += Number(r["Weight (Kg)"] || r.Weight) || 0;
+      });
+      allEntries_ = Object.values(grouped);
+      renderBfiEntriesTable_();
+    } catch (err) {
+      entriesBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#b23b3b;">Error: ${err.message}</td></tr>`;
+    }
+  }
+
+  // Event Delegation
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) handleEditBfi_(editBtn.dataset.entryNo);
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) handleDeleteBfi_(delBtn.dataset.entryNo, delBtn.dataset.date);
+  });
+
+  async function handleEditBfi_(entryNo) {
+    try {
+      const rows = await Api.list("DataPackingBlastFreezerTime", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      if (!entryRows.length) return alert("Entry not found.");
+
+      editingEntryNo_ = entryNo;
+      originalRowsMap_ = {}; 
+      
+      // Map by BF No + In Time to uniquely identify rows
+      entryRows.forEach((r, idx) => {
+        const key = `${r["Blast Freezer No"] || r.Blast_Freezer_No}|${r["In Time"] || r.In_Time}`;
+        originalRowsMap_[key] = { weight: Number(r["Weight (Kg)"] || r.Weight) || 0, rowIndex: r._rowIndex, raw: r };
+      });
+
+      dateEl.value = entryRows[0].Date;
+      batchEl.value = entryRows[0]["Batch No"] || entryRows[0].Batch_No || "";
+      
+      tbodyEl.innerHTML = "";
+      entryRows.forEach(r => {
+        addRow_({
+          bfNo: r["Blast Freezer No"] || r.Blast_Freezer_No,
+          time: r["In Time"] || r.In_Time,
+          wt: Number(r["Weight (Kg)"] || r.Weight) || 0
+        });
+      });
+
+      document.getElementById("bfiSaveBtn").innerHTML = "🔄 Update Record";
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) { alert(`Failed: ${err.message}`); }
+  }
+
+  async function handleDeleteBfi_(entryNo, dateStr) {
+    if (!confirm(`🗑️ Delete Entry ${entryNo}?\nThis will archive it.`)) return;
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${entryNo}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+    try {
+      const rows = await Api.list("DataPackingBlastFreezerTime", { force: true });
+      const entryRows = rows.filter(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      const now = new Date();
+      const delTs = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      
+      for (const r of entryRows) {
+        const arch = { ...r }; delete arch._rowIndex;
+        arch.Deleted_At = delTs; arch.Deleted_By = getCurrentUsername_();
+        await Api.append("Deleted_Data_Packing_BlastFreezerTime", [arch]);
+        await Api.delete("DataPackingBlastFreezerTime", r._rowIndex);
+      }
+      if (editingEntryNo_ === entryNo) resetBfiEdit_();
+      await loadBfiEntries_();
+      alert(`✅ Entry ${entryNo} archived.`);
+    } catch (err) { alert(`Failed: ${err.message}`); if (btn) { btn.disabled = false; btn.textContent = "🗑️"; } }
+  }
+
+    // ===================================================================
+  // 🆕 Generate Next Entry No (BFI-000001)
+  // ===================================================================
+  async function generateNextBfiEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      // Fallback to API if cache is empty
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataPackingBlastFreezerTime", { force: true });
+        const grouped = {};
+        rows.forEach(r => { if (r.Entry_No) grouped[r.Entry_No] = true; });
+        entries = Object.keys(grouped).map(k => ({ Entry_No: k }));
+      }
+
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const val = String(r.Entry_No || "").trim();
+        const match = val.match(/^BFI-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+
+      const nextNum = maxNum + 1;
+      return "BFI-" + String(nextNum).padStart(6, "0");
+    } catch (err) {
+      console.warn("[BFI Entry No] Failed:", err);
+      return "BFI-" + String(Date.now()).slice(-6);
+    }
+  }
+
+  function resetBfiEdit_() {
+    editingEntryNo_ = null;
+    originalRowsMap_ = {};
+    document.getElementById("bfiSaveBtn").innerHTML = "💾 Save Record";
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const batch = batchEl.value.trim();
+    if (!batch) return alert("Batch No is required.");
+
+    const items = [];
+    tbodyEl.querySelectorAll("tr").forEach(tr => {
+      const bfNo = tr.querySelector(".entry-item-select")?.value;
+      const time = tr.querySelector(".entry-item-time")?.value;
+      const wInp = tr.querySelector(".entry-item-qty");
+      const wt = wInp ? parseNum_(wInp) : 0;
+      if (bfNo || time || wt > 0) items.push({ bfNo, time, wt });
+    });
+
+    if (!items.length) return alert("Please fill at least one row.");
+
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>
+                       <div class="preview-item"><span class="preview-label">Batch No</span><span class="preview-value">${batch}</span></div>`;
+    items.forEach(it => previewHtml += `<div class="preview-item"><span class="preview-label">${it.bfNo} (${it.time})</span><span class="preview-value">${it.wt.toLocaleString()} kg</span></div>`);
+    document.getElementById("bfiPreviewBody").innerHTML = previewHtml;
+
+    const enEl = document.getElementById("bfiPreviewEntryNo");
+    const ebEl = document.getElementById("bfiPreviewEnteredBy");
+    
+    let en = editingEntryNo_;
+    if (!en) { enEl.textContent = "loading..."; en = await generateNextBfiEntryNo_(allEntries_); }
+    enEl.textContent = en;
+    ebEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    pendingData_ = { entryNo: en, date: dateEl.value, batch, items, enteredBy: getCurrentUsername_() };
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  document.getElementById("bfiEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none"; formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("bfiConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const btn = document.getElementById("bfiConfirmBtn"); btn.disabled = true; btn.textContent = "⏳ Saving...";
+    try {
+      const now = new Date();
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      
+      if (!editingEntryNo_) {
+        const toApp = pendingData_.items.map(it => ({
+          Timestamp: ts, Date: pendingData_.date, "Batch No": pendingData_.batch, "Blast Freezer No": it.bfNo, "In Time": it.time, "Weight (Kg)": it.wt, Entry_No: pendingData_.entryNo, Entered_By: pendingData_.enteredBy
+        }));
+        await Api.append("DataPackingBlastFreezerTime", toApp);
+      } else {
+        // UPDATE LOGIC
+        const fresh = await Api.list("DataPackingBlastFreezerTime", { force: true });
+        const cRows = fresh.filter(r => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+        const cMap = {}; 
+        cRows.forEach(r => {
+           const key = `${r["Blast Freezer No"]}|${r["In Time"]}`;
+           cMap[key] = r;
+        });
+
+        for (const item of pendingData_.items) {
+          const key = `${item.bfNo}|${item.time}`;
+          const old = cMap[key];
+          if (old) {
+            const oldWt = Number(old["Weight (Kg)"]) || 0;
+            if (oldWt !== item.wt || old.Date !== pendingData_.date || old["Batch No"] !== pendingData_.batch) {
+              await Api.update("DataPackingBlastFreezerTime", old._rowIndex, {
+                Date: pendingData_.date, "Batch No": pendingData_.batch, "Weight (Kg)": item.wt, Edit_Date_Time: ts, Edited_By: user
+              });
+            }
+            delete cMap[key]; // Mark as processed
+          } else {
+            await Api.append("DataPackingBlastFreezerTime", [{
+              Timestamp: ts, Date: pendingData_.date, "Batch No": pendingData_.batch, "Blast Freezer No": item.bfNo, "In Time": item.time, "Weight (Kg)": item.wt, Entry_No: pendingData_.entryNo, Entered_By: pendingData_.enteredBy, Edit_Date_Time: ts, Edited_By: user
+            }]);
+          }
+        }
+        
+        // Remaining in cMap are deleted from the form, so delete them from sheet
+        for (const key in cMap) {
+           await Api.delete("DataPackingBlastFreezerTime", cMap[key]._rowIndex);
+        }
+      }
+      alert(`✅ Saved! Entry: ${pendingData_.entryNo}`);
+      pendingData_ = null; form.reset(); dateEl.value = today; tbodyEl.innerHTML = ""; addRow_();
+      previewEl.style.display = "none"; formWrap.classList.remove("preview-active"); resetBfiEdit_();
+      await loadBfiEntries_(); formWrap.style.display = "none"; tableWrap.style.display = "block";
+    } catch (err) { alert(`Failed: ${err.message}`); } finally { btn.disabled = false; btn.textContent = "✅ Confirm & Save"; }
+  });
+
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none"; formWrap.style.display = "flex";
+    form.reset(); dateEl.value = today; batchEl.value = "";
+    tbodyEl.innerHTML = ""; addRow_(); // add one blank row
+    resetBfiEdit_(); formWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none"; tableWrap.style.display = "block";
+  });
+
+  document.getElementById("bfClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all?")) return;
+    form.reset(); dateEl.value = today; tbodyEl.innerHTML = ""; addRow_();
+  });
+
+  addRowBtn.addEventListener("click", () => addRow_());
+
+  // Load initial data
+  loadBfiEntries_();
+  formWrap.style.display = "none"; tableWrap.style.display = "block";
+}
+
+// ===================================================================
+// DATA ENTRY — Giblet Use for W/Chicken
+// ===================================================================
+function initGibletEntry() {
+  const form = document.getElementById("form-giblet");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let pendingData_ = null;
+
+  const formWrap = document.getElementById("gibFormPreviewWrap");
+  const tableWrap = document.getElementById("gibTableView");
+  const newRecordBtn = document.getElementById("gibNewRecordBtn");
+  const cancelBtn = document.getElementById("gibCancelBtn");
+  const previewEl = document.getElementById("gibPreview");
+  
+  const dateEl = document.getElementById("gibDate");
+  const qtyEl = document.getElementById("gibQty");
+
+  const entriesBody = document.getElementById("gibEntriesBody");
+  const searchTableEl = document.getElementById("gibTableSearch");
+  const fromDateEl = document.getElementById("gibTableFromDate");
+  const toDateEl = document.getElementById("gibTableToDate");
+  const clearFilterBtn = document.getElementById("gibTableClearFilter");
+  const countEl = document.getElementById("gibTableCount");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // Number formatting helper
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
+
+  // Render Table View
+  function renderGibEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter(r => {
+      const matchQ = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo = !toDateEl.value || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    entriesBody.innerHTML = rows.map(r => {
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td>${(Number(r.Qty) || 0).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No || '')}" title="Edit">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No || '')}" data-row-index="${r._rowIndex || ''}" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // Load Entries
+  async function loadGibEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    try {
+      const data = await Api.list("DataPackingGiblet", { force: true });
+      allEntries_ = data.filter(r => String(r.Entry_No || "").trim() !== "");
+      renderGibEntriesTable_();
+    } catch (err) {
+      entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#b23b3b;">Error: ${escapeHtml_(err.message)}</td></tr>`;
+    }
+  }
+
+  // Event Delegation
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) {
+      handleEditGibRow_(editBtn.dataset.entryNo);
+      return;
+    }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) {
+      handleDeleteGibRow_(delBtn.dataset.entryNo, Number(delBtn.dataset.rowIndex));
+      return;
+    }
+  });
+
+  // Generate Entry No
+  async function generateNextGIBEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataPackingGiblet", { force: true });
+        entries = rows.filter(r => r.Entry_No);
+      }
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const match = String(r.Entry_No || "").trim().match(/^GIB-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+      return "GIB-" + String(maxNum + 1).padStart(6, "0");
+    } catch (err) { return "GIB-" + String(Date.now()).slice(-6); }
+  }
+
+  // Edit Row
+  async function handleEditGibRow_(entryNo) {
+    if (!entryNo) return;
+    try {
+      const rows = await Api.list("DataPackingGiblet", { force: true });
+      const rowData = rows.find(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      if (!rowData) { alert("❌ Entry not found."); return; }
+
+      editingEntryNo_ = entryNo;
+      dateEl.value = rowData.Date;
+      qtyEl.value = (Number(rowData.Qty) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      document.getElementById("gibSaveBtn").innerHTML = "🔄 Update Record";
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) { alert(`❌ Failed: ${err.message}`); }
+  }
+
+  // Delete Row
+  async function handleDeleteGibRow_(entryNo, rowIndex) {
+    if (!entryNo || !rowIndex) return;
+    if (!confirm(`🗑️ Delete Entry ${entryNo}?\nThis will move it to the archive.`)) return;
+
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      const rows = await Api.list("DataPackingGiblet", { force: true });
+      const rowData = rows.find(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      if (rowData) {
+        const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+        const arch = { ...rowData }; delete arch._rowIndex;
+        arch.Deleted_At = ts; arch.Deleted_By = getCurrentUsername_();
+
+        await Api.append("Deleted_Data_Packing_Giblet", [arch]);
+        await Api.delete("DataPackingGiblet", rowIndex);
+      }
+
+      if (editingEntryNo_ === entryNo) resetGibEditState_();
+      await loadGibEntries_();
+      alert(`✅ Entry ${entryNo} deleted.`);
+    } catch (err) {
+      alert(`❌ Failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  function resetGibEditState_() {
+    editingEntryNo_ = null;
+    document.getElementById("gibSaveBtn").innerHTML = "💾 Save Record";
+  }
+
+  // Form Submit -> Preview
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a date."); return; }
+    if (parseNum_(qtyEl) <= 0) { alert("Please enter a valid quantity."); return; }
+
+    const qty = parseNum_(qtyEl);
+
+    // Preview HTML
+    let previewHtml = `
+      <div class="preview-section">Details</div>
+      <div class="preview-item"><span class="preview-label">Date</span><span class="preview-value">${formatDateDMY_(dateEl.value)}</span></div>
+      <div class="preview-item"><span class="preview-label">Quantity</span><span class="preview-value">${qty.toLocaleString("en-US", {minimumFractionDigits:2})} kg</span></div>
+    `;
+    document.getElementById("gibPreviewBody").innerHTML = previewHtml;
+
+    // Setup Entry No
+    const enEl = document.getElementById("gibPreviewEntryNo");
+    const ebEl = document.getElementById("gibPreviewEnteredBy");
+    
+    let en = editingEntryNo_;
+    if (!en) { enEl.textContent = "loading..."; en = await generateNextGIBEntryNo_(allEntries_); }
+    enEl.textContent = en;
+    ebEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    pendingData_ = { entryNo: en, date: dateEl.value, qty: qty, enteredBy: getCurrentUsername_() };
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  // Edit / Confirm Buttons
+  document.getElementById("gibEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none"; formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("gibConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const btn = document.getElementById("gibConfirmBtn"); btn.disabled = true; btn.textContent = "⏳ Saving...";
+    
+    try {
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      const isUpdate = !!editingEntryNo_;
+
+      if (!isUpdate) {
+        // --- APPEND NEW ---
+        const rowToAppend = {
+          Timestamp: ts,
+          Date: pendingData_.date,
+          Qty: pendingData_.qty,
+          Entry_No: pendingData_.entryNo,
+          Entered_By: pendingData_.enteredBy
+        };
+        await Api.append("DataPackingGiblet", [rowToAppend]);
+      } else {
+        // --- UPDATE EXISTING ---
+        const freshRows = await Api.list("DataPackingGiblet", { force: true });
+        const oldRow = freshRows.find(r => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+        
+        if (oldRow) {
+          await Api.update("DataPackingGiblet", oldRow._rowIndex, {
+            Date: pendingData_.date,
+            Qty: pendingData_.qty,
+            Edit_Date_Time: ts,
+            Edited_By: user
+          });
+        }
+      }
+
+      alert(`✅ Record ${isUpdate ? 'updated' : 'saved'} successfully!\nEntry No: ${pendingData_.entryNo}`);
+      
+      // Reset UI
+      pendingData_ = null; form.reset(); dateEl.value = today; qtyEl.value = "";
+      previewEl.style.display = "none"; formWrap.classList.remove("preview-active"); resetGibEditState_();
+      
+      await loadGibEntries_(); formWrap.style.display = "none"; tableWrap.style.display = "block";
+    } catch (err) { 
+      alert(`❌ Failed: ${err.message}`); 
+    } finally { 
+      btn.disabled = false; btn.textContent = "✅ Confirm & Save"; 
+    }
+  });
+
+  // View Toggles & Init
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none"; formWrap.style.display = "flex";
+    form.reset(); dateEl.value = today; qtyEl.value = "";
+    resetGibEditState_(); formWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none"; tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  document.getElementById("gibClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset(); dateEl.value = today; qtyEl.value = "";
+    resetGibEditState_();
+  });
+
+  let st = null;
+  searchTableEl.addEventListener("input", () => { clearTimeout(st); st = setTimeout(renderGibEntriesTable_, 150); });
+  fromDateEl.addEventListener("change", renderGibEntriesTable_);
+  toDateEl.addEventListener("change", renderGibEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => { searchTableEl.value = ""; fromDateEl.value = ""; toDateEl.value = ""; renderGibEntriesTable_(); });
+
+  // Load initial table
+  loadGibEntries_();
+  formWrap.style.display = "none";
+  tableWrap.style.display = "block";
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Production Easy Material (WIP)
+// ===================================================================
+function initEasyMaterialEntry() {
+  const form = document.getElementById("form-easy-material");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let pendingData_ = null;
+
+  const formWrap = document.getElementById("wipFormPreviewWrap");
+  const tableWrap = document.getElementById("wipTableView");
+  const newRecordBtn = document.getElementById("wipNewRecordBtn");
+  const cancelBtn = document.getElementById("emCancelBtn");
+  const previewEl = document.getElementById("wipPreview");
+  
+  const dateEl = document.getElementById("emDate");
+  const qtyEl = document.getElementById("emQty");
+
+  const entriesBody = document.getElementById("wipEntriesBody");
+  const searchTableEl = document.getElementById("wipTableSearch");
+  const fromDateEl = document.getElementById("wipTableFromDate");
+  const toDateEl = document.getElementById("wipTableToDate");
+  const clearFilterBtn = document.getElementById("wipTableClearFilter");
+  const countEl = document.getElementById("wipTableCount");
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // Number formatting helper
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  qtyEl.addEventListener("input", () => formatDec_(qtyEl));
+
+  // Render Table View
+  function renderWipEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter(r => {
+      const matchQ = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo = !toDateEl.value || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    entriesBody.innerHTML = rows.map(r => {
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td>${(Number(r.Qty) || 0).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No || '')}" title="Edit">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No || '')}" data-row-index="${r._rowIndex || ''}" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // Load Entries
+  async function loadWipEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    try {
+      const data = await Api.list("DataEasyMaterial", { force: true });
+      allEntries_ = data.filter(r => String(r.Entry_No || "").trim() !== "");
+      renderWipEntriesTable_();
+    } catch (err) {
+      entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#b23b3b;">Error: ${escapeHtml_(err.message)}</td></tr>`;
+    }
+  }
+
+  // Event Delegation
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) {
+      handleEditWipRow_(editBtn.dataset.entryNo);
+      return;
+    }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) {
+      handleDeleteWipRow_(delBtn.dataset.entryNo, Number(delBtn.dataset.rowIndex));
+      return;
+    }
+  });
+
+  // Generate Entry No (WIP-000001)
+  async function generateNextWIPEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataEasyMaterial", { force: true });
+        entries = rows.filter(r => r.Entry_No);
+      }
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const match = String(r.Entry_No || "").trim().match(/^WIP-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+      return "WIP-" + String(maxNum + 1).padStart(6, "0");
+    } catch (err) { return "WIP-" + String(Date.now()).slice(-6); }
+  }
+
+  // Edit Row
+  async function handleEditWipRow_(entryNo) {
+    if (!entryNo) return;
+    try {
+      const rows = await Api.list("DataEasyMaterial", { force: true });
+      const rowData = rows.find(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      if (!rowData) { alert("❌ Entry not found."); return; }
+
+      editingEntryNo_ = entryNo;
+      dateEl.value = rowData.Date;
+      qtyEl.value = (Number(rowData.Qty) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      document.getElementById("emSaveBtn").innerHTML = "🔄 Update Record";
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) { alert(`❌ Failed: ${err.message}`); }
+  }
+
+  // Delete Row
+  async function handleDeleteWipRow_(entryNo, rowIndex) {
+    if (!entryNo || !rowIndex) return;
+    if (!confirm(`🗑️ Delete Entry ${entryNo}?\nThis will move it to the archive.`)) return;
+
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      const rows = await Api.list("DataEasyMaterial", { force: true });
+      const rowData = rows.find(r => String(r.Entry_No).trim() === String(entryNo).trim());
+      
+      if (rowData) {
+        const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+        const arch = { ...rowData }; delete arch._rowIndex;
+        arch.Deleted_At = ts; arch.Deleted_By = getCurrentUsername_();
+
+        await Api.append("Deleted_Data_Easy_Material", [arch]);
+        await Api.delete("DataEasyMaterial", rowIndex);
+      }
+
+      if (editingEntryNo_ === entryNo) resetWipEditState_();
+      await loadWipEntries_();
+      alert(`✅ Entry ${entryNo} deleted.`);
+    } catch (err) {
+      alert(`❌ Failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  function resetWipEditState_() {
+    editingEntryNo_ = null;
+    document.getElementById("emSaveBtn").innerHTML = "💾 Save Record";
+  }
+
+  // Form Submit -> Preview
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a date."); return; }
+    if (parseNum_(qtyEl) <= 0) { alert("Please enter a valid quantity."); return; }
+
+    const qty = parseNum_(qtyEl);
+
+    // Preview HTML
+    let previewHtml = `
+      <div class="preview-section">Details</div>
+      <div class="preview-item"><span class="preview-label">Date</span><span class="preview-value">${formatDateDMY_(dateEl.value)}</span></div>
+      <div class="preview-item"><span class="preview-label">Quantity</span><span class="preview-value">${qty.toLocaleString("en-US", {minimumFractionDigits:2})} kg</span></div>
+    `;
+    document.getElementById("wipPreviewBody").innerHTML = previewHtml;
+
+    // Setup Entry No
+    const enEl = document.getElementById("wipPreviewEntryNo");
+    const ebEl = document.getElementById("wipPreviewEnteredBy");
+    
+    let en = editingEntryNo_;
+    if (!en) { enEl.textContent = "loading..."; en = await generateNextWIPEntryNo_(allEntries_); }
+    enEl.textContent = en;
+    ebEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    pendingData_ = { entryNo: en, date: dateEl.value, qty: qty, enteredBy: getCurrentUsername_() };
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  // Edit / Confirm Buttons
+  document.getElementById("wipEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none"; formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("wipConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const btn = document.getElementById("wipConfirmBtn"); btn.disabled = true; btn.textContent = "⏳ Saving...";
+    
+    try {
+      const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      const isUpdate = !!editingEntryNo_;
+
+      if (!isUpdate) {
+        // --- APPEND NEW ---
+        const rowToAppend = {
+          Timestamp: ts,
+          Date: pendingData_.date,
+          Qty: pendingData_.qty,
+          Entry_No: pendingData_.entryNo,
+          Entered_By: pendingData_.enteredBy
+        };
+        await Api.append("DataEasyMaterial", [rowToAppend]);
+      } else {
+        // --- UPDATE EXISTING ---
+        const freshRows = await Api.list("DataEasyMaterial", { force: true });
+        const oldRow = freshRows.find(r => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+        
+        if (oldRow) {
+          await Api.update("DataEasyMaterial", oldRow._rowIndex, {
+            Date: pendingData_.date,
+            Qty: pendingData_.qty,
+            Edit_Date_Time: ts,
+            Edited_By: user
+          });
+        }
+      }
+
+      alert(`✅ Record ${isUpdate ? 'updated' : 'saved'} successfully!\nEntry No: ${pendingData_.entryNo}`);
+      
+      // Reset UI
+      pendingData_ = null; form.reset(); dateEl.value = today; qtyEl.value = "";
+      previewEl.style.display = "none"; formWrap.classList.remove("preview-active"); resetWipEditState_();
+      
+      await loadWipEntries_(); formWrap.style.display = "none"; tableWrap.style.display = "block";
+    } catch (err) { 
+      alert(`❌ Failed: ${err.message}`); 
+    } finally { 
+      btn.disabled = false; btn.textContent = "✅ Confirm & Save"; 
+    }
+  });
+
+  // View Toggles & Init
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none"; formWrap.style.display = "flex";
+    form.reset(); dateEl.value = today; qtyEl.value = "";
+    resetWipEditState_(); formWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none"; tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth" });
+  });
+
+  document.getElementById("emClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all fields?")) return;
+    form.reset(); dateEl.value = today; qtyEl.value = "";
+    resetWipEditState_();
+  });
+
+  let st = null;
+  searchTableEl.addEventListener("input", () => { clearTimeout(st); st = setTimeout(renderWipEntriesTable_, 150); });
+  fromDateEl.addEventListener("change", renderWipEntriesTable_);
+  toDateEl.addEventListener("change", renderWipEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => { searchTableEl.value = ""; fromDateEl.value = ""; toDateEl.value = ""; renderWipEntriesTable_(); });
+
+  // Load initial table
+  loadWipEntries_();
+  formWrap.style.display = "none";
+  tableWrap.style.display = "block";
+}
+
+// ===================================================================
+// DATA ENTRY — Daily Easy Production (Full CRUD)
+// ===================================================================
+async function initEasyProductionEntry() {
+  const form = document.getElementById("form-easy-production");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  // ---- State ----
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let pendingData_ = null;
+
+  // ---- DOM ----
+  const formWrap      = document.getElementById("epdFormPreviewWrap");
+  const tableWrap     = document.getElementById("epdTableView");
+  const newRecordBtn  = document.getElementById("epdNewRecordBtn");
+  const cancelBtn     = document.getElementById("epdCancelBtn");
+  const previewEl     = document.getElementById("epdPreview");
+
+  const dateEl        = document.getElementById("epDate");
+  const searchEl      = document.getElementById("epSearch");
+  const tbodyEl       = document.getElementById("epItemsBody");
+  const grandTotalEl  = document.getElementById("epGrandTotal");
+  const netWeightEl   = document.getElementById("epNetWeight");
+
+  const entriesBody   = document.getElementById("epdEntriesBody");
+  const searchTableEl = document.getElementById("epdTableSearch");
+  const fromDateEl    = document.getElementById("epdTableFromDate");
+  const toDateEl      = document.getElementById("epdTableToDate");
+  const clearFilterBtn= document.getElementById("epdTableClearFilter");
+  const countEl       = document.getElementById("epdTableCount");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // ===================================================================
+  // Number formatting helpers
+  // ===================================================================
+  function formatDec_(el) {
+    let raw = String(el.value).replace(/[^\d.]/g, "");
+    const firstDot = raw.indexOf(".");
+    if (firstDot !== -1) {
+      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+    }
+    if (raw === "") { el.value = ""; return 0; }
+    const parts = raw.split(".");
+    const intPart = parts[0] === "" ? "0" : parts[0];
+    const intNum = parseInt(intPart, 10);
+    const intFmt = intNum.toLocaleString("en-US");
+    if (parts.length === 1) { el.value = intFmt; return intNum; }
+    const decPart = (parts[1] || "").slice(0, 2);
+    el.value = intFmt + "." + decPart;
+    const n = parseFloat(intFmt.replace(/,/g, "") + (decPart ? "." + decPart : ""));
+    return isFinite(n) ? n : intNum;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function recalcGrandTotal() {
+    let total = 0;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+      total += parseNum_(inp);
+    });
+    grandTotalEl.textContent = total.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // ===================================================================
+  // Load MasterItemsEasy → build item table
+  // ===================================================================
   try {
     const rows = await Api.list("MasterItemsEasy");
     const items = rows
@@ -3182,49 +4514,37 @@ async function initEasyProductionEntry() {
 
     if (items.length === 0) {
       tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">No items found in MasterItemsEasy.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    items.forEach((item) => {
-      html += `
-        <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
-          <td>${item.code}</td>
-          <td>${item.name}</td>
-          <td>
-            <input type="text"
-                   class="entry-item-qty"
-                   data-code="${item.code}"
-                   inputmode="decimal"
-                   placeholder="0">
-          </td>
-        </tr>
-      `;
-    });
-    tbodyEl.innerHTML = html;
-
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        formatDec_(inp);
-        recalcGrandTotal();
+    } else {
+      let html = "";
+      items.forEach((item) => {
+        html += `
+          <tr data-code="${item.code}" data-name="${item.name.toLowerCase()}">
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>
+              <input type="text" class="entry-item-qty" data-code="${item.code}" inputmode="decimal" placeholder="0">
+            </td>
+          </tr>
+        `;
       });
-    });
+      tbodyEl.innerHTML = html;
 
-    recalcGrandTotal();
-
+      tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+        inp.addEventListener("input", () => {
+          formatDec_(inp);
+          recalcGrandTotal();
+        });
+      });
+      recalcGrandTotal();
+    }
   } catch (err) {
     tbodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${err.message}</td></tr>`;
-    return;
   }
 
-  // -------------------------------------------------------------------
   // Net Weight input formatter
-  // -------------------------------------------------------------------
   netWeightEl.addEventListener("input", () => formatDec_(netWeightEl));
 
-  // -------------------------------------------------------------------
   // Search filter
-  // -------------------------------------------------------------------
   searchEl.addEventListener("input", () => {
     const q = String(searchEl.value || "").trim().toLowerCase();
     tbodyEl.querySelectorAll("tr").forEach((tr) => {
@@ -3234,24 +4554,242 @@ async function initEasyProductionEntry() {
     });
   });
 
-  // -------------------------------------------------------------------
-  // Clear button
-  // -------------------------------------------------------------------
-  document.getElementById("epClearBtn").addEventListener("click", () => {
-    if (!confirm("Clear all quantities?")) return;
-    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
-    netWeightEl.value = "";
-    searchEl.value = "";
-    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
-    recalcGrandTotal();
+  // ===================================================================
+  // Table View — render entries
+  //   → one row per Entry No
+  //   → "Total Items Weight" = sum of all non-NET_WEIGHT rows
+  //   → "Net Weight" = the single NET_WEIGHT row
+  // ===================================================================
+  function renderEpdEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter((r) => {
+      const matchQ    = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo   = !toDateEl.value   || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) =>
+      (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
+      (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
+    );
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    const fmtNum = (v, dec = 2) => (Number(v) || 0).toLocaleString("en-US", {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
+    });
+
+    entriesBody.innerHTML = rows.map((r) => {
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td>${fmtNum(r.totalItemsWeight, 2)}</td>
+          <td>${fmtNum(r.netWeight, 2)}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No || '')}" title="Edit">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No || '')}" data-date="${escapeHtml_(r.Date || '')}" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function loadEpdEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    countEl.textContent = "loading...";
+
+    try {
+      const data = await Api.list("DataEasyProduction", { force: true });
+
+      // Group by Entry_No
+      const grouped = {};
+      data.filter((r) => String(r.Entry_No || "").trim() !== "").forEach((r) => {
+        const en = String(r.Entry_No).trim();
+        if (!grouped[en]) {
+          grouped[en] = {
+            Entry_No: en,
+            Date: r.Date,
+            Entered_By: r.Entered_By,
+            totalItemsWeight: 0,
+            netWeight: 0,
+          };
+        }
+        const code = String(r.Item_Code || "").trim().toUpperCase();
+        const weight = Number(r.Weight) || 0;
+        if (code === "NET_WEIGHT") {
+          grouped[en].netWeight = weight;
+        } else {
+          grouped[en].totalItemsWeight += weight;
+        }
+      });
+
+      allEntries_ = Object.values(grouped);
+      renderEpdEntriesTable_();
+    } catch (err) {
+      console.error("[Easy Production] Load entries failed:", err);
+      entriesBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#b23b3b;">❌ Failed: ${escapeHtml_(err.message)}</td></tr>`;
+      countEl.textContent = "error";
+    }
+  }
+
+  // ===================================================================
+  // Event delegation — Edit / Delete
+  // ===================================================================
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) { handleEditEpdRow_(editBtn.dataset.entryNo); return; }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) { handleDeleteEpdRow_(delBtn.dataset.entryNo, delBtn.dataset.date); return; }
   });
 
-  // -------------------------------------------------------------------
-  // Save (placeholder)
-  // -------------------------------------------------------------------
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
+  // ===================================================================
+  // Generate Next Entry No (EPD-000001)
+  // ===================================================================
+  async function generateNextEpdEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list("DataEasyProduction", { force: true });
+        const grouped = {};
+        rows.forEach((r) => { if (r.Entry_No) grouped[r.Entry_No] = true; });
+        entries = Object.keys(grouped).map((k) => ({ Entry_No: k }));
+      }
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const val = String(r.Entry_No || "").trim();
+        const match = val.match(/^EPD-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+      return "EPD-" + String(maxNum + 1).padStart(6, "0");
+    } catch (err) {
+      console.warn("[EPD Entry No] Failed:", err);
+      return "EPD-" + String(Date.now()).slice(-6);
+    }
+  }
 
+  // ===================================================================
+  // Edit — populate form from existing entry
+  // ===================================================================
+  async function handleEditEpdRow_(entryNo) {
+    if (!entryNo) return;
+    try {
+      const rows = await Api.list("DataEasyProduction", { force: true });
+      const entryRows = rows.filter((r) => String(r.Entry_No).trim() === String(entryNo).trim());
+
+      if (entryRows.length === 0) {
+        alert("❌ Entry not found.");
+        return;
+      }
+
+      editingEntryNo_ = entryNo;
+
+      // Separate NET_WEIGHT row from regular items
+      let netWeightVal = 0;
+      const itemMap = {};
+      entryRows.forEach((r) => {
+        const code = String(r.Item_Code || "").trim();
+        if (code.toUpperCase() === "NET_WEIGHT") {
+          netWeightVal = Number(r.Weight) || 0;
+        } else {
+          itemMap[code] = Number(r.Weight) || 0;
+        }
+      });
+
+      // Fill form
+      dateEl.value = entryRows[0].Date || today;
+      tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
+        const code = inp.dataset.code;
+        const qty = itemMap[code] || 0;
+        inp.value = qty > 0
+          ? qty.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+          : "";
+      });
+      netWeightEl.value = netWeightVal > 0
+        ? netWeightVal.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+        : "";
+      recalcGrandTotal();
+
+      // Switch to form view
+      const saveBtn = document.getElementById("epdSaveBtn");
+      if (saveBtn) saveBtn.innerHTML = "🔄 Update Record";
+
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      console.error("[Easy Production] Edit failed:", err);
+      alert(`❌ Failed to load entry: ${err.message}`);
+    }
+  }
+
+  // ===================================================================
+  // Delete — archive + remove
+  // ===================================================================
+  async function handleDeleteEpdRow_(entryNo, dateStr) {
+    if (!entryNo) return;
+    const ok = confirm(
+      `🗑️ Delete Entry ${entryNo} (Date: ${formatDateDMY_(dateStr)})?\n\n` +
+      `This will move all rows (items + net weight) to the archive and remove them from the active list.`
+    );
+    if (!ok) return;
+
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      const rows = await Api.list("DataEasyProduction", { force: true });
+      const entryRows = rows.filter((r) => String(r.Entry_No).trim() === String(entryNo).trim());
+
+      const n = new Date();
+      const delTs = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+      const delUser = getCurrentUsername_();
+
+      for (const r of entryRows) {
+        const arch = { ...r };
+        delete arch._rowIndex;
+        arch.Deleted_At = delTs;
+        arch.Deleted_By = delUser;
+
+        await Api.append("Deleted_DataEasyProduction", [arch]);
+        await Api.delete("DataEasyProduction", r._rowIndex);
+      }
+
+      if (editingEntryNo_ === entryNo) resetEpdEditState_();
+      await loadEpdEntries_();
+      alert(`✅ Entry ${entryNo} deleted and archived.`);
+    } catch (err) {
+      console.error("[Easy Production] Delete failed:", err);
+      alert(`❌ Delete failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  function resetEpdEditState_() {
+    editingEntryNo_ = null;
+    const saveBtn = document.getElementById("epdSaveBtn");
+    if (saveBtn) saveBtn.innerHTML = "💾 Save Record";
+  }
+
+  // ===================================================================
+  // Form Submit → Preview
+  // ===================================================================
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a date."); return; }
+
+    // Collect items with weight > 0
     const items = [];
     tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
       const qty = parseNum_(inp);
@@ -3265,16 +4803,245 @@ async function initEasyProductionEntry() {
       }
     });
 
-    const payload = {
-      Date:                  dateEl.value,
-      items:                 items,
-      totalEasyProductWeight: parseFloat(grandTotalEl.textContent.replace(/,/g, "")) || 0,
-      usedEasyMaterialNetWeight: parseNum_(netWeightEl),
+    if (items.length === 0) {
+      alert("Please enter weight for at least one item.");
+      return;
+    }
+
+    const netWeight = parseNum_(netWeightEl);
+    if (netWeight <= 0) {
+      alert("Please enter a valid Easy Material Net Weight.");
+      return;
+    }
+
+    // Build preview HTML
+    const totalItems = items.reduce((s, it) => s + it.Weight, 0);
+
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>`;
+    items.forEach((it) => {
+      previewHtml += `
+        <div class="preview-item">
+          <span class="preview-label">${escapeHtml_(it.Item_Code)} - ${escapeHtml_(it.Item_Name)}</span>
+          <span class="preview-value">${formatNum_(it.Weight, 2)} kg</span>
+        </div>
+      `;
+    });
+    previewHtml += `
+      <div class="preview-item highlight" style="margin-top:10px;">
+        <span class="preview-label">Total Easy Product Weight</span>
+        <span class="preview-value" style="font-size:16px;">${formatNum_(totalItems, 2)} kg</span>
+      </div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Easy Material Net Weight</span>
+        <span class="preview-value" style="font-size:16px;">${formatNum_(netWeight, 2)} kg</span>
+      </div>
+    `;
+    document.getElementById("epdPreviewBody").innerHTML = previewHtml;
+
+    // Setup Entry No + Entered By
+    const entryNoEl    = document.getElementById("epdPreviewEntryNo");
+    const enteredByEl  = document.getElementById("epdPreviewEnteredBy");
+
+    let currentEntryNo = editingEntryNo_;
+    if (!currentEntryNo) {
+      entryNoEl.textContent = "loading...";
+      currentEntryNo = await generateNextEpdEntryNo_(allEntries_);
+    }
+    entryNoEl.textContent = currentEntryNo;
+    enteredByEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    // Store pending data
+    pendingData_ = {
+      entryNo: currentEntryNo,
+      date: dateEl.value,
+      items,
+      netWeight,
+      enteredBy: getCurrentUsername_(),
     };
 
-    console.log("[Easy Production Entry] Payload ready:", payload);
-    alert(`✅ Payload ready!\n\nDate: ${payload.Date}\nItems: ${items.length}\nTotal: ${payload.totalEasyProductWeight}\nNet Weight: ${payload.usedEasyMaterialNetWeight}\n\nConsole එකේ full payload බලන්න.`);
+    // Show preview
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
   });
+
+  // ===================================================================
+  // Preview Buttons — Edit / Confirm
+  // ===================================================================
+  document.getElementById("epdEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none";
+    formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("epdConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+    const confirmBtn = document.getElementById("epdConfirmBtn");
+    const ogText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ Saving...";
+
+    try {
+      const n = new Date();
+      const ts = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      const isUpdate = !!editingEntryNo_;
+
+      // Build the full row list = regular items + NET_WEIGHT row
+      const allRowsToSave = pendingData_.items.map((it) => ({
+        Item_Code: it.Item_Code,
+        Item_Name: it.Item_Name,
+        Weight: it.Weight,
+      }));
+      allRowsToSave.push({
+        Item_Code: "NET_WEIGHT",
+        Item_Name: "Net Weight",
+        Weight: pendingData_.netWeight,
+      });
+
+      if (!isUpdate) {
+        // --- APPEND NEW ---
+        const rowsToAppend = allRowsToSave.map((it) => ({
+          Timestamp: ts,
+          Date: pendingData_.date,
+          Item_Code: it.Item_Code,
+          Item_Name: it.Item_Name,
+          Weight: it.Weight,
+          Entry_No: pendingData_.entryNo,
+          Entered_By: pendingData_.enteredBy,
+        }));
+        await Api.append("DataEasyProduction", rowsToAppend);
+      } else {
+        // --- UPDATE EXISTING ---
+        const freshRows = await Api.list("DataEasyProduction", { force: true });
+        const currentEntryRows = freshRows.filter((r) => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim());
+
+        // Map existing rows by Item_Code (uppercased)
+        const currentEntryMap = {};
+        currentEntryRows.forEach((r) => {
+          currentEntryMap[String(r.Item_Code || "").trim().toUpperCase()] = r;
+        });
+
+        // Update or append
+        for (const item of allRowsToSave) {
+          const codeKey = String(item.Item_Code).trim().toUpperCase();
+          const oldRow  = currentEntryMap[codeKey];
+
+          if (oldRow) {
+            // Row exists — update only if changed
+            if (Number(oldRow.Weight) !== item.Weight || oldRow.Date !== pendingData_.date) {
+              await Api.update("DataEasyProduction", oldRow._rowIndex, {
+                Date: pendingData_.date,
+                Weight: item.Weight,
+                Edit_Date_Time: ts,
+                Edited_By: user,
+              });
+            }
+          } else {
+            // New row for this entry
+            await Api.append("DataEasyProduction", [{
+              Timestamp: ts,
+              Date: pendingData_.date,
+              Item_Code: item.Item_Code,
+              Item_Name: item.Item_Name,
+              Weight: item.Weight,
+              Entry_No: pendingData_.entryNo,
+              Entered_By: pendingData_.enteredBy,
+              Edit_Date_Time: ts,
+              Edited_By: user,
+            }]);
+          }
+        }
+
+        // Delete rows removed from form
+        for (const oldRow of currentEntryRows) {
+          const codeKey = String(oldRow.Item_Code || "").trim().toUpperCase();
+          const stillExists = allRowsToSave.find((i) => String(i.Item_Code).trim().toUpperCase() === codeKey);
+          if (!stillExists) {
+            await Api.delete("DataEasyProduction", oldRow._rowIndex);
+          }
+        }
+      }
+
+      alert(`✅ Record ${isUpdate ? "updated" : "saved"} successfully!\nEntry No: ${pendingData_.entryNo}`);
+
+      // Reset UI
+      pendingData_ = null;
+      form.reset();
+      dateEl.value = today;
+      netWeightEl.value = "";
+      recalcGrandTotal();
+      previewEl.style.display = "none";
+      formWrap.classList.remove("preview-active");
+      resetEpdEditState_();
+
+      await loadEpdEntries_();
+      formWrap.style.display = "none";
+      tableWrap.style.display = "block";
+    } catch (err) {
+      console.error("[Easy Production Save] Failed:", err);
+      alert(`❌ Failed: ${err.message}`);
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = ogText;
+    }
+  });
+
+  // ===================================================================
+  // View toggles — New Record / Back / Clear
+  // ===================================================================
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none";
+    formWrap.style.display = "flex";
+
+    form.reset();
+    dateEl.value = today;
+    searchEl.value = "";
+    netWeightEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    recalcGrandTotal();
+
+    resetEpdEditState_();
+    formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none";
+    tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("epClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    tbodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    netWeightEl.value = "";
+    searchEl.value = "";
+    tbodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    recalcGrandTotal();
+  });
+
+  // ===================================================================
+  // Filters
+  // ===================================================================
+  let searchTimer_ = null;
+  searchTableEl.addEventListener("input", () => {
+    clearTimeout(searchTimer_);
+    searchTimer_ = setTimeout(renderEpdEntriesTable_, 150);
+  });
+  fromDateEl.addEventListener("change", renderEpdEntriesTable_);
+  toDateEl.addEventListener("change", renderEpdEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => {
+    searchTableEl.value = "";
+    fromDateEl.value = "";
+    toDateEl.value = "";
+    renderEpdEntriesTable_();
+  });
+
+  // ===================================================================
+  // Initial load
+  // ===================================================================
+  await loadEpdEntries_();
+  formWrap.style.display = "none";
+  tableWrap.style.display = "block";
 }
 
 // ===================================================================
@@ -3483,6 +5250,27 @@ function setupCsvUploader_({ formId, fileId, fileNameId, previewId, clearBtnId, 
 // ===================================================================
 // DATA ENTRY — Consumable Records (6 tabs)
 // ===================================================================
+// ===================================================================
+// DATA ENTRY — Consumable Records (6 tabs, full CRUD, WIDE format)
+//   Sheet layout per tab:
+//     Timestamp | Date | [Item1] | [Item2] | ... | [ItemN] | Entry_No | Entered_By | Edit_Date_Time | Edited_By
+//   Entry No pattern:  CON-LB-000001, CON-EV-000001, CON-PK1-000001, ...
+// ===================================================================
+const CONS_TAB_CONFIGS_ = [
+  { key: "LB",       label: "LB",         masterSheet: "MasterConsumableLB",       dataSheet: "DataLBConsumable",       archiveSheet: "Deleted_Data_LB_Consumable",       prefix: "CON-LB"  },
+  { key: "EV",       label: "EV",         masterSheet: "MasterConsumableEV",       dataSheet: "DataEVConsumable",       archiveSheet: "Deleted_Data_EV_Consumable",       prefix: "CON-EV"  },
+  { key: "FBP",      label: "FBP",        masterSheet: "MasterConsumableFBP",      dataSheet: "DataFBPConsumable",      archiveSheet: "Deleted_Data_FBP_Consumable",      prefix: "CON-FBP" },
+  { key: "Packing",  label: "Packing",    masterSheet: "MasterConsumablePacking",  dataSheet: "DataPackingConsumable",  archiveSheet: "Deleted_Data_Packing_Consumable",  prefix: "CON-PK1" },
+  { key: "Packing2", label: "Packing 02", masterSheet: "MasterConsumablePacking2", dataSheet: "DataPacking2Consumable", archiveSheet: "Deleted_Data_Packing2_Consumable", prefix: "CON-PK2" },
+  { key: "Easy",     label: "Easy",       masterSheet: "MasterConsumableEasy",     dataSheet: "DataEasyConsumable",     archiveSheet: "Deleted_Data_Easy_Consumable",     prefix: "CON-EZ"  }
+];
+
+const CONS_META_KEYS_ = ['Timestamp', 'Date', 'Entry_No', 'Entered_By', 'Edit_Date_Time', 'Edited_By', '_rowIndex', 'Deleted_At', 'Deleted_By'];
+
+const consState_ = {};   // { LB: { entries, editingEntryNo, pendingData, items }, ... }
+
+function consId_(key, suffix) { return `cons${key}${suffix}`; }
+
 async function initConsumableEntry() {
   const container = document.getElementById("view-entry-consumable");
   if (!container || container.dataset.bound === "true") return;
@@ -3491,7 +5279,6 @@ async function initConsumableEntry() {
   // Tab switching
   const tabs     = container.querySelectorAll(".cons-tab");
   const contents = container.querySelectorAll(".cons-tab-content");
-
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.dataset.consTab;
@@ -3502,133 +5289,1205 @@ async function initConsumableEntry() {
     });
   });
 
-  // Config for each tab
-  const TABS = [
-    { key: "LB",       sheet: "MasterConsumableLB",       dateId: "consLbDate",       searchId: "consLbSearch",       bodyId: "consLbBody",       totalId: "consLbTotal",       formId: "form-cons-lb" },
-    { key: "EV",       sheet: "MasterConsumableEV",       dateId: "consEvDate",       searchId: "consEvSearch",       bodyId: "consEvBody",       totalId: "consEvTotal",       formId: "form-cons-ev" },
-    { key: "FBP",      sheet: "MasterConsumableFBP",      dateId: "consFbpDate",      searchId: "consFbpSearch",      bodyId: "consFbpBody",      totalId: "consFbpTotal",      formId: "form-cons-fbp" },
-    { key: "Packing",  sheet: "MasterConsumablePacking",  dateId: "consPackingDate",  searchId: "consPackingSearch",  bodyId: "consPackingBody",  totalId: "consPackingTotal",  formId: "form-cons-packing" },
-    { key: "Packing2", sheet: "MasterConsumablePacking2", dateId: "consPacking2Date", searchId: "consPacking2Search", bodyId: "consPacking2Body", totalId: "consPacking2Total", formId: "form-cons-packing2" },
-    { key: "Easy",     sheet: "MasterConsumableEasy",     dateId: "consEasyDate",     searchId: "consEasySearch",     bodyId: "consEasyBody",     totalId: "consEasyTotal",     formId: "form-cons-easy" },
-  ];
-
-  // Initialize each tab sequentially
-  for (const cfg of TABS) {
-    await setupConsumableTab_(cfg);
+  // Init each tab sequentially
+  for (const cfg of CONS_TAB_CONFIGS_) {
+    try {
+      await initConsumableTab_(cfg);
+    } catch (err) {
+      console.error(`[Consumable ${cfg.key}] Init failed:`, err);
+    }
   }
-
-  // Clear buttons (event delegation)
-  container.querySelectorAll("[data-cons-clear]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const k = btn.dataset.consClear;
-      const cfg = TABS.find((t) => t.key === k);
-      if (!cfg) return;
-      if (!confirm("Clear all quantities?")) return;
-      const bodyEl  = document.getElementById(cfg.bodyId);
-      const searchEl = document.getElementById(cfg.searchId);
-      const dateEl   = document.getElementById(cfg.dateId);
-      bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
-      searchEl.value = "";
-      bodyEl.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
-      const today = getTodayStr_();
-      if (dateEl) dateEl.value = today;
-      recalcConsumableTotal_(bodyEl, cfg.totalId);
-    });
-  });
 }
 
-// -------------------------------------------------------------------
-// Setup one Consumable tab
-// -------------------------------------------------------------------
-async function setupConsumableTab_(cfg) {
-  const dateEl   = document.getElementById(cfg.dateId);
-  const searchEl = document.getElementById(cfg.searchId);
-  const bodyEl   = document.getElementById(cfg.bodyId);
-  const formEl   = document.getElementById(cfg.formId);
+async function initConsumableTab_(cfg) {
+  const container = document.getElementById(`consTab${cfg.key}`);
+  if (!container) return;
 
-  if (!bodyEl || !formEl) return;
+  // Init state
+  consState_[cfg.key] = {
+    entries: [],
+    editingEntryNo: null,
+    pendingData: null,
+    items: [],
+  };
 
-  // Default today's date
-  if (dateEl && !dateEl.value) dateEl.value = getTodayStr_();
-
-  // Load items from sheet
+  // Load master items
+  let items = [];
   try {
-    const rows = await Api.list(cfg.sheet);
-    // Item Name is the header — filter out empties
-    const items = rows
+    const rows = await Api.list(cfg.masterSheet);
+    items = rows
       .map((r) => String(r["Item Name"] || r.Item_Name || r.ItemName || "").trim())
       .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+      .map((name) => ({ name }));
+  } catch (err) {
+    container.innerHTML = `<p class="hint error">Failed to load ${cfg.label} items: ${escapeHtml_(err.message)}</p>`;
+    return;
+  }
+  consState_[cfg.key].items = items;
 
-    if (items.length === 0) {
-      bodyEl.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">No items found in ${cfg.sheet}.</td></tr>`;
+  // Build HTML (Table View + Form & Preview View)
+  container.innerHTML = buildConsumableTabHtml_(cfg, items);
+
+  // Bind events
+  bindConsumableTabEvents_(cfg);
+
+  // Load entries from sheet
+  await loadConsumableEntries_(cfg);
+
+  // Default: show table, hide form
+  document.getElementById(consId_(cfg.key, "FormWrap")).style.display = "none";
+  document.getElementById(consId_(cfg.key, "TableView")).style.display = "block";
+}
+
+function buildConsumableTabHtml_(cfg, items) {
+  const key   = cfg.key;
+  const label = cfg.label;
+
+  const itemRowsHtml = items.length
+    ? items.map((it, idx) => `
+        <tr data-item-index="${idx}">
+          <td>${escapeHtml_(it.name)}</td>
+          <td><input type="text" class="entry-item-qty" inputmode="decimal" placeholder="0"></td>
+        </tr>
+      `).join("")
+    : `<tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">No items found in ${escapeHtml_(cfg.masterSheet)}.</td></tr>`;
+
+  return `
+    <!-- ============ TABLE VIEW ============ -->
+    <div class="entry-table-view" id="${consId_(key, "TableView")}">
+      <div class="entry-table-view-header">
+        <div>
+          <h3>📋 Entered ${escapeHtml_(label)} Consumable Records</h3>
+          <p class="entry-table-view-sub">All previously saved ${escapeHtml_(label)} records</p>
+        </div>
+        <button type="button" class="btn-new-record" id="${consId_(key, "NewRecordBtn")}">➕ New Record</button>
+      </div>
+
+      <div class="entry-table-filters">
+        <div class="entry-filter-group">
+          <label for="${consId_(key, "FromDate")}">From</label>
+          <input type="date" id="${consId_(key, "FromDate")}">
+        </div>
+        <div class="entry-filter-group">
+          <label for="${consId_(key, "ToDate")}">To</label>
+          <input type="date" id="${consId_(key, "ToDate")}">
+        </div>
+        <div class="entry-filter-group entry-filter-search">
+          <label for="${consId_(key, "Search")}">&nbsp;</label>
+          <input type="text" id="${consId_(key, "Search")}" placeholder="🔍 Search by Entry No or Date...">
+        </div>
+        <button type="button" class="btn-filter-clear" id="${consId_(key, "ClearFilter")}">Clear</button>
+        <span class="entry-table-count" id="${consId_(key, "Count")}">—</span>
+      </div>
+
+      <div class="entry-table-scroll">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th style="width:130px;">Entry No</th>
+              <th style="width:110px;">Date</th>
+              <th style="width:120px;">Total Items</th>
+              <th style="width:160px;">Entered By</th>
+              <th style="width:110px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="${consId_(key, "EntriesBody")}">
+            <tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ FORM & PREVIEW VIEW ============ -->
+    <div class="entry-form-preview-wrap" id="${consId_(key, "FormWrap")}" style="display: none;">
+      <form class="entry-form" id="${consId_(key, "Form")}" autocomplete="off">
+        <div class="entry-row entry-row-2">
+          <div class="entry-field">
+            <label for="${consId_(key, "Date")}">Date</label>
+            <input type="date" id="${consId_(key, "Date")}" required>
+          </div>
+          <div class="entry-field">
+            <label for="${consId_(key, "ItemSearch")}">Search Items</label>
+            <input type="text" id="${consId_(key, "ItemSearch")}" placeholder="Type item name...">
+          </div>
+        </div>
+
+        <div class="entry-table-wrap">
+          <table class="entry-table">
+            <thead>
+              <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
+            </thead>
+            <tbody id="${consId_(key, "ItemsBody")}">
+              ${itemRowsHtml}
+            </tbody>
+            <tfoot>
+              <tr class="entry-table-total">
+                <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
+                <td><span id="${consId_(key, "GrandTotal")}">0</span></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-cancel" id="${consId_(key, "CancelBtn")}">← Back to Table</button>
+          <button type="button" class="btn-entry-clear" id="${consId_(key, "ClearBtn")}">Clear</button>
+          <button type="submit" class="btn-entry-save" id="${consId_(key, "SaveBtn")}">💾 Save Record</button>
+        </div>
+      </form>
+
+      <div class="entry-preview" id="${consId_(key, "Preview")}" style="display: none;">
+        <div class="entry-preview-header">
+          <div class="entry-preview-header-text">
+            <h3>📋 Review ${escapeHtml_(label)} Consumable Details</h3>
+            <p>Click <strong>Confirm</strong> to save.</p>
+          </div>
+          <div class="entry-preview-header-right">
+            <div class="entry-preview-no-badge">
+              <span class="label">ENTRY NO</span>
+              <span class="value" id="${consId_(key, "PreviewEntryNo")}">—</span>
+            </div>
+            <div class="entry-preview-by-badge" id="${consId_(key, "PreviewEnteredBy")}">by: —</div>
+          </div>
+        </div>
+        <div class="entry-preview-body" id="${consId_(key, "PreviewBody")}"></div>
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="${consId_(key, "EditBtn")}">✏️ Edit</button>
+          <button type="button" class="btn-entry-save" id="${consId_(key, "ConfirmBtn")}">✅ Confirm & Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindConsumableTabEvents_(cfg) {
+  const key = cfg.key;
+  const st = consState_[key];
+
+  const itemsBody     = document.getElementById(consId_(key, "ItemsBody"));
+  const grandTotalId  = consId_(key, "GrandTotal");
+  const dateEl        = document.getElementById(consId_(key, "Date"));
+  const itemSearchEl  = document.getElementById(consId_(key, "ItemSearch"));
+  const formEl        = document.getElementById(consId_(key, "Form"));
+  const previewEl     = document.getElementById(consId_(key, "Preview"));
+  const formWrap      = document.getElementById(consId_(key, "FormWrap"));
+  const tableWrap     = document.getElementById(consId_(key, "TableView"));
+  const entriesBody   = document.getElementById(consId_(key, "EntriesBody"));
+
+  // Default today
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  const recalcTotal = () => recalcConsumableTotal_(itemsBody, grandTotalId);
+
+  // Qty inputs
+  itemsBody.querySelectorAll(".entry-item-qty").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      formatConsumableDec_(inp);
+      recalcTotal();
+    });
+  });
+
+  // Item search
+  itemSearchEl.addEventListener("input", () => {
+    const q = String(itemSearchEl.value || "").trim().toLowerCase();
+    itemsBody.querySelectorAll("tr").forEach((tr) => {
+      const idx = Number(tr.dataset.itemIndex);
+      const it = st.items[idx];
+      if (!it) return;
+      tr.classList.toggle("item-hidden", !(!q || it.name.toLowerCase().includes(q)));
+    });
+  });
+
+  // ==========================================================
+  // Form submit → Preview
+  // ==========================================================
+  formEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a date."); return; }
+
+    // Collect items with qty > 0
+    const itemsWithQty = [];
+    itemsBody.querySelectorAll("tr").forEach((tr) => {
+      const idx = Number(tr.dataset.itemIndex);
+      const it = st.items[idx];
+      const inp = tr.querySelector(".entry-item-qty");
+      if (!inp || !it) return;
+      const qty = parseConsumableNum_(inp);
+      if (qty > 0) itemsWithQty.push({ name: it.name, qty });
+    });
+
+    if (itemsWithQty.length === 0) {
+      alert("Please enter quantity for at least one item.");
       return;
     }
 
-    let html = "";
-    items.forEach((name) => {
-      const safe = escapeHtml_(name);
-      html += `
-        <tr data-name="${safe.toLowerCase()}">
-          <td>${safe}</td>
-          <td>
-            <input type="text" class="entry-item-qty" inputmode="decimal" placeholder="0">
-          </td>
-        </tr>
+    // Preview HTML (NO total at bottom — user said no)
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>`;
+    itemsWithQty.forEach((it) => {
+      previewHtml += `
+        <div class="preview-item">
+          <span class="preview-label">${escapeHtml_(it.name)}</span>
+          <span class="preview-value">${formatNum_(it.qty, 2)} kg</span>
+        </div>
       `;
     });
-    bodyEl.innerHTML = html;
+    document.getElementById(consId_(key, "PreviewBody")).innerHTML = previewHtml;
 
-    // Attach input events
-    bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        formatConsumableDec_(inp);
-        recalcConsumableTotal_(bodyEl, cfg.totalId);
-      });
+    // Entry No + Entered By
+    const entryNoEl = document.getElementById(consId_(key, "PreviewEntryNo"));
+    const byEl      = document.getElementById(consId_(key, "PreviewEnteredBy"));
+
+    let currentEntryNo = st.editingEntryNo;
+    if (!currentEntryNo) {
+      entryNoEl.textContent = "loading...";
+      currentEntryNo = await generateNextConsumableEntryNo_(cfg, st.entries);
+    }
+    entryNoEl.textContent = currentEntryNo;
+    byEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    st.pendingData = {
+      entryNo: currentEntryNo,
+      date: dateEl.value,
+      items: itemsWithQty,
+      enteredBy: getCurrentUsername_(),
+    };
+
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
+  });
+
+  // Preview: Edit
+  document.getElementById(consId_(key, "EditBtn")).addEventListener("click", () => {
+    previewEl.style.display = "none";
+    formWrap.classList.remove("preview-active");
+  });
+
+  // Preview: Confirm & Save
+  document.getElementById(consId_(key, "ConfirmBtn")).addEventListener("click", async () => {
+    const pending = st.pendingData;
+    if (!pending) return;
+
+    const confirmBtn = document.getElementById(consId_(key, "ConfirmBtn"));
+    const ogText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ Saving...";
+
+    try {
+      const n = new Date();
+      const ts = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      const isUpdate = !!st.editingEntryNo;
+
+      if (!isUpdate) {
+        // --- APPEND — one wide row ---
+        const row = {
+          Timestamp: ts,
+          Date: pending.date,
+          Entry_No: pending.entryNo,
+          Entered_By: pending.enteredBy,
+        };
+        pending.items.forEach((it) => { row[it.name] = it.qty; });
+        await Api.append(cfg.dataSheet, [row]);
+      } else {
+        // --- UPDATE — find row, update all item columns ---
+        const freshRows = await Api.list(cfg.dataSheet, { force: true });
+        const existingRow = freshRows.find((r) =>
+          String(r.Entry_No || "").trim() === String(pending.entryNo).trim()
+        );
+        if (!existingRow) throw new Error("Entry not found for update.");
+
+        const updateData = {
+          Date: pending.date,
+          Edit_Date_Time: ts,
+          Edited_By: user,
+        };
+
+        // Zero out all master items first (so removed ones clear)
+        st.items.forEach((it) => { updateData[it.name] = 0; });
+        // Then set the new quantities
+        pending.items.forEach((it) => { updateData[it.name] = it.qty; });
+
+        await Api.update(cfg.dataSheet, existingRow._rowIndex, updateData);
+      }
+
+      alert(`✅ Record ${isUpdate ? "updated" : "saved"} successfully!\nEntry No: ${pending.entryNo}`);
+
+      // Reset
+      st.pendingData = null;
+      resetConsumableEditState_(cfg);
+      formEl.reset();
+      dateEl.value = today;
+      itemSearchEl.value = "";
+      itemsBody.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+      itemsBody.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+      recalcTotal();
+      previewEl.style.display = "none";
+      formWrap.classList.remove("preview-active");
+
+      await loadConsumableEntries_(cfg);
+      formWrap.style.display = "none";
+      tableWrap.style.display = "block";
+    } catch (err) {
+      console.error(`[Consumable ${key}] Save failed:`, err);
+      alert(`❌ Failed: ${err.message}`);
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = ogText;
+    }
+  });
+
+  // New Record
+  document.getElementById(consId_(key, "NewRecordBtn")).addEventListener("click", () => {
+    tableWrap.style.display = "none";
+    formWrap.style.display = "flex";
+
+    formEl.reset();
+    dateEl.value = today;
+    itemSearchEl.value = "";
+    itemsBody.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    itemsBody.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    recalcTotal();
+    resetConsumableEditState_(cfg);
+
+    formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // Cancel
+  document.getElementById(consId_(key, "CancelBtn")).addEventListener("click", () => {
+    formWrap.style.display = "none";
+    tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // Clear
+  document.getElementById(consId_(key, "ClearBtn")).addEventListener("click", () => {
+    if (!confirm("Clear all quantities?")) return;
+    itemsBody.querySelectorAll(".entry-item-qty").forEach((inp) => { inp.value = ""; });
+    itemSearchEl.value = "";
+    itemsBody.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+    dateEl.value = today;
+    recalcTotal();
+    resetConsumableEditState_(cfg);
+  });
+
+  // Filters
+  const searchTableEl  = document.getElementById(consId_(key, "Search"));
+  const fromDateEl     = document.getElementById(consId_(key, "FromDate"));
+  const toDateEl       = document.getElementById(consId_(key, "ToDate"));
+  const clearFilterBtn = document.getElementById(consId_(key, "ClearFilter"));
+
+  let searchTimer = null;
+  searchTableEl.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderConsumableEntries_(cfg), 150);
+  });
+  fromDateEl.addEventListener("change", () => renderConsumableEntries_(cfg));
+  toDateEl.addEventListener("change", () => renderConsumableEntries_(cfg));
+  clearFilterBtn.addEventListener("click", () => {
+    searchTableEl.value = "";
+    fromDateEl.value = "";
+    toDateEl.value = "";
+    renderConsumableEntries_(cfg);
+  });
+
+  // Entry rows: edit / delete (delegation)
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) { handleEditConsumableRow_(cfg, editBtn.dataset.entryNo); return; }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) { handleDeleteConsumableRow_(cfg, delBtn.dataset.entryNo, delBtn.dataset.date); return; }
+  });
+}
+
+function resetConsumableEditState_(cfg) {
+  consState_[cfg.key].editingEntryNo = null;
+  const saveBtn = document.getElementById(consId_(cfg.key, "SaveBtn"));
+  if (saveBtn) saveBtn.innerHTML = "💾 Save Record";
+}
+
+async function generateNextConsumableEntryNo_(cfg, cachedEntries) {
+  try {
+    let entries = cachedEntries;
+    if (!entries || entries.length === 0) {
+      entries = await Api.list(cfg.dataSheet, { force: true });
+    }
+    const prefix = cfg.prefix;
+    const re = new RegExp(`^${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}-(\\d+)$`, "i");
+
+    let max = 0;
+    entries.forEach((r) => {
+      const match = String(r.Entry_No || "").trim().match(re);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (isFinite(n) && n > max) max = n;
+      }
     });
-
-    recalcConsumableTotal_(bodyEl, cfg.totalId);
-
+    return `${prefix}-${String(max + 1).padStart(6, "0")}`;
   } catch (err) {
-    bodyEl.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:20px;color:#b23b3b;">Failed to load items: ${escapeHtml_(err.message)}</td></tr>`;
+    console.warn(`[Consumable ${cfg.key} Entry No] Failed:`, err);
+    return `${cfg.prefix}-${String(Date.now()).slice(-6)}`;
+  }
+}
+
+async function loadConsumableEntries_(cfg) {
+  const entriesBody = document.getElementById(consId_(cfg.key, "EntriesBody"));
+  const countEl     = document.getElementById(consId_(cfg.key, "Count"));
+
+  entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+  countEl.textContent = "loading...";
+
+  try {
+    const data = await Api.list(cfg.dataSheet, { force: true });
+
+    // Each row = one entry (wide format)
+    const entries = data
+      .filter((r) => String(r.Entry_No || "").trim() !== "")
+      .map((r) => {
+        // Count item columns with qty > 0
+        let totalItems = 0;
+        Object.keys(r).forEach((k) => {
+          if (CONS_META_KEYS_.includes(k)) return;
+          const val = Number(r[k]);
+          if (isFinite(val) && val > 0) totalItems++;
+        });
+        return {
+          Entry_No: r.Entry_No,
+          Date: r.Date,
+          Entered_By: r.Entered_By,
+          totalItems,
+          _rowIndex: r._rowIndex,
+        };
+      });
+
+    consState_[cfg.key].entries = entries;
+    renderConsumableEntries_(cfg);
+  } catch (err) {
+    console.error(`[Consumable ${cfg.key}] Load failed:`, err);
+    entriesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#b23b3b;">❌ Failed: ${escapeHtml_(err.message)}</td></tr>`;
+    countEl.textContent = "error";
+  }
+}
+
+function renderConsumableEntries_(cfg) {
+  const entriesBody = document.getElementById(consId_(cfg.key, "EntriesBody"));
+  const countEl     = document.getElementById(consId_(cfg.key, "Count"));
+  const searchEl    = document.getElementById(consId_(cfg.key, "Search"));
+  const fromDateEl  = document.getElementById(consId_(cfg.key, "FromDate"));
+  const toDateEl    = document.getElementById(consId_(cfg.key, "ToDate"));
+
+  const q = String(searchEl.value || "").trim().toLowerCase();
+  let rows = consState_[cfg.key].entries.filter((r) => {
+    const matchQ = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+    const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+    const matchTo = !toDateEl.value || String(r.Date) <= toDateEl.value;
+    return matchQ && matchFrom && matchTo;
+  });
+
+  countEl.textContent = `${rows.length} of ${consState_[cfg.key].entries.length}`;
+
+  rows.sort((a, b) =>
+    (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
+    (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
+  );
+
+  if (!rows.length) {
+    entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
     return;
   }
 
-  // Search filter
-  searchEl.addEventListener("input", () => {
-    const q = String(searchEl.value || "").trim().toLowerCase();
-    bodyEl.querySelectorAll("tr").forEach((tr) => {
-      const name = String(tr.dataset.name || "").toLowerCase();
-      tr.classList.toggle("item-hidden", !(!q || name.includes(q)));
+  entriesBody.innerHTML = rows.map((r) => {
+    const isEditing = consState_[cfg.key].editingEntryNo === r.Entry_No;
+    return `
+      <tr data-entry-no="${escapeHtml_(r.Entry_No)}" class="${isEditing ? "editing-row" : ""}">
+        <td>${escapeHtml_(r.Entry_No)}</td>
+        <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+        <td>${r.totalItems}</td>
+        <td>${escapeHtml_(r.Entered_By || "—")}</td>
+        <td class="row-actions">
+          <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No)}" title="Edit">✏️</button>
+          <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No)}" data-date="${escapeHtml_(r.Date || "")}" title="Delete">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function handleEditConsumableRow_(cfg, entryNo) {
+  if (!entryNo) return;
+
+  try {
+    const freshRows = await Api.list(cfg.dataSheet, { force: true });
+    const row = freshRows.find((r) => String(r.Entry_No || "").trim() === String(entryNo).trim());
+    if (!row) { alert("❌ Entry not found."); return; }
+
+    consState_[cfg.key].editingEntryNo = entryNo;
+
+    const dateEl       = document.getElementById(consId_(cfg.key, "Date"));
+    const itemsBody    = document.getElementById(consId_(cfg.key, "ItemsBody"));
+    const itemSearchEl = document.getElementById(consId_(cfg.key, "ItemSearch"));
+
+    dateEl.value = row.Date || "";
+    itemSearchEl.value = "";
+    itemsBody.querySelectorAll("tr").forEach((tr) => tr.classList.remove("item-hidden"));
+
+    // Populate each item input from row column
+    itemsBody.querySelectorAll("tr").forEach((tr) => {
+      const idx = Number(tr.dataset.itemIndex);
+      const it  = consState_[cfg.key].items[idx];
+      const inp = tr.querySelector(".entry-item-qty");
+      if (!inp || !it) return;
+
+      const val = Number(row[it.name]) || 0;
+      inp.value = val > 0
+        ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+        : "";
     });
+
+    recalcConsumableTotal_(itemsBody, consId_(cfg.key, "GrandTotal"));
+
+    const saveBtn = document.getElementById(consId_(cfg.key, "SaveBtn"));
+    if (saveBtn) saveBtn.innerHTML = "🔄 Update Record";
+
+    document.getElementById(consId_(cfg.key, "TableView")).style.display = "none";
+    document.getElementById(consId_(cfg.key, "FormWrap")).style.display = "flex";
+    document.getElementById(consId_(cfg.key, "FormWrap")).scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    console.error(`[Consumable ${cfg.key}] Edit failed:`, err);
+    alert(`❌ Failed to load entry: ${err.message}`);
+  }
+}
+
+async function handleDeleteConsumableRow_(cfg, entryNo, dateStr) {
+  if (!entryNo) return;
+
+  const ok = confirm(
+    `🗑️ Delete Entry ${entryNo} (Date: ${formatDateDMY_(dateStr)})?\n\n` +
+    `This will move the record to the archive and remove it from the active list.`
+  );
+  if (!ok) return;
+
+  const entriesBody = document.getElementById(consId_(cfg.key, "EntriesBody"));
+  const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+  try {
+    const freshRows = await Api.list(cfg.dataSheet, { force: true });
+    const row = freshRows.find((r) => String(r.Entry_No || "").trim() === String(entryNo).trim());
+    if (!row) throw new Error("Entry not found.");
+
+    const n = new Date();
+    const delTs = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+    const delUser = getCurrentUsername_();
+
+    const arch = { ...row };
+    delete arch._rowIndex;
+    arch.Deleted_At = delTs;
+    arch.Deleted_By = delUser;
+
+    await Api.append(cfg.archiveSheet, [arch]);
+    await Api.delete(cfg.dataSheet, row._rowIndex);
+
+    if (consState_[cfg.key].editingEntryNo === entryNo) {
+      resetConsumableEditState_(cfg);
+    }
+    await loadConsumableEntries_(cfg);
+    alert(`✅ Entry ${entryNo} deleted and archived.`);
+  } catch (err) {
+    console.error(`[Consumable ${cfg.key}] Delete failed:`, err);
+    alert(`❌ Delete failed: ${err.message}`);
+    if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+  }
+}
+
+// ===================================================================
+// DATA ENTRY — Birds Slaughtered Checklist
+//   1 Date → many time slots (Add Row pattern like Blast Freezer In/Out)
+//   Sheet: SlaughteredBird
+//   Headers: Timestamp | Date | Start Time | End Time |
+//            Actual No of Birds Slaughtered | Planned No of Birds |
+//            Entry_No | Entered_By | Edit_Date_Time | Edited_By
+//   Entry No: BSC-000001
+// ===================================================================
+async function initBirdsSlaughteredChecklistEntry() {
+  const form = document.getElementById("form-birds-slaughtered");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  // ---- Sheet & Header constants ----
+  const DATA_SHEET    = "SlaughteredBird";
+  const ARCHIVE_SHEET = "Deleted_Data_SlaughteredBird";
+
+  const H_START   = "Start Time";
+  const H_END     = "End Time";
+  const H_ACTUAL  = "Actual No of Birds Slaughtered";
+  const H_PLANNED = "Planned No of Birds";
+
+  // ---- State ----
+  let allEntries_ = [];
+  let editingEntryNo_ = null;
+  let originalRowsMap_ = {};    // key = "start|end" → { actual, planned, rowIndex, raw }
+  let pendingData_ = null;
+
+  // ---- DOM ----
+  const formWrap     = document.getElementById("bscFormPreviewWrap");
+  const tableWrap    = document.getElementById("bscTableView");
+  const newRecordBtn = document.getElementById("bscNewRecordBtn");
+  const cancelBtn    = document.getElementById("bscCancelBtn");
+  const previewEl    = document.getElementById("bscPreview");
+
+  const dateEl       = document.getElementById("bscDate");
+  const tbodyEl      = document.getElementById("bscItemsBody");
+  const addRowBtn    = document.getElementById("bscAddRowBtn");
+
+  const entriesBody  = document.getElementById("bscEntriesBody");
+  const searchTableEl = document.getElementById("bscTableSearch");
+  const fromDateEl   = document.getElementById("bscTableFromDate");
+  const toDateEl     = document.getElementById("bscTableToDate");
+  const clearFilterBtn = document.getElementById("bscTableClearFilter");
+  const countEl      = document.getElementById("bscTableCount");
+
+  // Default today's date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!dateEl.value) dateEl.value = today;
+
+  // ===================================================================
+  // Number helpers (int only, with comma formatting)
+  // ===================================================================
+  function formatInt_(el) {
+    const raw = String(el.value).replace(/[^\d]/g, "");
+    if (!raw) { el.value = ""; return 0; }
+    const n = parseInt(raw, 10);
+    el.value = n.toLocaleString("en-US");
+    return n;
+  }
+
+  function parseNum_(el) {
+    const v = String(el.value).replace(/,/g, "");
+    const n = parseInt(v, 10);
+    return isFinite(n) ? n : 0;
+  }
+
+  // ===================================================================
+  // Row management
+  // ===================================================================
+  function renumberRows_() {
+    tbodyEl.querySelectorAll("tr").forEach((tr, i) => {
+      tr.querySelector(".bsc-row-num").textContent = i + 1;
+    });
+  }
+
+  function addRow_(data = null) {
+    const tr = document.createElement("tr");
+    // 🆕 පරණ CSS classes (entry-item-time, entry-item-qty) එකතු කළා
+    tr.innerHTML = `
+      <td class="bsc-row-num" style="text-align:center; font-weight:600;">1</td>
+      <td><input type="time" step="60" class="entry-item-time entry-item-start"></td>
+      <td><input type="time" step="60" class="entry-item-time entry-item-end"></td>
+      <td><input type="text" class="entry-item-qty entry-item-actual" inputmode="numeric" placeholder="0"></td>
+      <td><input type="text" class="entry-item-qty entry-item-planned" inputmode="numeric" placeholder="0"></td>
+      <td style="text-align:center;"><button type="button" class="btn-del-row" title="Remove">✕</button></td>
+    `;
+
+    if (data) {
+      tr.querySelector(".entry-item-start").value = data.start || "";
+      tr.querySelector(".entry-item-end").value = data.end || "";
+      const actualInp  = tr.querySelector(".entry-item-actual");
+      const plannedInp = tr.querySelector(".entry-item-planned");
+      actualInp.value  = data.actual > 0 ? Number(data.actual).toLocaleString("en-US") : "";
+      plannedInp.value = data.planned > 0 ? Number(data.planned).toLocaleString("en-US") : "";
+    }
+
+    const actualInp  = tr.querySelector(".entry-item-actual");
+    const plannedInp = tr.querySelector(".entry-item-planned");
+    actualInp.addEventListener("input", () => formatInt_(actualInp));
+    plannedInp.addEventListener("input", () => formatInt_(plannedInp));
+
+    tr.querySelector(".btn-del-row").addEventListener("click", () => {
+      tr.remove();
+      renumberRows_();
+    });
+
+    tbodyEl.appendChild(tr);
+    renumberRows_();
+  }
+
+  // ===================================================================
+  // Table View — render entries
+  // ===================================================================
+  function renderBscEntriesTable_() {
+    const q = String(searchTableEl.value || "").trim().toLowerCase();
+    let rows = allEntries_.filter((r) => {
+      const matchQ    = !q || String(r.Entry_No).toLowerCase().includes(q) || String(r.Date).includes(q);
+      const matchFrom = !fromDateEl.value || String(r.Date) >= fromDateEl.value;
+      const matchTo   = !toDateEl.value   || String(r.Date) <= toDateEl.value;
+      return matchQ && matchFrom && matchTo;
+    });
+
+    countEl.textContent = `${rows.length} of ${allEntries_.length}`;
+    rows.sort((a, b) =>
+      (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
+      (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
+    );
+
+    if (!rows.length) {
+      entriesBody.innerHTML = `<tr><td colspan="7" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    const fmtInt = (v) => (Number(v) || 0).toLocaleString("en-US");
+
+    entriesBody.innerHTML = rows.map((r) => {
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td>${fmtInt(r.totalRows)}</td>
+          <td>${fmtInt(r.totalActual)}</td>
+          <td>${fmtInt(r.totalPlanned)}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit" data-entry-no="${escapeHtml_(r.Entry_No || '')}" title="Edit">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete" data-entry-no="${escapeHtml_(r.Entry_No || '')}" data-date="${escapeHtml_(r.Date || '')}" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function loadBscEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    countEl.textContent = "loading...";
+
+    try {
+      const data = await Api.list(DATA_SHEET, { force: true });
+
+      // Group by Entry_No (one date = multiple time slot rows)
+      const grouped = {};
+      data.filter((r) => String(r.Entry_No || "").trim() !== "").forEach((r) => {
+        const en = String(r.Entry_No).trim();
+        if (!grouped[en]) {
+          grouped[en] = {
+            Entry_No: en,
+            Date: r.Date,
+            Entered_By: r.Entered_By,
+            totalRows: 0,
+            totalActual: 0,
+            totalPlanned: 0,
+          };
+        }
+        grouped[en].totalRows    += 1;
+        grouped[en].totalActual  += Number(r[H_ACTUAL])  || 0;
+        grouped[en].totalPlanned += Number(r[H_PLANNED]) || 0;
+      });
+
+      allEntries_ = Object.values(grouped);
+      renderBscEntriesTable_();
+    } catch (err) {
+      console.error("[Birds Slaughtered] Load entries failed:", err);
+      entriesBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#b23b3b;">❌ Failed: ${escapeHtml_(err.message)}</td></tr>`;
+      countEl.textContent = "error";
+    }
+  }
+
+  // ===================================================================
+  // Event delegation — Edit / Delete
+  // ===================================================================
+  entriesBody.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-row-edit");
+    if (editBtn) { handleEditBscRow_(editBtn.dataset.entryNo); return; }
+    const delBtn = e.target.closest(".btn-row-delete");
+    if (delBtn) { handleDeleteBscRow_(delBtn.dataset.entryNo, delBtn.dataset.date); return; }
   });
 
-  // Submit (placeholder)
-  formEl.addEventListener("submit", (e) => {
-    e.preventDefault();
+  // ===================================================================
+  // Generate Next Entry No (BSC-000001)
+  // ===================================================================
+  async function generateNextBscEntryNo_(cachedEntries) {
+    try {
+      let entries = cachedEntries;
+      if (!entries || entries.length === 0) {
+        const rows = await Api.list(DATA_SHEET, { force: true });
+        const grouped = {};
+        rows.forEach((r) => { if (r.Entry_No) grouped[r.Entry_No] = true; });
+        entries = Object.keys(grouped).map((k) => ({ Entry_No: k }));
+      }
+      let maxNum = 0;
+      entries.forEach((r) => {
+        const match = String(r.Entry_No || "").trim().match(/^BSC-(\d+)$/i);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (isFinite(n) && n > maxNum) maxNum = n;
+        }
+      });
+      return "BSC-" + String(maxNum + 1).padStart(6, "0");
+    } catch (err) {
+      console.warn("[BSC Entry No] Failed:", err);
+      return "BSC-" + String(Date.now()).slice(-6);
+    }
+  }
 
-    const items = [];
-    bodyEl.querySelectorAll(".entry-item-qty").forEach((inp) => {
-      const qty = parseConsumableNum_(inp);
-      if (qty > 0) {
-        const tr = inp.closest("tr");
-        items.push({
-          Item_Name: tr.dataset.name,
-          Qty: qty,
+  // ===================================================================
+  // Edit — populate form from existing entry rows
+  // ===================================================================
+  async function handleEditBscRow_(entryNo) {
+    if (!entryNo) return;
+    try {
+      const rows = await Api.list(DATA_SHEET, { force: true });
+      const entryRows = rows.filter((r) => String(r.Entry_No).trim() === String(entryNo).trim());
+
+      if (entryRows.length === 0) { alert("❌ Entry not found."); return; }
+
+      editingEntryNo_ = entryNo;
+      originalRowsMap_ = {};
+
+      // Map existing rows by "start|end" (acts as the row identity)
+      entryRows.forEach((r) => {
+        const start = String(r[H_START] || "").slice(0, 5);
+        const end   = String(r[H_END]   || "").slice(0, 5);
+        const key   = `${start}|${end}`;
+        originalRowsMap_[key] = {
+          actual:  Number(r[H_ACTUAL])  || 0,
+          planned: Number(r[H_PLANNED]) || 0,
+          rowIndex: r._rowIndex,
+          raw: r,
+        };
+      });
+
+      // Fill form
+      dateEl.value = entryRows[0].Date || today;
+
+      tbodyEl.innerHTML = "";
+      entryRows.forEach((r) => {
+        addRow_({
+          start:   String(r[H_START] || "").slice(0, 5),
+          end:     String(r[H_END]   || "").slice(0, 5),
+          actual:  Number(r[H_ACTUAL])  || 0,
+          planned: Number(r[H_PLANNED]) || 0,
         });
+      });
+
+      // Switch button text
+      const saveBtn = document.getElementById("bscSaveBtn");
+      if (saveBtn) saveBtn.innerHTML = "🔄 Update Record";
+
+      // Toggle views
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      console.error("[Birds Slaughtered] Edit failed:", err);
+      alert(`❌ Failed to load entry: ${err.message}`);
+    }
+  }
+
+  // ===================================================================
+  // Delete — archive + remove all rows of this Entry_No
+  // ===================================================================
+  async function handleDeleteBscRow_(entryNo, dateStr) {
+    if (!entryNo) return;
+    const ok = confirm(
+      `🗑️ Delete Entry ${entryNo} (Date: ${formatDateDMY_(dateStr)})?\n\n` +
+      `This will move all time slots to the archive and remove them from the active list.`
+    );
+    if (!ok) return;
+
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      const rows = await Api.list(DATA_SHEET, { force: true });
+      const entryRows = rows.filter((r) => String(r.Entry_No).trim() === String(entryNo).trim());
+
+      const n = new Date();
+      const delTs = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+      const delUser = getCurrentUsername_();
+
+      for (const r of entryRows) {
+        const arch = { ...r };
+        delete arch._rowIndex;
+        arch.Deleted_At = delTs;
+        arch.Deleted_By = delUser;
+
+        await Api.append(ARCHIVE_SHEET, [arch]);
+        await Api.delete(DATA_SHEET, r._rowIndex);
+      }
+
+      if (editingEntryNo_ === entryNo) resetBscEditState_();
+      await loadBscEntries_();
+      alert(`✅ Entry ${entryNo} deleted and archived.`);
+    } catch (err) {
+      console.error("[Birds Slaughtered] Delete failed:", err);
+      alert(`❌ Delete failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  function resetBscEditState_() {
+    editingEntryNo_ = null;
+    originalRowsMap_ = {};
+    const saveBtn = document.getElementById("bscSaveBtn");
+    if (saveBtn) saveBtn.innerHTML = "💾 Save Record";
+  }
+
+  // ===================================================================
+  // Form Submit → Preview
+  // ===================================================================
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!dateEl.value) { alert("Please select a Date."); return; }
+
+    // Collect rows
+    const rows = [];
+    tbodyEl.querySelectorAll("tr").forEach((tr) => {
+      const start   = tr.querySelector(".entry-item-start")?.value || "";
+      const end     = tr.querySelector(".entry-item-end")?.value   || "";
+      const actual  = parseNum_(tr.querySelector(".entry-item-actual"));
+      const planned = parseNum_(tr.querySelector(".entry-item-planned"));
+
+      if (start || end || actual > 0 || planned > 0) {
+        rows.push({ start, end, actual, planned });
       }
     });
 
-    const payload = {
-      Sheet: cfg.sheet,
-      Date: dateEl ? dateEl.value : null,
-      items,
-      total: items.reduce((s, i) => s + i.Qty, 0),
+    if (rows.length === 0) {
+      alert("Please fill at least one time slot row.");
+      return;
+    }
+
+    // Validate each row
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.start)   { alert(`Row ${i + 1}: Start Time is required.`);   return; }
+      if (!r.end)     { alert(`Row ${i + 1}: End Time is required.`);     return; }
+      if (r.actual <= 0)  { alert(`Row ${i + 1}: Actual No of Birds must be > 0.`);  return; }
+      if (r.planned <= 0) { alert(`Row ${i + 1}: Planned No of Birds must be > 0.`); return; }
+    }
+
+    // Build preview HTML
+    const totalActual  = rows.reduce((s, r) => s + r.actual, 0);
+    const totalPlanned = rows.reduce((s, r) => s + r.planned, 0);
+
+    let previewHtml = `<div class="preview-section">Date: ${formatDateDMY_(dateEl.value)}</div>`;
+    rows.forEach((r, i) => {
+      previewHtml += `
+        <div class="preview-item" style="grid-column: 1 / -1;">
+          <span class="preview-label">Slot ${i + 1} • ${r.start} – ${r.end}</span>
+          <span class="preview-value">Actual: ${formatNum_(r.actual, 0)} | Planned: ${formatNum_(r.planned, 0)}</span>
+        </div>
+      `;
+    });
+    previewHtml += `
+      <div class="preview-item highlight" style="margin-top:10px;">
+        <span class="preview-label">Total Actual Birds</span>
+        <span class="preview-value" style="font-size:16px;">${formatNum_(totalActual, 0)}</span>
+      </div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Total Planned Birds</span>
+        <span class="preview-value" style="font-size:16px;">${formatNum_(totalPlanned, 0)}</span>
+      </div>
+    `;
+    document.getElementById("bscPreviewBody").innerHTML = previewHtml;
+
+    // Setup Entry No + Entered By
+    const entryNoEl = document.getElementById("bscPreviewEntryNo");
+    const byEl      = document.getElementById("bscPreviewEnteredBy");
+
+    let currentEntryNo = editingEntryNo_;
+    if (!currentEntryNo) {
+      entryNoEl.textContent = "loading...";
+      currentEntryNo = await generateNextBscEntryNo_(allEntries_);
+    }
+    entryNoEl.textContent = currentEntryNo;
+    byEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    // Store pending
+    pendingData_ = {
+      entryNo: currentEntryNo,
+      date: dateEl.value,
+      rows,
+      enteredBy: getCurrentUsername_(),
     };
 
-    console.log(`[Consumable — ${cfg.key}] Payload ready:`, payload);
-    alert(`✅ Payload ready!\n\nTab: ${cfg.key}\nSheet: ${cfg.sheet}\nItems: ${items.length}\n\nConsole එකේ full payload බලන්න.`);
+    previewEl.style.display = "flex";
+    formWrap.classList.add("preview-active");
   });
+
+  // ===================================================================
+  // Preview Buttons — Edit / Confirm
+  // ===================================================================
+  document.getElementById("bscEditBtn").addEventListener("click", () => {
+    previewEl.style.display = "none";
+    formWrap.classList.remove("preview-active");
+  });
+
+  document.getElementById("bscConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) return;
+
+    const confirmBtn = document.getElementById("bscConfirmBtn");
+    const ogText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ Saving...";
+
+    try {
+      const n = new Date();
+      const ts = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")} ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`;
+      const user = getCurrentUsername_();
+      const isUpdate = !!editingEntryNo_;
+
+      if (!isUpdate) {
+        // ---- APPEND new ----
+        const rowsToAppend = pendingData_.rows.map((r) => ({
+          Timestamp: ts,
+          Date: pendingData_.date,
+          [H_START]: r.start,
+          [H_END]: r.end,
+          [H_ACTUAL]: r.actual,
+          [H_PLANNED]: r.planned,
+          Entry_No: pendingData_.entryNo,
+          Entered_By: pendingData_.enteredBy,
+        }));
+        await Api.append(DATA_SHEET, rowsToAppend);
+      } else {
+        // ---- UPDATE existing (row-by-row diff) ----
+        const freshRows = await Api.list(DATA_SHEET, { force: true });
+        const currentEntryRows = freshRows.filter(
+          (r) => String(r.Entry_No).trim() === String(pendingData_.entryNo).trim()
+        );
+
+        // Map existing rows by "start|end"
+        const currentMap = {};
+        currentEntryRows.forEach((r) => {
+          const start = String(r[H_START] || "").slice(0, 5);
+          const end   = String(r[H_END]   || "").slice(0, 5);
+          currentMap[`${start}|${end}`] = r;
+        });
+
+        // Update or append
+        for (const r of pendingData_.rows) {
+          const key = `${r.start}|${r.end}`;
+          const old = currentMap[key];
+
+          if (old) {
+            const oldActual  = Number(old[H_ACTUAL])  || 0;
+            const oldPlanned = Number(old[H_PLANNED]) || 0;
+            if (oldActual !== r.actual || oldPlanned !== r.planned || old.Date !== pendingData_.date) {
+              await Api.update(DATA_SHEET, old._rowIndex, {
+                Date: pendingData_.date,
+                [H_START]: r.start,
+                [H_END]: r.end,
+                [H_ACTUAL]: r.actual,
+                [H_PLANNED]: r.planned,
+                Edit_Date_Time: ts,
+                Edited_By: user,
+              });
+            }
+            delete currentMap[key];   // mark processed
+          } else {
+            await Api.append(DATA_SHEET, [{
+              Timestamp: ts,
+              Date: pendingData_.date,
+              [H_START]: r.start,
+              [H_END]: r.end,
+              [H_ACTUAL]: r.actual,
+              [H_PLANNED]: r.planned,
+              Entry_No: pendingData_.entryNo,
+              Entered_By: pendingData_.enteredBy,
+              Edit_Date_Time: ts,
+              Edited_By: user,
+            }]);
+          }
+        }
+
+        // Delete remaining (rows removed from form)
+        for (const k in currentMap) {
+          await Api.delete(DATA_SHEET, currentMap[k]._rowIndex);
+        }
+      }
+
+      alert(`✅ Record ${isUpdate ? "updated" : "saved"} successfully!\nEntry No: ${pendingData_.entryNo}`);
+
+      // Reset
+      pendingData_ = null;
+      form.reset();
+      dateEl.value = today;
+      tbodyEl.innerHTML = "";
+      addRow_();
+      previewEl.style.display = "none";
+      formWrap.classList.remove("preview-active");
+      resetBscEditState_();
+
+      await loadBscEntries_();
+      formWrap.style.display = "none";
+      tableWrap.style.display = "block";
+    } catch (err) {
+      console.error("[Birds Slaughtered Save] Failed:", err);
+      alert(`❌ Failed: ${err.message}`);
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = ogText;
+    }
+  });
+
+  // ===================================================================
+  // View toggles
+  // ===================================================================
+  newRecordBtn.addEventListener("click", () => {
+    tableWrap.style.display = "none";
+    formWrap.style.display = "flex";
+
+    form.reset();
+    dateEl.value = today;
+    tbodyEl.innerHTML = "";
+    addRow_();               // one blank row
+
+    resetBscEditState_();
+    formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    formWrap.style.display = "none";
+    tableWrap.style.display = "block";
+    tableWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("bscClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all rows?")) return;
+    form.reset();
+    dateEl.value = today;
+    tbodyEl.innerHTML = "";
+    addRow_();
+    resetBscEditState_();
+  });
+
+  addRowBtn.addEventListener("click", () => addRow_());
+
+  // ===================================================================
+  // Filters
+  // ===================================================================
+  let searchTimer_ = null;
+  searchTableEl.addEventListener("input", () => {
+    clearTimeout(searchTimer_);
+    searchTimer_ = setTimeout(renderBscEntriesTable_, 150);
+  });
+  fromDateEl.addEventListener("change", renderBscEntriesTable_);
+  toDateEl.addEventListener("change", renderBscEntriesTable_);
+  clearFilterBtn.addEventListener("click", () => {
+    searchTableEl.value = "";
+    fromDateEl.value = "";
+    toDateEl.value = "";
+    renderBscEntriesTable_();
+  });
+
+  // ===================================================================
+  // Initial load
+  // ===================================================================
+  await loadBscEntries_();
+  formWrap.style.display = "none";
+  tableWrap.style.display = "block";
 }
 
 // -------------------------------------------------------------------
@@ -3772,6 +6631,11 @@ function initDailyLbEntry() {
     liveWToPlant:       document.getElementById("dlbLiveWeightToPlant"),
   };
 
+    // 🆕 Editing state
+  let editingEntryNo_ = null;
+  let editingLbRowIndex_ = null;
+  let editingUnlRowIndex_ = null;
+
   // ----- Default today's date -----
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -3890,81 +6754,324 @@ function initDailyLbEntry() {
     form.reset();
     F.date.value = today;
     recalc();
+    resetEditState_();   // 🆕 exit edit mode
   });
 
   // ----- Save to Google Sheets (Data_LB_Summary + LoadingUnloadingTime) -----
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+    // ===================================================================
+  // State — collected data waiting for confirmation
+  // ===================================================================
+  let pendingData_ = null;
 
-    const saveBtn = document.getElementById("dlbSaveBtn");
-    const originalText = saveBtn.textContent;
+  // ===================================================================
+  // Helper — build preview HTML from a data object
+  // ===================================================================
+  function buildPreviewHtml_(data) {
+    const fmtNum = (v, dec = 0) => (Number(v) || 0).toLocaleString("en-US", {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
+    });
+    const fmtTime = (v) => v || "—";
 
-    // Collect + validate
-    const dateVal     = F.date.value;
-    const locationVal = F.location.value.trim();
-    const startTime   = F.loadingStart.value;
-    const endTime     = F.unloadingTime.value;
+    return `
+      <div class="preview-section">Basic Information</div>
 
-    if (!dateVal)     { alert("Please select a Date."); return; }
-    if (!locationVal) { alert("Please enter a Location."); return; }
-    if (!startTime)   { alert("Please enter Loading Start Time."); return; }
-    if (!endTime)     { alert("Please enter Unloading Time."); return; }
+      <div class="preview-item">
+        <span class="preview-label">Date</span>
+        <span class="preview-value">${data.Date || "—"}</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Location</span>
+        <span class="preview-value">${data.Location || "—"}</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Loading Start</span>
+        <span class="preview-value">${fmtTime(data.Loading_Start_Time)}</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Unloading End</span>
+        <span class="preview-value">${fmtTime(data.Unloading_Time)}</span>
+      </div>
 
-    // ---- Auto timestamp (Google Sheet readable) ----
+      <div class="preview-section">Live Bird Details</div>
+
+      <div class="preview-item">
+        <span class="preview-label">No. of Birds</span>
+        <span class="preview-value">${fmtNum(data.No_of_birds)}</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Live Weight</span>
+        <span class="preview-value">${fmtNum(data.Live_Weight, 2)} kg</span>
+      </div>
+      <div class="preview-item" style="grid-column: 1 / -1;">
+        <span class="preview-label">Average Weight</span>
+        <span class="preview-value">${fmtNum(data.Average_Weight, 2)} kg</span>
+      </div>
+
+      <div class="preview-section">Mortality</div>
+
+      <div class="preview-item">
+        <span class="preview-label">Transport Mortality</span>
+        <span class="preview-value">${fmtNum(data.Transport_Mortality)} NOB / ${fmtNum(data.Transport_Mortality_Weight, 2)} kg</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Bay Mortality</span>
+        <span class="preview-value">${fmtNum(data.Bay_Mortality)} NOB / ${fmtNum(data.Bay_Mortality_Weight, 2)} kg</span>
+      </div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Total Dead Weight</span>
+        <span class="preview-value">${fmtNum(data.Total_Weight_of_dead_birds, 2)} kg</span>
+      </div>
+
+      <div class="preview-section">Rejections</div>
+
+      <div class="preview-item">
+        <span class="preview-label">Halal Rejected</span>
+        <span class="preview-value">${fmtNum(data.Number_of_Halal_rejected_birds)} NOB / ${fmtNum(data.Weight_of_Halal_rejected_birds, 2)} kg</span>
+      </div>
+      <div class="preview-item">
+        <span class="preview-label">Other Rejected</span>
+        <span class="preview-value">${fmtNum(data.Number_of_other_rejected_birds)} NOB / ${fmtNum(data.Weight_of_other_rejected_birds, 2)} kg</span>
+      </div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Total Rejected Weight</span>
+        <span class="preview-value">${fmtNum(data.Total_Weight_of_rejected_birds, 2)} kg</span>
+      </div>
+
+      <div class="preview-section">Final</div>
+
+      <div class="preview-item highlight">
+        <span class="preview-label">Birds to Plant</span>
+        <span class="preview-value" style="font-size: 18px;">${fmtNum(data.No_of_birds_to_plant)}</span>
+      </div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Live Weight to Plant</span>
+        <span class="preview-value" style="font-size: 18px;">${fmtNum(data.Live_weight_to_plant, 2)} kg</span>
+      </div>
+    `;
+  }
+
+  // ===================================================================
+  // Build payload from form fields
+  // ===================================================================
+  function buildPayload_() {
     const now = new Date();
     const timestampStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
 
-    // ============================================================
-    // Row 1: Data_LB_Summary
-    // ============================================================
-    const lbSummaryRow = {
-      Timestamp:                          timestampStr,
-      Date:                               dateVal,
-      Location:                           locationVal,
-      No_of_birds:                        parseNum_(F.birds),
-      Average_weight:                     parseNum_(F.avgWeight),
-      Live_weight:                        parseNum_(F.liveWeight),
-      Transport_Mortality:                parseNum_(F.transportMort),
-      Transport_Mortality_Weight:         parseNum_(F.transportMortW),
-      Bay_Mortality:                      parseNum_(F.bayMort),
-      Bay_Mortality_Weight:               parseNum_(F.bayMortW),
-      Total_Weight_of_dead_birds:         parseNum_(F.totalDeadW),
-      Number_of_Halal_rejected_birds:     parseNum_(F.halalRej),
-      Weight_of_Halal_rejected_birds:     parseNum_(F.halalRejW),
-      Number_of_other_rejected_birds:     parseNum_(F.otherRej),
-      Weight_of_other_rejected_birds:     parseNum_(F.otherRejW),
-      Total_Weight_of_rejected_birds:     parseNum_(F.totalRejW),
-      No_of_birds_to_plant:               parseNum_(F.birdsToPlant),
-      Live_weight_to_plant:               parseNum_(F.liveWToPlant),
+    return {
+      timestamp: timestampStr,
+      lbSummary: {
+        Timestamp:                        timestampStr,
+        Entry_No:                         "",     // 🆕 filled later from pendingData_
+        Entered_By:                       "",     // 🆕 filled later
+        Date:                             F.date.value,
+        Location:                         F.location.value.trim(),
+        No_of_birds:                      parseNum_(F.birds),
+        Average_weight:                   parseNum_(F.avgWeight),
+        Live_weight:                      parseNum_(F.liveWeight),
+        Transport_Mortality:              parseNum_(F.transportMort),
+        Transport_Mortality_Weight:       parseNum_(F.transportMortW),
+        Bay_Mortality:                    parseNum_(F.bayMort),
+        Bay_Mortality_Weight:             parseNum_(F.bayMortW),
+        Total_Weight_of_dead_birds:       parseNum_(F.totalDeadW),
+        Number_of_Halal_rejected_birds:   parseNum_(F.halalRej),
+        Weight_of_Halal_rejected_birds:   parseNum_(F.halalRejW),
+        Number_of_other_rejected_birds:   parseNum_(F.otherRej),
+        Weight_of_other_rejected_birds:   parseNum_(F.otherRejW),
+        Total_Weight_of_rejected_birds:   parseNum_(F.totalRejW),
+        No_of_birds_to_plant:             parseNum_(F.birdsToPlant),
+        Live_weight_to_plant:             parseNum_(F.liveWToPlant),
+      },
+      unloading: {
+        Timestamp:  timestampStr,
+        Entry_No:   "",    // 🆕 filled later
+        Entered_By: "",    // 🆕 filled later
+        Date:       F.date.value,
+        Location:   F.location.value.trim(),
+        Start_Time: F.loadingStart.value,
+        End_Time:   F.unloadingTime.value,
+      },
+    };
+  }
+
+  // ===================================================================
+  // Form submit → SHOW PREVIEW (do NOT save yet)
+  // ===================================================================
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // Validate
+    if (!F.date.value)                             { alert("Please select a Date."); return; }
+    if (!F.location.value.trim())                  { alert("Please enter a Location."); return; }
+    if (!F.loadingStart.value)                     { alert("Please enter Loading Start Time."); return; }
+    if (!F.unloadingTime.value)                    { alert("Please enter Unloading Time."); return; }
+
+    // Build payload + store
+    pendingData_ = buildPayload_();
+
+    // Show preview
+    const previewEl = document.getElementById("dlbPreview");
+    const bodyEl    = document.getElementById("dlbPreviewBody");
+
+    // Preview uses display-friendly keys
+    const displayData = {
+      Date:                             pendingData_.lbSummary.Date,
+      Location:                         pendingData_.lbSummary.Location,
+      Loading_Start_Time:               pendingData_.unloading.Start_Time,
+      Unloading_Time:                   pendingData_.unloading.End_Time,
+      No_of_birds:                      pendingData_.lbSummary.No_of_birds,
+      Live_Weight:                      pendingData_.lbSummary.Live_weight,
+      Average_Weight:                   pendingData_.lbSummary.Average_weight,
+      Transport_Mortality:              pendingData_.lbSummary.Transport_Mortality,
+      Transport_Mortality_Weight:       pendingData_.lbSummary.Transport_Mortality_Weight,
+      Bay_Mortality:                    pendingData_.lbSummary.Bay_Mortality,
+      Bay_Mortality_Weight:             pendingData_.lbSummary.Bay_Mortality_Weight,
+      Total_Weight_of_dead_birds:       pendingData_.lbSummary.Total_Weight_of_dead_birds,
+      Number_of_Halal_rejected_birds:   pendingData_.lbSummary.Number_of_Halal_rejected_birds,
+      Weight_of_Halal_rejected_birds:   pendingData_.lbSummary.Weight_of_Halal_rejected_birds,
+      Number_of_other_rejected_birds:   pendingData_.lbSummary.Number_of_other_rejected_birds,
+      Weight_of_other_rejected_birds:   pendingData_.lbSummary.Weight_of_other_rejected_birds,
+      Total_Weight_of_rejected_birds:   pendingData_.lbSummary.Total_Weight_of_rejected_birds,
+      No_of_birds_to_plant:             pendingData_.lbSummary.No_of_birds_to_plant,
+      Live_weight_to_plant:             pendingData_.lbSummary.Live_weight_to_plant,
     };
 
-    // ============================================================
-    // Row 2: LoadingUnloadingTime
-    // ============================================================
-    const unloadingRow = {
-      Timestamp:  timestampStr,
-      Date:       dateVal,
-      Location:   locationVal,
-      Start_Time: startTime,      // "HH:MM" (24-hour)
-      End_Time:   endTime,        // "HH:MM"
-    };
+        bodyEl.innerHTML = buildPreviewHtml_(displayData);
 
-    // Disable button while saving
-    saveBtn.disabled = true;
-    saveBtn.textContent = "⏳ Saving...";
+    // 🆕 Fetch Entry No + Entered By
+    const entryNoEl = document.getElementById("dlbPreviewEntryNo");
+    const enteredByEl = document.getElementById("dlbPreviewEnteredBy");
 
+    // Show loading state
+    if (entryNoEl) entryNoEl.textContent = "loading...";
+    if (enteredByEl) enteredByEl.innerHTML = `by: <strong>${getCurrentUsername_()}</strong>`;
+
+    // 🆕 Activate side-by-side layout (form shrinks to left, preview shows on right)
+    const wrap = document.getElementById("dlbFormPreviewWrap");
+    if (wrap) wrap.classList.add("preview-active");
+
+    // Make preview visible (flex handles layout)
+    previewEl.style.display = "block";
+
+        // Fetch Entry No asynchronously
     try {
-      // Save to BOTH sheets in parallel
-      const [r1, r2] = await Promise.all([
-        Api.append("DataLBSummary",    [lbSummaryRow]),
-        Api.append("Birds_Unloading",  [unloadingRow]),
-      ]);
+      let entryNo;
 
-      if (r1 && r1.success && r2 && r2.success) {
-        alert(`✅ Record saved successfully!\n\nDate: ${dateVal}\nLocation: ${locationVal}\n\nSaved to:\n• Data_LB_Summary\n• LoadingUnloadingTime`);
+      // 🆕 Check if editing an existing record
+      if (editingEntryNo_) {
+        entryNo = editingEntryNo_;
+      } else {
+        // 🆕 Generate new entry number INSTANTLY using memory cache
+        entryNo = await generateNextEntryNo_(allEntries_);
+      }
+
+      pendingData_.entryNo = entryNo;
+      pendingData_.enteredBy = getCurrentUsername_();
+      if (entryNoEl) entryNoEl.textContent = entryNo;
+    } catch (err) {
+      console.error("[Daily LB] Entry No generation failed:", err);
+      if (entryNoEl) entryNoEl.textContent = "ERROR";
+      alert("⚠️ Entry No could not be generated. Please try again.");
+    }
+  });
+
+  // ===================================================================
+  // EDIT — hide preview, keep form data
+  // ===================================================================
+    document.getElementById("dlbEditBtn").addEventListener("click", () => {
+    // 🆕 Deactivate side-by-side layout
+    const wrap = document.getElementById("dlbFormPreviewWrap");
+    if (wrap) wrap.classList.remove("preview-active");
+
+    const previewEl = document.getElementById("dlbPreview");
+    previewEl.style.display = "none";
+
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // ===================================================================
+  // CONFIRM — actually save to Google Sheets
+  // ===================================================================
+  document.getElementById("dlbConfirmBtn").addEventListener("click", async () => {
+    if (!pendingData_) {
+      alert("No data to save. Please fill the form again.");
+      return;
+    }
+
+    const confirmBtn = document.getElementById("dlbConfirmBtn");
+    const originalText = confirmBtn.textContent;
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ Saving...";
+
+        try {
+      // 🆕 Inject Entry_No + Entered_By into BOTH rows
+      const entryNo    = pendingData_.entryNo    || "";
+      const enteredBy  = pendingData_.enteredBy  || getCurrentUsername_();
+
+      pendingData_.lbSummary.Entry_No   = entryNo;
+      pendingData_.lbSummary.Entered_By = enteredBy;
+
+      pendingData_.unloading.Entry_No   = entryNo;
+      pendingData_.unloading.Entered_By = enteredBy;
+
+      // 🆕 Detect mode: UPDATE (existing row) or APPEND (new row)
+      const isUpdate = editingEntryNo_ && editingLbRowIndex_;
+
+            let r1, r2;
+      if (isUpdate) {
+        // 🆕 Create Edit Metadata (Timestamp + Username)
+        const now = new Date();
+        const editTimestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+        const editedByUser = getCurrentUsername_();
+
+        // 🆕 Inject into payloads for both sheets
+        pendingData_.lbSummary.Edit_Date_Time = editTimestamp;
+        pendingData_.lbSummary.Edited_By = editedByUser;
+        pendingData_.unloading.Edit_Date_Time = editTimestamp;
+        pendingData_.unloading.Edited_By = editedByUser;
+
+        // ---- UPDATE existing row ----
+        r1 = await Api.update("DataLBSummary", editingLbRowIndex_, pendingData_.lbSummary);
+        
+        if (editingUnlRowIndex_) {
+          r2 = await Api.update("Birds_Unloading", editingUnlRowIndex_, pendingData_.unloading);
+        } else {
+          r2 = await Api.append("Birds_Unloading", [pendingData_.unloading]);
+        }
+      } else {
+        // ---- APPEND new row ----
+        const [ra, rb] = await Promise.all([
+          Api.append("DataLBSummary",    [pendingData_.lbSummary]),
+          Api.append("Birds_Unloading",  [pendingData_.unloading]),
+        ]);
+        r1 = ra; r2 = rb;
+      }
+
+                  if (r1 && r1.success && r2 && r2.success) {
+        const verb = isUpdate ? "updated" : "saved";
+        alert(`✅ Record ${verb} successfully!\n\nEntry No: ${entryNo}\nDate: ${pendingData_.lbSummary.Date}\nLocation: ${pendingData_.lbSummary.Location}\n\nBy: ${enteredBy}`);
+
+        // Reset form inputs
+        pendingData_ = null;
         form.reset();
         F.date.value = today;
         recalc();
+
+        // 🆕 Clear edit state + reset button
+        resetEditState_();
+
+        // Hide preview + reset side-by-side layout
+        const wrap = document.getElementById("dlbFormPreviewWrap");
+        if (wrap) wrap.classList.remove("preview-active");
+        document.getElementById("dlbPreview").style.display = "none";
+
+        // 🆕 Reload table data in background (no redirect)
+        await loadEntries_();
+
+        // 🆕 Make sure form is visible and at the top
+        formWrap.style.display = "flex";
+        formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
         const lbStatus  = r1 && r1.success ? "✅" : "❌";
         const unlStatus = r2 && r2.success ? "✅" : "❌";
@@ -3974,13 +7081,361 @@ function initDailyLbEntry() {
       console.error("[Daily LB Entry] Save failed:", err);
       alert(`❌ Save failed: ${err.message}`);
     } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = originalText;
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = originalText;
     }
   });
 
-  // Initial calc
-  recalc();
+   // ===================================================================
+  // ENTERED ENTRIES TABLE — Auto-load + Filter
+  // ===================================================================
+  const tableView   = document.getElementById("dlbTableView");
+  const searchInput = document.getElementById("dlbTableSearch");
+  const fromDateEl  = document.getElementById("dlbTableFromDate");
+  const toDateEl    = document.getElementById("dlbTableToDate");
+  const clearFilterBtn = document.getElementById("dlbTableClearFilter");
+  const entriesBody = document.getElementById("dlbEntriesBody");
+  const countEl     = document.getElementById("dlbTableCount");
+
+  let allEntries_ = [];
+
+  // ---- Render table ----
+    // ===================================================================
+  // Render entries table
+  // ===================================================================
+  function renderEntriesTable_() {
+    const q = String(searchInput.value || "").trim().toLowerCase();
+    const fromDate = fromDateEl.value;
+    const toDate   = toDateEl.value;
+
+    let rows = allEntries_;
+
+    // Filter by search text
+    if (q) {
+      rows = rows.filter((r) => {
+        const entryNo   = String(r.Entry_No   || "").toLowerCase();
+        const location  = String(r.Location   || "").toLowerCase();
+        const enteredBy = String(r.Entered_By || "").toLowerCase();
+        return entryNo.includes(q) || location.includes(q) || enteredBy.includes(q);
+      });
+    }
+
+    // Filter by date range
+    if (fromDate) rows = rows.filter((r) => String(r.Date || "") >= fromDate);
+    if (toDate)   rows = rows.filter((r) => String(r.Date || "") <= toDate);
+
+    // Count
+    const totalCount = allEntries_.length;
+    const filteredCount = rows.length;
+    const hasFilter = q || fromDate || toDate;
+    countEl.textContent = hasFilter
+      ? `${filteredCount} of ${totalCount}`
+      : `${totalCount} entries`;
+
+    // Sort newest first
+    rows = rows.slice().sort((a, b) => {
+      const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+      const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+      return nb - na;
+    });
+
+    if (rows.length === 0) {
+      entriesBody.innerHTML = `<tr><td colspan="13" class="entry-table-empty">No entries found.</td></tr>`;
+      return;
+    }
+
+    const fmtNum = (v, dec = 0) => (Number(v) || 0).toLocaleString("en-US", {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
+    });
+
+    entriesBody.innerHTML = rows.map((r) => {
+      const mortalityNob = (Number(r.Transport_Mortality) || 0) + (Number(r.Bay_Mortality) || 0);
+      const mortalityWt  = (Number(r.Transport_Mortality_Weight) || 0) + (Number(r.Bay_Mortality_Weight) || 0);
+      const rejectedNob  = (Number(r.Number_of_Halal_rejected_birds) || 0) + (Number(r.Number_of_other_rejected_birds) || 0);
+      const rejectedWt   = (Number(r.Weight_of_Halal_rejected_birds) || 0) + (Number(r.Weight_of_other_rejected_birds) || 0);
+
+      const isEditing = editingEntryNo_ && String(editingEntryNo_) === String(r.Entry_No);
+
+      return `
+        <tr data-entry-no="${escapeHtml_(r.Entry_No || '')}" class="${isEditing ? 'editing-row' : ''}">
+          <td>${escapeHtml_(r.Entry_No || "—")}</td>
+          <td>${escapeHtml_(formatDateDMY_(r.Date) || "—")}</td>
+          <td style="text-align:left;">${escapeHtml_(r.Location || "—")}</td>
+          <td>${fmtNum(r.No_of_birds)}</td>
+          <td>${fmtNum(r.Live_weight, 2)}</td>
+          <td>${fmtNum(mortalityNob)}</td>
+          <td>${fmtNum(mortalityWt, 2)}</td>
+          <td>${fmtNum(rejectedNob)}</td>
+          <td>${fmtNum(rejectedWt, 2)}</td>
+          <td>${fmtNum(r.No_of_birds_to_plant)}</td>
+          <td>${fmtNum(r.Live_weight_to_plant, 2)}</td>
+          <td>${escapeHtml_(r.Entered_By || "—")}</td>
+          <td class="row-actions">
+            <button type="button" class="row-action-btn btn-row-edit"
+                    data-entry-no="${escapeHtml_(r.Entry_No || '')}"
+                    title="Edit entry">✏️</button>
+            <button type="button" class="row-action-btn btn-row-delete"
+                    data-entry-no="${escapeHtml_(r.Entry_No || '')}"
+                    data-row-index="${r._rowIndex || ''}"
+                    title="Delete entry">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    // ===================================================================
+    // 🆕 Attach Edit + Delete handlers
+    // ===================================================================
+    entriesBody.querySelectorAll(".btn-row-edit").forEach((btn) => {
+      btn.addEventListener("click", () => handleEditRow_(btn.dataset.entryNo));
+    });
+    entriesBody.querySelectorAll(".btn-row-delete").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const rowIndex = Number(btn.dataset.rowIndex);
+        handleDeleteRow_(btn.dataset.entryNo, rowIndex);
+      });
+    });
+  }
+
+  // ===================================================================
+  // 🆕 Edit Row — populate form with row data
+  // ===================================================================
+  async function handleEditRow_(entryNo) {
+    if (!entryNo) return;
+
+    try {
+      // Load latest from both sheets
+      const [lbRows, unlRows] = await Promise.all([
+        Api.list("DataLBSummary", { force: true }),
+        Api.list("Birds_Unloading", { force: true }),
+      ]);
+
+      const lbRow = lbRows.find((r) => String(r.Entry_No || "").trim() === String(entryNo).trim());
+      const unlRow = unlRows.find((r) => String(r.Entry_No || "").trim() === String(entryNo).trim());
+
+      if (!lbRow) {
+        alert("❌ Entry not found in Data_LB_Summary.");
+        return;
+      }
+
+      // Store editing state
+      editingEntryNo_ = entryNo;
+      editingLbRowIndex_ = lbRow._rowIndex;
+      editingUnlRowIndex_ = unlRow ? unlRow._rowIndex : null;
+
+      // Populate form fields
+      F.date.value     = lbRow.Date || today;
+      F.location.value = lbRow.Location || "";
+
+      F.loadingStart.value  = unlRow && unlRow.Start_Time ? String(unlRow.Start_Time).slice(0, 5) : "";
+      F.unloadingTime.value = unlRow && unlRow.End_Time   ? String(unlRow.End_Time).slice(0, 5)   : "";
+
+      // Helper to fill formatted numbers
+      const setInt = (el, v) => {
+        el.value = (Number(v) || 0) ? Number(v).toLocaleString("en-US") : "";
+      };
+      const setDec = (el, v) => {
+        el.value = (Number(v) || 0) ? Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+      };
+
+      setInt(F.birds,           lbRow.No_of_birds);
+      setDec(F.liveWeight,      lbRow.Live_weight);
+      setInt(F.transportMort,   lbRow.Transport_Mortality);
+      setDec(F.transportMortW,  lbRow.Transport_Mortality_Weight);
+      setInt(F.bayMort,         lbRow.Bay_Mortality);
+      setDec(F.bayMortW,        lbRow.Bay_Mortality_Weight);
+      setInt(F.halalRej,        lbRow.Number_of_Halal_rejected_birds);
+      setDec(F.halalRejW,       lbRow.Weight_of_Halal_rejected_birds);
+      setInt(F.otherRej,        lbRow.Number_of_other_rejected_birds);
+      setDec(F.otherRejW,       lbRow.Weight_of_other_rejected_birds);
+
+      recalc();
+
+      // Change Save button to Update
+      const saveBtn = document.getElementById("dlbSaveBtn");
+      if (saveBtn) saveBtn.innerHTML = "🔄 Update Record";
+
+            // 🆕 Hide table view, show form
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex";
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // Show subtle notification
+      console.log(`[Daily LB] Editing entry: ${entryNo}`);
+    } catch (err) {
+      console.error("[Daily LB] Edit failed:", err);
+      alert(`❌ Failed to load entry: ${err.message}`);
+    }
+  }
+
+  // ===================================================================
+  // 🆕 Delete Row — Move to Archive & remove from original Sheets
+  // ===================================================================
+  async function handleDeleteRow_(entryNo, lbRowIndex) {
+    if (!entryNo) return;
+    if (!lbRowIndex || lbRowIndex < 2) {
+      alert("❌ Invalid row — cannot delete.");
+      return;
+    }
+
+    // Confirm delete
+    const ok = confirm(
+      `🗑️ Delete Entry ${entryNo}?\n\n` +
+      `This record will be moved to the Archive sheets and removed from the active lists.\n\n` +
+      `Are you sure you want to proceed?`
+    );
+    if (!ok) return;
+
+    // Find delete button + disable it
+    const btn = entriesBody.querySelector(`.btn-row-delete[data-entry-no="${CSS.escape(entryNo)}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+
+    try {
+      // 1. Find the full row data from memory to archive
+      const lbRowData = allEntries_.find(r => String(r.Entry_No) === String(entryNo));
+      if (!lbRowData) throw new Error("Row data not found in memory.");
+
+      // Copy the object and remove the _rowIndex (don't save that to the archive sheet)
+      const lbArchiveData = { ...lbRowData };
+      delete lbArchiveData._rowIndex;
+
+      // 2. Find the Unloading row data
+      const unlRows = await Api.list("Birds_Unloading", { force: true });
+      const unlRowData = unlRows.find((r) => String(r.Entry_No || "").trim() === String(entryNo).trim());
+      
+      let unlArchiveData = null;
+      if (unlRowData) {
+        unlArchiveData = { ...unlRowData };
+        delete unlArchiveData._rowIndex;
+      }
+
+      // 3. Add Deletion Metadata
+      const now = new Date();
+      const deleteTimestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const deletedByUser = getCurrentUsername_();
+
+      lbArchiveData.Deleted_At = deleteTimestamp;
+      lbArchiveData.Deleted_By = deletedByUser;
+      
+      if (unlArchiveData) {
+        unlArchiveData.Deleted_At = deleteTimestamp;
+        unlArchiveData.Deleted_By = deletedByUser;
+      }
+
+      // 4. ARCHIVE: Append to the new Deleted sheets
+      await Api.append("Deleted_Data_LB_Summary", [lbArchiveData]);
+      if (unlArchiveData) {
+        await Api.append("Deleted_LoadingUnloadingTime", [unlArchiveData]);
+      }
+
+      // 5. DELETE: Remove from the original main sheets
+      await Api.delete("DataLBSummary", lbRowIndex);
+
+      if (unlRowData && unlRowData._rowIndex) {
+        await Api.delete("Birds_Unloading", unlRowData._rowIndex);
+      }
+
+      // 6. UI Cleanup
+      if (editingEntryNo_ && String(editingEntryNo_) === String(entryNo)) {
+        resetEditState_();
+      }
+      await loadEntries_();
+
+      alert(`✅ Entry ${entryNo} archived and deleted successfully.`);
+    } catch (err) {
+      console.error("[Daily LB] Delete/Archive failed:", err);
+      alert(`❌ Delete failed: ${err.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+    }
+  }
+
+  // ===================================================================
+  // 🆕 Reset edit state — back to "create new" mode
+  // ===================================================================
+  function resetEditState_() {
+    editingEntryNo_ = null;
+    editingLbRowIndex_ = null;
+    editingUnlRowIndex_ = null;
+    const saveBtn = document.getElementById("dlbSaveBtn");
+    if (saveBtn) saveBtn.innerHTML = "💾 Save Record";
+  }
+  
+
+  // ---- Load entries from sheet ----
+  async function loadEntries_() {
+    entriesBody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>`;
+    countEl.textContent = "loading...";
+
+    try {
+      const data = await Api.list("DataLBSummary", { force: true });
+      allEntries_ = data.filter((r) => String(r.Entry_No || "").trim() !== "");
+      renderEntriesTable_();
+    } catch (err) {
+      console.error("[Daily LB] Load entries failed:", err);
+      entriesBody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:20px;color:#b23b3b;">❌ Failed to load entries: ${escapeHtml_(err.message)}</td></tr>`;
+      countEl.textContent = "error";
+    }
+  }
+
+  // ---- Filters: search (debounced) ----
+  let searchTimer_ = null;
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer_);
+    searchTimer_ = setTimeout(() => renderEntriesTable_(), 150);
+  });
+
+  // ---- Filters: date range ----
+  fromDateEl.addEventListener("change", renderEntriesTable_);
+  toDateEl.addEventListener("change", renderEntriesTable_);
+
+  // ---- Clear filters ----
+  clearFilterBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    fromDateEl.value = "";
+    toDateEl.value = "";
+    renderEntriesTable_();
+  });
+
+    // ===================================================================
+  // 🆕 View Toggle (Table View vs Form View)
+  // ===================================================================
+  const formWrap = document.getElementById("dlbFormPreviewWrap");
+  const tableWrap = document.getElementById("dlbTableView");
+  const newRecordBtn = document.getElementById("dlbNewRecordBtn");
+  const cancelBtn = document.getElementById("dlbCancelBtn");
+
+  // 🆕 Show Table by default when entering the tab
+  if (formWrap) formWrap.style.display = "none";
+  if (tableWrap) tableWrap.style.display = "block";
+
+  // 🆕 Click "+ New Record" → Show Form
+  if (newRecordBtn) {
+    newRecordBtn.addEventListener("click", () => {
+      tableWrap.style.display = "none";
+      formWrap.style.display = "flex"; // flex because of side-by-side layout
+
+      // Reset form to defaults
+      form.reset();
+      F.date.value = today;
+      recalc();
+      resetEditState_(); // clear edit mode if any
+
+      formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  // 🆕 Click "Cancel / Back" → Show Table
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      formWrap.style.display = "none";
+      tableWrap.style.display = "block";
+      tableWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  // ---- Auto-load on form init ----
+  loadEntries_();
 }
 
 // ===================================================================

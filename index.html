@@ -86,6 +86,7 @@
     <button class="nav-item" data-view="entry-easy-production"><span class="ico"></span>06. Easy Production</button>
     <button class="nav-item" data-view="entry-csv-uploads"><span class="ico"></span>07. CSV Uploads</button>
     <button class="nav-item" data-view="entry-consumable"><span class="ico"></span>08. Consumable Records</button>
+    <button class="nav-item" data-view="entry-slaughtered-checklist"><span class="ico"></span>09. Birds Slaughtered Checklist</button>
   </div>
     
   <!-- Notifications collapsible section -->
@@ -1441,6 +1442,7 @@
 
   <div class="panel">
     <div class="panel-body">
+      <div class="entry-form-preview-wrap" id="dlbFormPreviewWrap">
       <form class="entry-form" id="form-daily-lb" autocomplete="off">
 
         <!-- Row 01: Date | Location | Loading Start | Unloading -->
@@ -1454,11 +1456,11 @@
             <input type="text" id="dlbLocation" placeholder="Enter location" required>
           </div>
           <div class="entry-field">
-            <label for="dlbLoadingStart">Loading Start Time</label>
+            <label for="dlbLoadingStart">Unloading Start Time</label>
             <input type="time" id="dlbLoadingStart" step="60" required>
           </div>
           <div class="entry-field">
-            <label for="dlbUnloadingTime">Unloading Time</label>
+            <label for="dlbUnloadingTime">Unloading End Time</label>
             <input type="time" id="dlbUnloadingTime" step="60" required>
           </div>
         </div>
@@ -1545,12 +1547,96 @@
 
         <!-- Row 07: Actions -->
         <div class="entry-actions">
+          <button type="button" class="btn-entry-cancel" id="dlbCancelBtn">← Back to Table</button>
           <button type="button" class="btn-entry-clear" id="dlbClearBtn">Clear</button>
           <button type="submit" class="btn-entry-save" id="dlbSaveBtn">💾 Save Record</button>
         </div>
 
       </form>
+            <!-- 🆕 Preview Panel (hidden by default) -->
+      <div class="entry-preview" id="dlbPreview" style="display: none;">
+                <div class="entry-preview-header">
+          <div class="entry-preview-header-text">
+            <h3>📋 Please review the details before saving</h3>
+            <p>Click <strong>Confirm</strong> to save to the sheet, or <strong>Edit</strong> to go back and make changes.</p>
+          </div>
+          <div class="entry-preview-header-right">
+            <div class="entry-preview-no-badge">
+              <span class="label">ENTRY NO</span>
+              <span class="value" id="dlbPreviewEntryNo">—</span>
+            </div>
+            <div class="entry-preview-by-badge" id="dlbPreviewEnteredBy">by: —</div>
+          </div>
+        </div>
+
+        <div class="entry-preview-body" id="dlbPreviewBody">
+          <!-- Filled by JavaScript -->
+        </div>
+
+        <div class="entry-actions">
+          <button type="button" class="btn-entry-clear" id="dlbEditBtn">✏️ Edit</button>
+          <button type="button" class="btn-entry-save" id="dlbConfirmBtn">✅ Confirm & Save</button>
+        </div>
+      </div>
+      </div>
     </div>
+  </div>
+      <!-- 🆕 Entered Entries Table View -->
+  <div class="entry-table-view" id="dlbTableView">
+
+        <div class="entry-table-view-header">
+      <div>
+        <h3>📋 Entered Live Bird Entries</h3>
+        <p class="entry-table-view-sub">All previously saved Daily LB records</p>
+      </div>
+      <!-- 🆕 New Record Button -->
+      <button type="button" class="btn-new-record" id="dlbNewRecordBtn">
+        ➕ New Record
+      </button>
+    </div>
+
+    <div class="entry-table-filters">
+      <div class="entry-filter-group">
+        <label for="dlbTableFromDate">From</label>
+        <input type="date" id="dlbTableFromDate">
+      </div>
+      <div class="entry-filter-group">
+        <label for="dlbTableToDate">To</label>
+        <input type="date" id="dlbTableToDate">
+      </div>
+      <div class="entry-filter-group entry-filter-search">
+        <label for="dlbTableSearch">&nbsp;</label>
+        <input type="text" id="dlbTableSearch" placeholder="🔍 Search by Entry No, Location, Entered By...">
+      </div>
+      <button type="button" class="btn-filter-clear" id="dlbTableClearFilter">Clear</button>
+      <span class="entry-table-count" id="dlbTableCount">—</span>
+    </div>
+
+    <div class="entry-table-scroll">
+      <table class="report-table" id="dlbEntriesTable">
+        <thead>
+          <tr>
+            <th style="width:110px;">Entry No</th>
+            <th style="width:100px;">Date</th>
+            <th>Location</th>
+            <th style="width:90px;">Birds</th>
+            <th style="width:110px;">Live Wt (kg)</th>
+            <th style="width:100px;">Mortality NOB</th>
+            <th style="width:120px;">Mortality Wt (kg)</th>
+            <th style="width:100px;">Rejected NOB</th>
+            <th style="width:120px;">Rejected Wt (kg)</th>
+            <th style="width:100px;">Birds → Plant</th>
+            <th style="width:130px;">Live Wt → Plant (kg)</th>
+            <th style="width:110px;">Entered By</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="dlbEntriesBody">
+          <tr><td colspan="13" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 </section>
 
@@ -1602,9 +1688,10 @@
         </div>
 
         <!-- Row 04: Actions -->
-        <div class="entry-actions">
-          <button type="button" class="btn-entry-clear" id="rndClearBtn">Clear</button>
-          <button type="submit" class="btn-entry-save" id="rndSaveBtn">💾 Save Record</button>
+                <div class="entry-actions">
+          <button type="button" class="btn-entry-cancel" id="dlbCancelBtn">← Back to Table</button>
+          <button type="button" class="btn-entry-clear" id="dlbClearBtn">Clear</button>
+          <button type="submit" class="btn-entry-save" id="dlbSaveBtn">💾 Save Record</button>
         </div>
 
       </form>
@@ -1625,49 +1712,127 @@
 
   <div class="panel">
     <div class="panel-body">
-      <form class="entry-form" id="form-production-detail" autocomplete="off">
 
-        <!-- Top bar: Date + Search -->
-        <div class="entry-row entry-row-2">
-          <div class="entry-field">
-            <label for="prdDate">Date</label>
-            <input type="date" id="prdDate" required>
+      <!-- 🆕 ENTERED ENTRIES TABLE VIEW (Default View) -->
+      <div class="entry-table-view" id="prdTableView">
+        <div class="entry-table-view-header">
+          <div>
+            <h3>📋 Entered Production Entries</h3>
+            <p class="entry-table-view-sub">All previously saved Daily Production records</p>
           </div>
-          <div class="entry-field">
-            <label for="prdSearch">Search Items</label>
-            <input type="text" id="prdSearch" placeholder="Type code or item name...">
-          </div>
+          <button type="button" class="btn-new-record" id="prdNewRecordBtn">
+            ➕ New Record
+          </button>
         </div>
 
-        <!-- Items table -->
-        <div class="entry-table-wrap">
-          <table class="entry-table" id="prdItemsTable">
+        <div class="entry-table-filters">
+          <div class="entry-filter-group">
+            <label for="prdTableFromDate">From</label>
+            <input type="date" id="prdTableFromDate">
+          </div>
+          <div class="entry-filter-group">
+            <label for="prdTableToDate">To</label>
+            <input type="date" id="prdTableToDate">
+          </div>
+          <div class="entry-filter-group entry-filter-search">
+            <label for="prdTableSearch">&nbsp;</label>
+            <input type="text" id="prdTableSearch" placeholder="🔍 Search by Entry No or Date...">
+          </div>
+          <button type="button" class="btn-filter-clear" id="prdTableClearFilter">Clear</button>
+          <span class="entry-table-count" id="prdTableCount">—</span>
+        </div>
+
+        <div class="entry-table-scroll">
+          <table class="report-table" id="prdEntriesTable">
             <thead>
               <tr>
-                <th style="width:100px;">Code</th>
-                <th>Item Name</th>
-                <th style="width:180px;">Quantity (kg)</th>
+                <th style="width:110px;">Entry No</th>
+                <th style="width:100px;">Date</th>
+                <th style="width:100px;">Total Items</th>
+                <th style="width:130px;">Total Weight (kg)</th>
+                <th style="width:130px;">Entered By</th>
+                <th style="width:100px;">Actions</th>
               </tr>
             </thead>
-            <tbody id="prdItemsBody">
-              <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+            <tbody id="prdEntriesBody">
+              <tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
             </tbody>
-            <tfoot>
-              <tr class="entry-table-total">
-                <td colspan="2" style="text-align:right;font-weight:700;">Total Production Weight</td>
-                <td><span id="prdGrandTotal">0</span></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
+      </div>
 
-        <!-- Actions -->
-        <div class="entry-actions">
-          <button type="button" class="btn-entry-clear" id="prdClearBtn">Clear</button>
-          <button type="submit" class="btn-entry-save" id="prdSaveBtn">💾 Save Record</button>
+      <!-- 🆕 FORM & PREVIEW VIEW (Hidden by default) -->
+      <div class="entry-form-preview-wrap" id="prdFormPreviewWrap" style="display: none;">
+        
+        <!-- LEFT: Form -->
+        <form class="entry-form" id="form-production-detail" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="prdDate">Date</label>
+              <input type="date" id="prdDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="prdSearch">Search Items</label>
+              <input type="text" id="prdSearch" placeholder="Type code or item name...">
+            </div>
+          </div>
+
+          <div class="entry-table-wrap">
+            <table class="entry-table" id="prdItemsTable">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Code</th>
+                  <th>Item Name</th>
+                  <th style="width:180px;">Quantity (kg)</th>
+                </tr>
+              </thead>
+              <tbody id="prdItemsBody">
+                <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td colspan="2" style="text-align:right;font-weight:700;">Total Production Weight</td>
+                  <td><span id="prdGrandTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-cancel" id="prdCancelBtn">← Back to Table</button>
+            <button type="button" class="btn-entry-clear" id="prdClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="prdSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+
+        <!-- RIGHT: Preview -->
+        <div class="entry-preview" id="prdPreview" style="display: none;">
+          <div class="entry-preview-header">
+            <div class="entry-preview-header-text">
+              <h3>📋 Review Production Details</h3>
+              <p>Click <strong>Confirm</strong> to save to the sheet.</p>
+            </div>
+            <div class="entry-preview-header-right">
+              <div class="entry-preview-no-badge">
+                <span class="label">ENTRY NO</span>
+                <span class="value" id="prdPreviewEntryNo">—</span>
+              </div>
+              <div class="entry-preview-by-badge" id="prdPreviewEnteredBy">by: —</div>
+            </div>
+          </div>
+          
+          <div class="entry-preview-body" id="prdPreviewBody">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="prdEditBtn">✏️ Edit</button>
+            <button type="button" class="btn-entry-save" id="prdConfirmBtn">✅ Confirm & Save</button>
+          </div>
         </div>
+        
+      </div>
 
-      </form>
     </div>
   </div>
 </section>
@@ -1696,90 +1861,231 @@
 
       <!-- ============ TAB 1: Daily Blast Freezer Inward Ledger ============ -->
       <div class="bf-tab-content active" id="bfTabLedger">
-        <form class="entry-form" id="form-bf-ledger" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="bflDate">Date</label>
-              <input type="date" id="bflDate" required>
+        
+        <!-- 1A. Table View (Default) -->
+        <div class="entry-table-view" id="bflTableView">
+          <div class="entry-table-view-header">
+            <div>
+              <h3>📋 Entered Ledger Entries</h3>
+              <p class="entry-table-view-sub">All previously saved ledger records</p>
             </div>
-            <div class="entry-field">
-              <label for="bflSearch">Search Items</label>
-              <input type="text" id="bflSearch" placeholder="Type code or item name...">
-            </div>
+            <button type="button" class="btn-new-record" id="bflNewRecordBtn">➕ New Record</button>
           </div>
 
-          <div class="entry-table-wrap">
-            <table class="entry-table" id="bflItemsTable">
+          <div class="entry-table-filters">
+            <div class="entry-filter-group">
+              <label for="bflTableFromDate">From</label>
+              <input type="date" id="bflTableFromDate">
+            </div>
+            <div class="entry-filter-group">
+              <label for="bflTableToDate">To</label>
+              <input type="date" id="bflTableToDate">
+            </div>
+            <div class="entry-filter-group entry-filter-search">
+              <label for="bflTableSearch">&nbsp;</label>
+              <input type="text" id="bflTableSearch" placeholder="🔍 Search by Entry No or Date...">
+            </div>
+            <button type="button" class="btn-filter-clear" id="bflTableClearFilter">Clear</button>
+            <span class="entry-table-count" id="bflTableCount">—</span>
+          </div>
+
+          <div class="entry-table-scroll">
+            <table class="report-table" id="bflEntriesTable">
               <thead>
                 <tr>
-                  <th style="width:100px;">Code</th>
-                  <th>Item Name</th>
-                  <th style="width:180px;">Quantity (kg)</th>
+                  <th style="width:110px;">Entry No</th>
+                  <th style="width:100px;">Date</th>
+                  <th style="width:100px;">Total Items</th>
+                  <th style="width:130px;">Total Weight (kg)</th>
+                  <th style="width:130px;">Entered By</th>
+                  <th style="width:100px;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="bflItemsBody">
-                <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              <tbody id="bflEntriesBody">
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
               </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td colspan="2" style="text-align:right;font-weight:700;">Total Production Weight</td>
-                  <td><span id="bflGrandTotal">0</span></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
+        </div>
 
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" id="bflClearBtn">Clear</button>
-            <button type="submit" class="btn-entry-save" id="bflSaveBtn">💾 Save Record</button>
+        <!-- 1B. Form & Preview View -->
+        <div class="entry-form-preview-wrap" id="bflFormPreviewWrap" style="display: none;">
+          <form class="entry-form" id="form-bf-ledger" autocomplete="off">
+            <div class="entry-row entry-row-2">
+              <div class="entry-field">
+                <label for="bflDate">Date</label>
+                <input type="date" id="bflDate" required>
+              </div>
+              <div class="entry-field">
+                <label for="bflSearch">Search Items</label>
+                <input type="text" id="bflSearch" placeholder="Type code or item name...">
+              </div>
+            </div>
+
+            <div class="entry-table-wrap">
+              <table class="entry-table" id="bflItemsTable">
+                <thead>
+                  <tr>
+                    <th style="width:100px;">Code</th>
+                    <th>Item Name</th>
+                    <th style="width:180px;">Quantity (kg)</th>
+                  </tr>
+                </thead>
+                <tbody id="bflItemsBody">
+                  <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr class="entry-table-total">
+                    <td colspan="2" style="text-align:right;font-weight:700;">Total Weight</td>
+                    <td><span id="bflGrandTotal">0</span></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="entry-actions">
+              <button type="button" class="btn-entry-cancel" id="bflCancelBtn">← Back to Table</button>
+              <button type="button" class="btn-entry-clear" id="bflClearBtn">Clear</button>
+              <button type="submit" class="btn-entry-save" id="bflSaveBtn">💾 Save Record</button>
+            </div>
+          </form>
+
+          <div class="entry-preview" id="bflPreview" style="display: none;">
+            <div class="entry-preview-header">
+              <div class="entry-preview-header-text">
+                <h3>📋 Review Ledger Details</h3>
+                <p>Click <strong>Confirm</strong> to save.</p>
+              </div>
+              <div class="entry-preview-header-right">
+                <div class="entry-preview-no-badge">
+                  <span class="label">ENTRY NO</span>
+                  <span class="value" id="bflPreviewEntryNo">—</span>
+                </div>
+                <div class="entry-preview-by-badge" id="bflPreviewEnteredBy">by: —</div>
+              </div>
+            </div>
+            <div class="entry-preview-body" id="bflPreviewBody"></div>
+            <div class="entry-actions">
+              <button type="button" class="btn-entry-clear" id="bflEditBtn">✏️ Edit</button>
+              <button type="button" class="btn-entry-save" id="bflConfirmBtn">✅ Confirm & Save</button>
+            </div>
           </div>
-        </form>
+        </div>
+
       </div>
 
       <!-- ============ TAB 2: Blast Freezer In Time & Weight ============ -->
       <div class="bf-tab-content" id="bfTabInOut">
-        <form class="entry-form" id="form-bf-inout" autocomplete="off">
-
-          <!-- Row 01: Date | Batch No -->
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="bfDate">Date</label>
-              <input type="date" id="bfDate" required>
+        
+        <!-- 2A. Table View (Default) -->
+        <div class="entry-table-view" id="bfiTableView">
+          <div class="entry-table-view-header">
+            <div>
+              <h3>📋 Entered In/Out Entries</h3>
+              <p class="entry-table-view-sub">All previously saved time & weight records</p>
             </div>
-            <div class="entry-field">
-              <label for="bfBatchNo">Batch No</label>
-              <input type="text" id="bfBatchNo" placeholder="Ex-BT-001" required>
-            </div>
+            <button type="button" class="btn-new-record" id="bfiNewRecordBtn">➕ New Record</button>
           </div>
 
-          <!-- Items table -->
-          <div class="entry-table-wrap">
-            <table class="entry-table" id="bfItemsTable">
+          <div class="entry-table-filters">
+            <div class="entry-filter-group">
+              <label for="bfiTableFromDate">From</label>
+              <input type="date" id="bfiTableFromDate">
+            </div>
+            <div class="entry-filter-group">
+              <label for="bfiTableToDate">To</label>
+              <input type="date" id="bfiTableToDate">
+            </div>
+            <div class="entry-filter-group entry-filter-search">
+              <label for="bfiTableSearch">&nbsp;</label>
+              <input type="text" id="bfiTableSearch" placeholder="🔍 Search by Entry No, Batch, or Date...">
+            </div>
+            <button type="button" class="btn-filter-clear" id="bfiTableClearFilter">Clear</button>
+            <span class="entry-table-count" id="bfiTableCount">—</span>
+          </div>
+
+          <div class="entry-table-scroll">
+            <table class="report-table" id="bfiEntriesTable">
               <thead>
                 <tr>
-                  <th style="width:50px;">#</th>
-                  <th>Blast Freezer No</th>
-                  <th style="width:180px;">In Time</th>
-                  <th style="width:180px;">Weight (kg)</th>
-                  <th style="width:60px;"></th>
+                  <th style="width:110px;">Entry No</th>
+                  <th style="width:100px;">Date</th>
+                  <th style="width:120px;">Batch No</th>
+                  <th style="width:100px;">Total Rows</th>
+                  <th style="width:130px;">Total Weight (kg)</th>
+                  <th style="width:130px;">Entered By</th>
+                  <th style="width:100px;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="bfItemsBody">
-                <!-- Rows added by JS -->
+              <tbody id="bfiEntriesBody">
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
               </tbody>
             </table>
           </div>
+        </div>
 
-          <!-- Add Row button (bottom-left) -->
-          <div class="entry-add-row-wrap">
-            <button type="button" class="btn-add-row" id="bfAddRowBtn">+ Add Row</button>
-          </div>
+        <!-- 2B. Form & Preview View -->
+        <div class="entry-form-preview-wrap" id="bfiFormPreviewWrap" style="display: none;">
+          <form class="entry-form" id="form-bf-inout" autocomplete="off">
+            <div class="entry-row entry-row-2">
+              <div class="entry-field">
+                <label for="bfDate">Date</label>
+                <input type="date" id="bfDate" required>
+              </div>
+              <div class="entry-field">
+                <label for="bfBatchNo">Batch No</label>
+                <input type="text" id="bfBatchNo" placeholder="Ex-BT-001" required>
+              </div>
+            </div>
 
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" id="bfClearBtn">Clear</button>
-            <button type="submit" class="btn-entry-save" id="bfSaveBtn">💾 Save Record</button>
+            <div class="entry-table-wrap">
+              <table class="entry-table" id="bfItemsTable">
+                <thead>
+                  <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Blast Freezer No</th>
+                    <th style="width:180px;">In Time</th>
+                    <th style="width:180px;">Weight (kg)</th>
+                    <th style="width:60px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="bfItemsBody"></tbody>
+              </table>
+            </div>
+
+            <div class="entry-add-row-wrap">
+              <button type="button" class="btn-add-row" id="bfAddRowBtn">+ Add Row</button>
+            </div>
+
+            <div class="entry-actions">
+              <button type="button" class="btn-entry-cancel" id="bfiCancelBtn">← Back to Table</button>
+              <button type="button" class="btn-entry-clear" id="bfClearBtn">Clear</button>
+              <button type="submit" class="btn-entry-save" id="bfiSaveBtn">💾 Save Record</button>
+            </div>
+          </form>
+
+          <div class="entry-preview" id="bfiPreview" style="display: none;">
+            <div class="entry-preview-header">
+              <div class="entry-preview-header-text">
+                <h3>📋 Review In/Out Details</h3>
+                <p>Click <strong>Confirm</strong> to save.</p>
+              </div>
+              <div class="entry-preview-header-right">
+                <div class="entry-preview-no-badge">
+                  <span class="label">ENTRY NO</span>
+                  <span class="value" id="bfiPreviewEntryNo">—</span>
+                </div>
+                <div class="entry-preview-by-badge" id="bfiPreviewEnteredBy">by: —</div>
+              </div>
+            </div>
+            <div class="entry-preview-body" id="bfiPreviewBody"></div>
+            <div class="entry-actions">
+              <button type="button" class="btn-entry-clear" id="bfiEditBtn">✏️ Edit</button>
+              <button type="button" class="btn-entry-save" id="bfiConfirmBtn">✅ Confirm & Save</button>
+            </div>
           </div>
-        </form>
+        </div>
+
       </div>
 
     </div>
@@ -1799,27 +2105,101 @@
 
   <div class="panel">
     <div class="panel-body">
-      <form class="entry-form" id="form-giblet" autocomplete="off">
 
-        <!-- Row 01: Date | Giblet Use -->
-        <div class="entry-row entry-row-2">
-          <div class="entry-field">
-            <label for="gibDate">Date</label>
-            <input type="date" id="gibDate" required>
+      <!-- 🆕 ENTERED ENTRIES TABLE VIEW (Default View) -->
+      <div class="entry-table-view" id="gibTableView">
+        <div class="entry-table-view-header">
+          <div>
+            <h3>📋 Entered Giblet Entries</h3>
+            <p class="entry-table-view-sub">All previously saved Giblet Use records</p>
           </div>
-          <div class="entry-field">
-            <label for="gibQty">Giblet Use for W/Chicken (kg)</label>
-            <input type="text" id="gibQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          <button type="button" class="btn-new-record" id="gibNewRecordBtn">
+            ➕ New Record
+          </button>
+        </div>
+
+        <div class="entry-table-filters">
+          <div class="entry-filter-group">
+            <label for="gibTableFromDate">From</label>
+            <input type="date" id="gibTableFromDate">
+          </div>
+          <div class="entry-filter-group">
+            <label for="gibTableToDate">To</label>
+            <input type="date" id="gibTableToDate">
+          </div>
+          <div class="entry-filter-group entry-filter-search">
+            <label for="gibTableSearch">&nbsp;</label>
+            <input type="text" id="gibTableSearch" placeholder="🔍 Search by Entry No or Date...">
+          </div>
+          <button type="button" class="btn-filter-clear" id="gibTableClearFilter">Clear</button>
+          <span class="entry-table-count" id="gibTableCount">—</span>
+        </div>
+
+        <div class="entry-table-scroll">
+          <table class="report-table" id="gibEntriesTable">
+            <thead>
+              <tr>
+                <th style="width:110px;">Entry No</th>
+                <th style="width:100px;">Date</th>
+                <th style="width:130px;">Quantity (kg)</th>
+                <th style="width:130px;">Entered By</th>
+                <th style="width:100px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="gibEntriesBody">
+              <tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 🆕 FORM & PREVIEW VIEW (Hidden by default) -->
+      <div class="entry-form-preview-wrap" id="gibFormPreviewWrap" style="display: none;">
+        
+        <form class="entry-form" id="form-giblet" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="gibDate">Date</label>
+              <input type="date" id="gibDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="gibQty">Giblet Use for W/Chicken (kg)</label>
+              <input type="text" id="gibQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-cancel" id="gibCancelBtn">← Back to Table</button>
+            <button type="button" class="btn-entry-clear" id="gibClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="gibSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+
+        <div class="entry-preview" id="gibPreview" style="display: none;">
+          <div class="entry-preview-header">
+            <div class="entry-preview-header-text">
+              <h3>📋 Review Details</h3>
+              <p>Click <strong>Confirm</strong> to save.</p>
+            </div>
+            <div class="entry-preview-header-right">
+              <div class="entry-preview-no-badge">
+                <span class="label">ENTRY NO</span>
+                <span class="value" id="gibPreviewEntryNo">—</span>
+              </div>
+              <div class="entry-preview-by-badge" id="gibPreviewEnteredBy">by: —</div>
+            </div>
+          </div>
+          
+          <div class="entry-preview-body" id="gibPreviewBody"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="gibEditBtn">✏️ Edit</button>
+            <button type="button" class="btn-entry-save" id="gibConfirmBtn">✅ Confirm & Save</button>
           </div>
         </div>
 
-        <!-- Row 02: Actions -->
-        <div class="entry-actions">
-          <button type="button" class="btn-entry-clear" id="gibClearBtn">Clear</button>
-          <button type="submit" class="btn-entry-save" id="gibSaveBtn">💾 Save Record</button>
-        </div>
+      </div>
 
-      </form>
     </div>
   </div>
 </section>
@@ -1837,27 +2217,101 @@
 
   <div class="panel">
     <div class="panel-body">
-      <form class="entry-form" id="form-easy-material" autocomplete="off">
 
-        <!-- Row 01: Date | Easy Material -->
-        <div class="entry-row entry-row-2">
-          <div class="entry-field">
-            <label for="emDate">Date</label>
-            <input type="date" id="emDate" required>
+      <!-- 🆕 ENTERED ENTRIES TABLE VIEW (Default View) -->
+      <div class="entry-table-view" id="wipTableView">
+        <div class="entry-table-view-header">
+          <div>
+            <h3>📋 Entered Easy Material Entries</h3>
+            <p class="entry-table-view-sub">All previously saved WIP records</p>
           </div>
-          <div class="entry-field">
-            <label for="emQty">Daily Production Easy Material (WIP) — kg</label>
-            <input type="text" id="emQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+          <button type="button" class="btn-new-record" id="wipNewRecordBtn">
+            ➕ New Record
+          </button>
+        </div>
+
+        <div class="entry-table-filters">
+          <div class="entry-filter-group">
+            <label for="wipTableFromDate">From</label>
+            <input type="date" id="wipTableFromDate">
+          </div>
+          <div class="entry-filter-group">
+            <label for="wipTableToDate">To</label>
+            <input type="date" id="wipTableToDate">
+          </div>
+          <div class="entry-filter-group entry-filter-search">
+            <label for="wipTableSearch">&nbsp;</label>
+            <input type="text" id="wipTableSearch" placeholder="🔍 Search by Entry No or Date...">
+          </div>
+          <button type="button" class="btn-filter-clear" id="wipTableClearFilter">Clear</button>
+          <span class="entry-table-count" id="wipTableCount">—</span>
+        </div>
+
+        <div class="entry-table-scroll">
+          <table class="report-table" id="wipEntriesTable">
+            <thead>
+              <tr>
+                <th style="width:110px;">Entry No</th>
+                <th style="width:100px;">Date</th>
+                <th style="width:130px;">Quantity (kg)</th>
+                <th style="width:130px;">Entered By</th>
+                <th style="width:100px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="wipEntriesBody">
+              <tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 🆕 FORM & PREVIEW VIEW (Hidden by default) -->
+      <div class="entry-form-preview-wrap" id="wipFormPreviewWrap" style="display: none;">
+        
+        <form class="entry-form" id="form-easy-material" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="emDate">Date</label>
+              <input type="date" id="emDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="emQty">Daily Production Easy Material (WIP) — kg</label>
+              <input type="text" id="emQty" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-cancel" id="emCancelBtn">← Back to Table</button>
+            <button type="button" class="btn-entry-clear" id="emClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="emSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+
+        <div class="entry-preview" id="wipPreview" style="display: none;">
+          <div class="entry-preview-header">
+            <div class="entry-preview-header-text">
+              <h3>📋 Review Details</h3>
+              <p>Click <strong>Confirm</strong> to save.</p>
+            </div>
+            <div class="entry-preview-header-right">
+              <div class="entry-preview-no-badge">
+                <span class="label">ENTRY NO</span>
+                <span class="value" id="wipPreviewEntryNo">—</span>
+              </div>
+              <div class="entry-preview-by-badge" id="wipPreviewEnteredBy">by: —</div>
+            </div>
+          </div>
+          
+          <div class="entry-preview-body" id="wipPreviewBody"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="wipEditBtn">✏️ Edit</button>
+            <button type="button" class="btn-entry-save" id="wipConfirmBtn">✅ Confirm & Save</button>
           </div>
         </div>
 
-        <!-- Row 02: Actions -->
-        <div class="entry-actions">
-          <button type="button" class="btn-entry-clear" id="emClearBtn">Clear</button>
-          <button type="submit" class="btn-entry-save" id="emSaveBtn">💾 Save Record</button>
-        </div>
+      </div>
 
-      </form>
     </div>
   </div>
 </section>
@@ -1875,57 +2329,132 @@
 
   <div class="panel">
     <div class="panel-body">
-      <form class="entry-form" id="form-easy-production" autocomplete="off">
 
-        <!-- Top bar: Date + Search -->
-        <div class="entry-row entry-row-2">
-          <div class="entry-field">
-            <label for="epDate">Date</label>
-            <input type="date" id="epDate" required>
+      <!-- ============ TABLE VIEW (Default) ============ -->
+      <div class="entry-table-view" id="epdTableView">
+        <div class="entry-table-view-header">
+          <div>
+            <h3>📋 Entered Easy Production Entries</h3>
+            <p class="entry-table-view-sub">All previously saved Easy Production records</p>
           </div>
-          <div class="entry-field">
-            <label for="epSearch">Search Items</label>
-            <input type="text" id="epSearch" placeholder="Type code or item name...">
-          </div>
+          <button type="button" class="btn-new-record" id="epdNewRecordBtn">
+            ➕ New Record
+          </button>
         </div>
 
-        <!-- Items table -->
-        <div class="entry-table-wrap">
-          <table class="entry-table" id="epItemsTable">
+        <div class="entry-table-filters">
+          <div class="entry-filter-group">
+            <label for="epdTableFromDate">From</label>
+            <input type="date" id="epdTableFromDate">
+          </div>
+          <div class="entry-filter-group">
+            <label for="epdTableToDate">To</label>
+            <input type="date" id="epdTableToDate">
+          </div>
+          <div class="entry-filter-group entry-filter-search">
+            <label for="epdTableSearch">&nbsp;</label>
+            <input type="text" id="epdTableSearch" placeholder="🔍 Search by Entry No or Date...">
+          </div>
+          <button type="button" class="btn-filter-clear" id="epdTableClearFilter">Clear</button>
+          <span class="entry-table-count" id="epdTableCount">—</span>
+        </div>
+
+        <div class="entry-table-scroll">
+          <table class="report-table" id="epdEntriesTable">
             <thead>
               <tr>
-                <th style="width:100px;">Code</th>
-                <th>Item Name</th>
-                <th style="width:180px;">Quantity (kg)</th>
+                <th style="width:110px;">Entry No</th>
+                <th style="width:100px;">Date</th>
+                <th style="width:160px;">Total Items Weight (kg)</th>
+                <th style="width:140px;">Net Weight (kg)</th>
+                <th style="width:130px;">Entered By</th>
+                <th style="width:100px;">Actions</th>
               </tr>
             </thead>
-            <tbody id="epItemsBody">
-              <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+            <tbody id="epdEntriesBody">
+              <tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
             </tbody>
-            <tfoot>
-              <tr class="entry-table-total">
-                <td colspan="2" style="text-align:right;font-weight:700;">Total Easy Product Weight</td>
-                <td><span id="epGrandTotal">0</span></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
+      </div>
 
-        <!-- Easy Material Net Weight (manual) -->
-        <div class="entry-row entry-row-2">
-          <div class="entry-field">
-            <label for="epNetWeight">Easy Material Net Weight (kg)</label>
-            <input type="text" id="epNetWeight" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+      <!-- ============ FORM & PREVIEW VIEW ============ -->
+      <div class="entry-form-preview-wrap" id="epdFormPreviewWrap" style="display: none;">
+
+        <!-- LEFT: FORM -->
+        <form class="entry-form" id="form-easy-production" autocomplete="off">
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="epDate">Date</label>
+              <input type="date" id="epDate" required>
+            </div>
+            <div class="entry-field">
+              <label for="epSearch">Search Items</label>
+              <input type="text" id="epSearch" placeholder="Type code or item name...">
+            </div>
+          </div>
+
+          <div class="entry-table-wrap">
+            <table class="entry-table" id="epItemsTable">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Code</th>
+                  <th>Item Name</th>
+                  <th style="width:180px;">Quantity (kg)</th>
+                </tr>
+              </thead>
+              <tbody id="epItemsBody">
+                <tr><td colspan="3" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="entry-table-total">
+                  <td colspan="2" style="text-align:right;font-weight:700;">Total Easy Product Weight</td>
+                  <td><span id="epGrandTotal">0</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="entry-row entry-row-2">
+            <div class="entry-field">
+              <label for="epNetWeight">Easy Material Net Weight (kg)</label>
+              <input type="text" id="epNetWeight" class="num-dec" inputmode="decimal" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-cancel" id="epdCancelBtn">← Back to Table</button>
+            <button type="button" class="btn-entry-clear" id="epClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="epdSaveBtn">💾 Save Record</button>
+          </div>
+        </form>
+
+        <!-- RIGHT: PREVIEW -->
+        <div class="entry-preview" id="epdPreview" style="display: none;">
+          <div class="entry-preview-header">
+            <div class="entry-preview-header-text">
+              <h3>📋 Review Easy Production Details</h3>
+              <p>Click <strong>Confirm</strong> to save to the sheet.</p>
+            </div>
+            <div class="entry-preview-header-right">
+              <div class="entry-preview-no-badge">
+                <span class="label">ENTRY NO</span>
+                <span class="value" id="epdPreviewEntryNo">—</span>
+              </div>
+              <div class="entry-preview-by-badge" id="epdPreviewEnteredBy">by: —</div>
+            </div>
+          </div>
+
+          <div class="entry-preview-body" id="epdPreviewBody"></div>
+
+          <div class="entry-actions">
+            <button type="button" class="btn-entry-clear" id="epdEditBtn">✏️ Edit</button>
+            <button type="button" class="btn-entry-save" id="epdConfirmBtn">✅ Confirm & Save</button>
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="entry-actions">
-          <button type="button" class="btn-entry-clear" id="epClearBtn">Clear</button>
-          <button type="submit" class="btn-entry-save" id="epSaveBtn">💾 Save Record</button>
-        </div>
+      </div>
 
-      </form>
     </div>
   </div>
 </section>
@@ -2066,224 +2595,142 @@
 
   <div class="panel">
     <div class="panel-body">
+      <div class="cons-tab-content active" id="consTabLB"></div>
+      <div class="cons-tab-content" id="consTabEV"></div>
+      <div class="cons-tab-content" id="consTabFBP"></div>
+      <div class="cons-tab-content" id="consTabPacking"></div>
+      <div class="cons-tab-content" id="consTabPacking2"></div>
+      <div class="cons-tab-content" id="consTabEasy"></div>
+    </div>
+  </div>
+</section>
 
-      <!-- ============ TAB: LB ============ -->
-      <div class="cons-tab-content active" id="consTabLB">
-        <form class="entry-form" id="form-cons-lb" autocomplete="off">
+<!-- =================================================================
+     DATA ENTERING — Birds Slaughtered Checklist
+     ================================================================= -->
+<section class="view" id="view-entry-slaughtered-checklist">
+  <div class="sticky-report-header">
+    <div class="view-head">
+      <h1>Birds Slaughtered Checklist</h1>
+      <p class="sub">One date, add as many time slots as needed</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+
+      <!-- ============ TABLE VIEW ============ -->
+      <div class="entry-table-view" id="bscTableView">
+        <div class="entry-table-view-header">
+          <div>
+            <h3>📋 Entered Birds Slaughtered Entries</h3>
+            <p class="entry-table-view-sub">All previously saved time slot records</p>
+          </div>
+          <button type="button" class="btn-new-record" id="bscNewRecordBtn">
+            ➕ New Record
+          </button>
+        </div>
+
+        <div class="entry-table-filters">
+          <div class="entry-filter-group">
+            <label for="bscTableFromDate">From</label>
+            <input type="date" id="bscTableFromDate">
+          </div>
+          <div class="entry-filter-group">
+            <label for="bscTableToDate">To</label>
+            <input type="date" id="bscTableToDate">
+          </div>
+          <div class="entry-filter-group entry-filter-search">
+            <label for="bscTableSearch">&nbsp;</label>
+            <input type="text" id="bscTableSearch" placeholder="🔍 Search by Entry No or Date...">
+          </div>
+          <button type="button" class="btn-filter-clear" id="bscTableClearFilter">Clear</button>
+          <span class="entry-table-count" id="bscTableCount">—</span>
+        </div>
+
+        <div class="entry-table-scroll">
+          <table class="report-table" id="bscEntriesTable">
+            <thead>
+              <tr>
+                <th style="width:120px;">Entry No</th>
+                <th style="width:110px;">Date</th>
+                <th style="width:110px;">Time Slots</th>
+                <th style="width:140px;">Total Actual Birds</th>
+                <th style="width:140px;">Total Planned Birds</th>
+                <th style="width:130px;">Entered By</th>
+                <th style="width:110px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bscEntriesBody">
+              <tr><td colspan="7" style="text-align:center;padding:20px;color:#6b7280;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============ FORM & PREVIEW VIEW ============ -->
+      <div class="entry-form-preview-wrap" id="bscFormPreviewWrap" style="display: none;">
+
+        <!-- LEFT: FORM -->
+        <form class="entry-form" id="form-birds-slaughtered" autocomplete="off">
           <div class="entry-row entry-row-2">
             <div class="entry-field">
-              <label for="consLbDate">Date</label>
-              <input type="date" id="consLbDate" required>
-            </div>
-            <div class="entry-field">
-              <label for="consLbSearch">Search Items</label>
-              <input type="text" id="consLbSearch" placeholder="Type item name...">
+              <label for="bscDate">Date</label>
+              <input type="date" id="bscDate" required>
             </div>
           </div>
+
           <div class="entry-table-wrap">
-            <table class="entry-table">
+            <table class="entry-table" id="bscItemsTable">
               <thead>
                 <tr>
-                  <th>Item Name</th>
-                  <th style="width:220px;">Quantity (kg)</th>
+                  <th style="width:50px;">#</th>
+                  <th style="width:160px;">Start Time</th>
+                  <th style="width:160px;">End Time</th>
+                  <th style="width:180px;">Actual No of Birds Slaughtered</th>
+                  <th style="width:180px;">Planned No of Birds</th>
+                  <th style="width:60px;"></th>
                 </tr>
               </thead>
-              <tbody id="consLbBody">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consLbTotal">0</span></td>
-                </tr>
-              </tfoot>
+              <tbody id="bscItemsBody"></tbody>
             </table>
           </div>
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="LB">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
-          </div>
-        </form>
-      </div>
 
-      <!-- ============ TAB: EV ============ -->
-      <div class="cons-tab-content" id="consTabEV">
-        <form class="entry-form" id="form-cons-ev" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="consEvDate">Date</label>
-              <input type="date" id="consEvDate" required>
-            </div>
-            <div class="entry-field">
-              <label for="consEvSearch">Search Items</label>
-              <input type="text" id="consEvSearch" placeholder="Type item name...">
-            </div>
+          <div class="entry-add-row-wrap">
+            <button type="button" class="btn-add-row" id="bscAddRowBtn">+ Add Row</button>
           </div>
-          <div class="entry-table-wrap">
-            <table class="entry-table">
-              <thead>
-                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
-              </thead>
-              <tbody id="consEvBody">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consEvTotal">0</span></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="EV">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
-          </div>
-        </form>
-      </div>
 
-      <!-- ============ TAB: FBP ============ -->
-      <div class="cons-tab-content" id="consTabFBP">
-        <form class="entry-form" id="form-cons-fbp" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="consFbpDate">Date</label>
-              <input type="date" id="consFbpDate" required>
-            </div>
-            <div class="entry-field">
-              <label for="consFbpSearch">Search Items</label>
-              <input type="text" id="consFbpSearch" placeholder="Type item name...">
-            </div>
-          </div>
-          <div class="entry-table-wrap">
-            <table class="entry-table">
-              <thead>
-                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
-              </thead>
-              <tbody id="consFbpBody">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consFbpTotal">0</span></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
           <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="FBP">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+            <button type="button" class="btn-entry-cancel" id="bscCancelBtn">← Back to Table</button>
+            <button type="button" class="btn-entry-clear" id="bscClearBtn">Clear</button>
+            <button type="submit" class="btn-entry-save" id="bscSaveBtn">💾 Save Record</button>
           </div>
         </form>
-      </div>
 
-      <!-- ============ TAB: Packing ============ -->
-      <div class="cons-tab-content" id="consTabPacking">
-        <form class="entry-form" id="form-cons-packing" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="consPackingDate">Date</label>
-              <input type="date" id="consPackingDate" required>
+        <!-- RIGHT: PREVIEW -->
+        <div class="entry-preview" id="bscPreview" style="display: none;">
+          <div class="entry-preview-header">
+            <div class="entry-preview-header-text">
+              <h3>📋 Review Birds Slaughtered Details</h3>
+              <p>Click <strong>Confirm</strong> to save.</p>
             </div>
-            <div class="entry-field">
-              <label for="consPackingSearch">Search Items</label>
-              <input type="text" id="consPackingSearch" placeholder="Type item name...">
+            <div class="entry-preview-header-right">
+              <div class="entry-preview-no-badge">
+                <span class="label">ENTRY NO</span>
+                <span class="value" id="bscPreviewEntryNo">—</span>
+              </div>
+              <div class="entry-preview-by-badge" id="bscPreviewEnteredBy">by: —</div>
             </div>
           </div>
-          <div class="entry-table-wrap">
-            <table class="entry-table">
-              <thead>
-                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
-              </thead>
-              <tbody id="consPackingBody">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consPackingTotal">0</span></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="Packing">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
-          </div>
-        </form>
-      </div>
 
-      <!-- ============ TAB: Packing 02 ============ -->
-      <div class="cons-tab-content" id="consTabPacking2">
-        <form class="entry-form" id="form-cons-packing2" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="consPacking2Date">Date</label>
-              <input type="date" id="consPacking2Date" required>
-            </div>
-            <div class="entry-field">
-              <label for="consPacking2Search">Search Items</label>
-              <input type="text" id="consPacking2Search" placeholder="Type item name...">
-            </div>
-          </div>
-          <div class="entry-table-wrap">
-            <table class="entry-table">
-              <thead>
-                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
-              </thead>
-              <tbody id="consPacking2Body">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consPacking2Total">0</span></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="Packing2">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
-          </div>
-        </form>
-      </div>
+          <div class="entry-preview-body" id="bscPreviewBody"></div>
 
-      <!-- ============ TAB: Easy ============ -->
-      <div class="cons-tab-content" id="consTabEasy">
-        <form class="entry-form" id="form-cons-easy" autocomplete="off">
-          <div class="entry-row entry-row-2">
-            <div class="entry-field">
-              <label for="consEasyDate">Date</label>
-              <input type="date" id="consEasyDate" required>
-            </div>
-            <div class="entry-field">
-              <label for="consEasySearch">Search Items</label>
-              <input type="text" id="consEasySearch" placeholder="Type item name...">
-            </div>
-          </div>
-          <div class="entry-table-wrap">
-            <table class="entry-table">
-              <thead>
-                <tr><th>Item Name</th><th style="width:220px;">Quantity (kg)</th></tr>
-              </thead>
-              <tbody id="consEasyBody">
-                <tr><td colspan="2" style="text-align:center;padding:20px;color:#6b7280;">Loading items...</td></tr>
-              </tbody>
-              <tfoot>
-                <tr class="entry-table-total">
-                  <td style="text-align:right;font-weight:700;">Total Consumable Weight</td>
-                  <td><span id="consEasyTotal">0</span></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
           <div class="entry-actions">
-            <button type="button" class="btn-entry-clear" data-cons-clear="Easy">Clear</button>
-            <button type="submit" class="btn-entry-save">💾 Save Record</button>
+            <button type="button" class="btn-entry-clear" id="bscEditBtn">✏️ Edit</button>
+            <button type="button" class="btn-entry-save" id="bscConfirmBtn">✅ Confirm & Save</button>
           </div>
-        </form>
+        </div>
+
       </div>
 
     </div>
