@@ -2652,12 +2652,16 @@ async function initProductionDetailEntry() {
     const hasFilter = q || fromDate || toDate;
     countEl.textContent = hasFilter ? `${filteredCount} of ${totalCount}` : `${totalCount} entries`;
 
-    // Sort newest first (by Entry_No)
-    rows = rows.slice().sort((a, b) => {
-      const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
-      const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
-      return nb - na;
-    });
+    // 🆕 අලුත්ම දිනය (Date) උඩට එන විදිහට සහ Entry No එක අනුව Sort කරනවා
+rows = rows.slice().sort((a, b) => {
+  const dateA = String(a.Date || "");
+  const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA); // දිනය අනුව අලුත් එක උඩට
+
+  const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+  const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+  return nb - na; // එකම දිනය නම් Entry No එක අනුව අලුත් එක උඩට
+});
 
     if (rows.length === 0) {
       entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
@@ -3232,7 +3236,11 @@ async function initBfl_(container, getCurrentUsername_, formatDec_, parseNum_) {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
@@ -3552,7 +3560,11 @@ function initBfi_(container, getCurrentUsername_, formatDec_, parseNum_) {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="7" class="entry-table-empty">No entries found.</td></tr>`;
@@ -3877,7 +3889,11 @@ function initGibletEntry() {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
@@ -4184,7 +4200,11 @@ function initEasyMaterialEntry() {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) => (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0));
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
@@ -4570,10 +4590,11 @@ async function initEasyProductionEntry() {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) =>
-      (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
-      (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
-    );
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="6" class="entry-table-empty">No entries found.</td></tr>`;
@@ -5787,10 +5808,11 @@ function renderConsumableEntries_(cfg) {
 
   countEl.textContent = `${rows.length} of ${consState_[cfg.key].entries.length}`;
 
-  rows.sort((a, b) =>
-    (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
-    (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
-  );
+  rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
   if (!rows.length) {
     entriesBody.innerHTML = `<tr><td colspan="5" class="entry-table-empty">No entries found.</td></tr>`;
@@ -6027,10 +6049,11 @@ async function initBirdsSlaughteredChecklistEntry() {
     });
 
     countEl.textContent = `${rows.length} of ${allEntries_.length}`;
-    rows.sort((a, b) =>
-      (parseInt(String(b.Entry_No).replace(/\D/g, ""), 10) || 0) -
-      (parseInt(String(a.Entry_No).replace(/\D/g, ""), 10) || 0)
-    );
+    rows.sort((a, b) => {
+  const dateA = String(a.Date || ""); const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return (parseInt(String(b.Entry_No).replace(/\D/g, "")) || 0) - (parseInt(String(a.Entry_No).replace(/\D/g, "")) || 0);
+});
 
     if (!rows.length) {
       entriesBody.innerHTML = `<tr><td colspan="7" class="entry-table-empty">No entries found.</td></tr>`;
@@ -7132,12 +7155,16 @@ function initDailyLbEntry() {
       ? `${filteredCount} of ${totalCount}`
       : `${totalCount} entries`;
 
-    // Sort newest first
-    rows = rows.slice().sort((a, b) => {
-      const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
-      const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
-      return nb - na;
-    });
+    // 🆕 අලුත්ම දිනය (Date) උඩට එන විදිහට සහ Entry No එක අනුව Sort කරනවා
+rows = rows.slice().sort((a, b) => {
+  const dateA = String(a.Date || "");
+  const dateB = String(b.Date || "");
+  if (dateA !== dateB) return dateB.localeCompare(dateA); // දිනය අනුව අලුත් එක උඩට
+
+  const na = parseInt(String(a.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+  const nb = parseInt(String(b.Entry_No || "").replace(/\D/g, ""), 10) || 0;
+  return nb - na; // එකම දිනය නම් Entry No එක අනුව අලුත් එක උඩට
+});
 
     if (rows.length === 0) {
       entriesBody.innerHTML = `<tr><td colspan="13" class="entry-table-empty">No entries found.</td></tr>`;

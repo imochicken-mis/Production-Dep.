@@ -688,7 +688,7 @@ async function buildTotalProductionSummary(year, month) {
 
 // ===================================================================
 // SALES FORECAST vs PRODUCTION — items with fixed weight ranges,
-// compares Data_Production_Forecast vs DataFBPProduction, month filtered
+// compares Data_Production_Forecast vs (DataFBPProduction + DataEasyProduction)
 // ===================================================================
 
 const SFP_ITEMS_ = [
@@ -749,31 +749,53 @@ const SFP_ITEMS_ = [
 ];
 
 async function buildSalesForecastVsProduction(year, month) {
-  const [forecastRows, fbpRows] = await Promise.all([
+  // 🆕 DataEasyProduction sheet එකත් එකතු කරගන්නවා
+  const [forecastRows, fbpRows, easyRows] = await Promise.all([
     Api.list("DataProductionForecast"),
     Api.list("DataFBPProduction"),
+    Api.list("DataEasyProduction"), 
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const forecastMonth = forecastRows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const fbpMonth = fbpRows.filter((r) => String(r.Date).startsWith(monthPrefix));
+  const easyMonth = easyRows.filter((r) => String(r.Date).startsWith(monthPrefix)); // 🆕
 
+  // 1. Sales Forecast (DataProductionForecast)
   const salesByCode = {};
   forecastMonth.forEach((r) => {
     const code = r.Code || "";
     salesByCode[code] = (salesByCode[code] || 0) + (Number(r["Sales Weight (Kg)"]) || 0);
   });
 
+  // 2. FBP Production (DataFBPProduction)
   const productionByCode = {};
   fbpMonth.forEach((r) => {
     const code = r.Item_Code || "";
     productionByCode[code] = (productionByCode[code] || 0) + (Number(r.Weight) || 0);
   });
 
+  // 3. 🆕 Easy Production (DataEasyProduction)
+  const easyProductionByCode = {};
+  easyMonth.forEach((r) => {
+    const code = String(r.Item_Code || "").trim();
+    // NET_WEIGHT row එක මේකට එකතු නොකර ඉන්න filter කරනවා
+    if (code && code.toUpperCase() !== "NET_WEIGHT") {
+      easyProductionByCode[code] = (easyProductionByCode[code] || 0) + (Number(r.Weight) || 0);
+    }
+  });
+
+  // 4. Combine and map to items
   const items = SFP_ITEMS_.map((item) => {
     const salesForecast = salesByCode[item.code] || 0;
-    const totalProduction = productionByCode[item.code] || 0;
+    
+    // 🆕 FBP Production + Easy Production එකතුව
+    const fbpProd = productionByCode[item.code] || 0;
+    const easyProd = easyProductionByCode[item.code] || 0;
+    const totalProduction = fbpProd + easyProd;
+
     const difference = salesForecast - totalProduction;
+    
     return { ...item, salesForecast, totalProduction, difference };
   });
 
@@ -854,35 +876,43 @@ async function buildLbTargetVsActual(year, month) {
 
 // ===================================================================
 // PRODUCTION TARGET vs ACTUAL — items × days (Target/Actual pair per day)
-// Target: DataProductionForecast ("Production Weight (Kg)")
-// Actual: DataFBPProduction ("Weight")
-// Reuses TOTAL_PRODUCTION_ITEMS_ (defined earlier for Total Production Summary)
+// Target: DailyTarget
+// Actual: DataFBPProduction + DataEasyProduction
 // ===================================================================
 
 async function buildProductionTargetVsActual(year, month) {
-  const [targetRows, fbpRows] = await Promise.all([
-    Api.list("DailyTarget"),           // ⬅️ DataProductionForecast → DailyTarget
+  const [targetRows, fbpRows, easyRows] = await Promise.all([
+    Api.list("DailyTarget"),
     Api.list("DataFBPProduction"),
+    Api.list("DataEasyProduction"), 
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
 
-  // ---------------------------------------------------------------
-  // DailyTarget structure (Api.list එකෙන් එන විදිහ):
-  //   targetRows[0]  = { Date: "Date", "01CW01": "Whole Chicken (S)", ... }  ← names row
-  //   targetRows[1+] = { Date: "2026-09-01", "01CW01": 120, ... }              ← actual data
-  // ---------------------------------------------------------------
   const nameRow = targetRows[0] || {};
-  const itemCodes = Object.keys(nameRow).filter(k => k && k !== 'Date');
+  
+  // 🆕 System Columns (Date, _rowIndex, Timestamp) අයින් කරනවා
+  let itemCodes = Object.keys(nameRow).filter(k => 
+    k && 
+    k !== 'Date' && 
+    k !== '_rowIndex' && 
+    k !== 'Timestamp'
+  );
 
-  // Item list — DailyTarget sheet එකේ codes + names වලින්ම හදනවා
+  // අලුතෙන් 06CE04 එකතු කරනවා
+  if (!itemCodes.includes("06CE04")) {
+    itemCodes.push("06CE04");
+    nameRow["06CE04"] = "Easy 1 Kg";
+  }
+
+  // Item list
   const items = itemCodes.map(code => ({
     code,
     name: String(nameRow[code] || ''),
   }));
 
-  // Target data — names row එක skip කරන්න
+  // 1. Target Data
   const targetMonth = targetRows
     .slice(1)
     .filter(r => String(r.Date || '').startsWith(monthPrefix));
@@ -896,9 +926,10 @@ async function buildProductionTargetVsActual(year, month) {
     });
   });
 
-  // Actual — DataFBPProduction එකෙන් (කලින් වගේම)
+  // 2. Actual Data — DataFBPProduction
   const fbpMonth = fbpRows.filter(r => String(r.Date).startsWith(monthPrefix));
   const actualByCode = {};
+  
   fbpMonth.forEach((r) => {
     const code = r.Item_Code || "";
     const day = Number(String(r.Date).split("-")[2]);
@@ -906,12 +937,26 @@ async function buildProductionTargetVsActual(year, month) {
     actualByCode[code][day] = (actualByCode[code][day] || 0) + (Number(r.Weight) || 0);
   });
 
-  // Items × days matrix එක
+  // 3. Actual Data — DataEasyProduction
+  const easyMonth = easyRows.filter(r => String(r.Date).startsWith(monthPrefix));
+  
+  easyMonth.forEach((r) => {
+    const code = String(r.Item_Code || "").trim();
+    if (!code || code.toUpperCase() === "NET_WEIGHT") return; // NET_WEIGHT අයින් කරනවා
+
+    const day = Number(String(r.Date).split("-")[2]);
+    if (!actualByCode[code]) actualByCode[code] = {};
+    
+    actualByCode[code][day] = (actualByCode[code][day] || 0) + (Number(r.Weight) || 0);
+  });
+
+  // 4. Items × days matrix
   const resultItems = items.map((item) => {
     const targets = [];
     const actuals = [];
     let totalTarget = 0;
     let totalActual = 0;
+    
     for (let d = 1; d <= daysInMonth; d++) {
       const t = (targetByCode[item.code] && targetByCode[item.code][d]) || 0;
       const a = (actualByCode[item.code] && actualByCode[item.code][d]) || 0;
@@ -929,6 +974,7 @@ async function buildProductionTargetVsActual(year, month) {
     dayTargetTotals.push(resultItems.reduce((s, i) => s + i.targets[d - 1], 0));
     dayActualTotals.push(resultItems.reduce((s, i) => s + i.actuals[d - 1], 0));
   }
+  
   const grandTotalTarget = dayTargetTotals.reduce((s, v) => s + v, 0);
   const grandTotalActual = dayActualTotals.reduce((s, v) => s + v, 0);
 
