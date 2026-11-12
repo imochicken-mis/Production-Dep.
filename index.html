@@ -196,31 +196,36 @@
         </div>
       </div>
 
-      <!-- 🆕 Status multi-select -->
-      <div class="filter-group multi-select-group">
-        <label>Status</label>
-        <div class="multi-select" id="statusFilter">
-          <button type="button" class="multi-select-btn" id="statusFilterBtn">
-            <span id="statusFilterLabel">All Status</span>
-            <span class="multi-arrow">▾</span>
-          </button>
-          <div class="multi-select-panel" id="statusFilterPanel">
-            <label class="ms-option ms-all">
-              <input type="checkbox" id="statusFilterAll" checked>
-              <span>All Status</span>
-            </label>
-            <div class="ms-divider"></div>
-            <label class="ms-option">
-              <input type="checkbox" class="status-filter-item" data-status="good" checked>
-              <span>✅ Achieved</span>
-            </label>
-            <label class="ms-option">
-              <input type="checkbox" class="status-filter-item" data-status="not-achieved" checked>
-              <span>❌ Not Achieved</span>
-            </label>
-          </div>
-        </div>
-      </div>
+<!-- 🆕 Status multi-select -->
+<div class="filter-group multi-select-group">
+  <label>Status</label>
+  <div class="multi-select" id="statusFilter">
+    <button type="button" class="multi-select-btn" id="statusFilterBtn">
+      <span id="statusFilterLabel">All Status</span>
+      <span class="multi-arrow">▾</span>
+    </button>
+    <div class="multi-select-panel" id="statusFilterPanel">
+      <label class="ms-option ms-all">
+        <input type="checkbox" id="statusFilterAll" checked>
+        <span>All Status</span>
+      </label>
+      <div class="ms-divider"></div>
+      <label class="ms-option">
+        <input type="checkbox" class="status-filter-item" data-status="good" checked>
+        <span>✅ Achieved</span>
+      </label>
+      <label class="ms-option">
+        <input type="checkbox" class="status-filter-item" data-status="not-achieved" checked>
+        <span>❌ Not Achieved</span>
+      </label>
+      <!-- 🆕 මේක තමයි අලුතෙන් එකතු කරන්නේ -->
+      <label class="ms-option">
+        <input type="checkbox" class="status-filter-item" data-status="no-data" checked>
+        <span>⚪ No Data</span>
+      </label>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 

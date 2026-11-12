@@ -465,6 +465,9 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
 
   const num = kpiKey.replace('kpi-', '');
 
+  // 🆕 Data තියෙනවද නැද්ද කියලා බලනවා (වැඩ කරපු දවස් 0 නම් ඩේටා නෑ)
+  const hasData = (actualDays > 0);
+
   // Standard display per KPI
   let stdText;
   if (kpiKey === 'kpi-01')      stdText = '≤ 0.05%';
@@ -477,13 +480,21 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
 
   // Actual value display
   let actualText = '—';
-  if (actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
+  if (hasData && actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
     if (kpiKey === 'kpi-02') actualText = Number(actualValue).toFixed(0) + ' birds/hr';
     else                     actualText = Number(actualValue).toFixed(2) + '%';
   }
 
-  const statusInfo = getKpiStatusDisplay_(kpiKey, actualValue);
-  const good = isKpiGood_(kpiKey, actualValue);
+  // 🆕 Status Info (No Data එකතු කිරීම සහ සිම්බල්ස්)
+  let statusInfo = { label: '⚪ No Data', color: '#999', pill: '' };
+  let good = false;
+
+  if (hasData) {
+    statusInfo = getKpiStatusDisplay_(kpiKey, actualValue);
+    if (statusInfo.label === 'Achieved') statusInfo.label = '✅ Achieved';
+    if (statusInfo.label === 'Not Achieved') statusInfo.label = '❌ Not Achieved';
+    good = isKpiGood_(kpiKey, actualValue);
+  }
 
   const stdEl = document.getElementById(`kpi${num}Standard`);
   const actEl = document.getElementById(`kpi${num}Actual`);
@@ -500,7 +511,9 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
     actEl.textContent = actualText;
     actEl.style.color = '';
     actEl.classList.remove('kpi-actual-achieved', 'kpi-actual-notachieved');
-    actEl.classList.add(good ? 'kpi-actual-achieved' : 'kpi-actual-notachieved');
+    if (hasData) {
+      actEl.classList.add(good ? 'kpi-actual-achieved' : 'kpi-actual-notachieved');
+    }
   }
 
 
@@ -509,7 +522,9 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
     stEl.textContent = statusInfo.label;
     stEl.style.color = statusInfo.color;
     stEl.classList.remove('kpi-achieved', 'kpi-not-achieved');
-    if (statusInfo.pill) stEl.classList.add(statusInfo.pill);
+    if (hasData && statusInfo.pill) {
+      stEl.classList.add(statusInfo.pill);
+    }
   }
 
   // ===========================================================
@@ -534,69 +549,77 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
   const barStdLblEl  = document.getElementById(`kpi${num}BarStdLabel`);
   const barStatusEl  = document.getElementById(`kpi${num}BarStatus`);
 
-  if (barFillEl && actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
-    // Bar max range from KPI_BAR_MAX_ (defined elsewhere in app.js)
-    const BAR_MAX = (typeof KPI_BAR_MAX_ !== 'undefined' && KPI_BAR_MAX_[kpiKey])
-      ? KPI_BAR_MAX_[kpiKey]
-      : std * 2;
+  if (barFillEl) {
+    if (hasData && actualValue !== null && actualValue !== undefined && isFinite(actualValue)) {
+      // Bar max range from KPI_BAR_MAX_ (defined elsewhere in app.js)
+      const BAR_MAX = (typeof KPI_BAR_MAX_ !== 'undefined' && KPI_BAR_MAX_[kpiKey])
+        ? KPI_BAR_MAX_[kpiKey]
+        : std * 2;
 
-    const fillPct = Math.max(0, Math.min(100, (actualValue / BAR_MAX) * 100));
-    const stdPct  = Math.max(0, Math.min(100, (std / BAR_MAX) * 100));
+      const fillPct = Math.max(0, Math.min(100, (actualValue / BAR_MAX) * 100));
+      const stdPct  = Math.max(0, Math.min(100, (std / BAR_MAX) * 100));
 
-    // Fill width + color
-    barFillEl.style.width = `${fillPct}%`;
-    barFillEl.style.background = good
-      ? 'linear-gradient(90deg, #6EE87C 0%, #1B9E3A 100%)'
-      : 'linear-gradient(90deg, #FF6B6B 0%, #B71C1C 100%)';
+      // Fill width + color
+      barFillEl.style.width = `${fillPct}%`;
+      barFillEl.style.background = good
+        ? 'linear-gradient(90deg, #6EE87C 0%, #1B9E3A 100%)'
+        : 'linear-gradient(90deg, #FF6B6B 0%, #B71C1C 100%)';
 
-    // Standard mark position
-    if (barStdMarkEl) barStdMarkEl.style.left = `${stdPct}%`;
+      // Standard mark position
+      if (barStdMarkEl) barStdMarkEl.style.left = `${stdPct}%`;
 
-    // Standard label position (with edge-clamping)
-    if (barStdLblEl) {
-      if (stdPct < 12) {
-        barStdLblEl.style.transform = 'translateX(0)';
-        barStdLblEl.style.left = '4px';
-      } else if (stdPct > 88) {
-        barStdLblEl.style.transform = 'translateX(-100%)';
-        barStdLblEl.style.left = 'calc(100% - 4px)';
-      } else {
-        barStdLblEl.style.transform = 'translateX(-50%)';
-        barStdLblEl.style.left = `${stdPct}%`;
+      // Standard label position (with edge-clamping)
+      if (barStdLblEl) {
+        if (stdPct < 12) {
+          barStdLblEl.style.transform = 'translateX(0)';
+          barStdLblEl.style.left = '4px';
+        } else if (stdPct > 88) {
+          barStdLblEl.style.transform = 'translateX(-100%)';
+          barStdLblEl.style.left = 'calc(100% - 4px)';
+        } else {
+          barStdLblEl.style.transform = 'translateX(-50%)';
+          barStdLblEl.style.left = `${stdPct}%`;
+        }
+        barStdLblEl.textContent = shortStdLabel_(kpiKey);
       }
-      barStdLblEl.textContent = shortStdLabel_(kpiKey);
+
+      // Status text on bar
+      if (barStatusEl) barStatusEl.textContent = statusInfo.label;
+
+          // 🆕 Deviation from standard
+      const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
+      if (barDevEl && std > 0) {
+        const devPct = ((actualValue - std) / std) * 100;
+        const sign = devPct >= 0 ? '+' : '';
+        barDevEl.textContent = `${sign}${devPct.toFixed(1)}%`;
+
+        // Position near the actual fill edge
+        const devPos = Math.max(6, Math.min(94, fillPct));
+        barDevEl.style.left = `${devPos}%`;
+
+        // Color: green if achieved, red if not
+        barDevEl.classList.toggle('negative', !good);
+        barDevEl.classList.remove('hidden');
+      }
+    } else {
+      // 🆕 No data → reset bar + hide deviation
+      barFillEl.style.width = `0%`;
+      barFillEl.style.background = 'transparent';
+      if (barStatusEl) barStatusEl.textContent = statusInfo.label;
+      if (barStdMarkEl) barStdMarkEl.style.left = `0%`;
+      if (barStdLblEl) barStdLblEl.textContent = '';
+      
+      const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
+      if (barDevEl) barDevEl.classList.add('hidden');
     }
-
-    // Status text on bar
-    if (barStatusEl) barStatusEl.textContent = statusInfo.label;
-
-        // 🆕 Deviation from standard
-    const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
-    if (barDevEl && std > 0) {
-      const devPct = ((actualValue - std) / std) * 100;
-      const sign = devPct >= 0 ? '+' : '';
-      barDevEl.textContent = `${sign}${devPct.toFixed(1)}%`;
-
-      // Position near the actual fill edge
-      const devPos = Math.max(6, Math.min(94, fillPct));
-      barDevEl.style.left = `${devPos}%`;
-
-      // Color: green if achieved, red if not
-      barDevEl.classList.toggle('negative', !good);
-      barDevEl.classList.remove('hidden');
-    }
-  } else {
-    // No data → hide deviation
-    const barDevEl = document.getElementById(`kpi${num}BarDeviation`);
-    if (barDevEl) barDevEl.classList.add('hidden');
   }
 
   // ===========================================================
   // FORMULA — bottom row (Col 3)
   // ===========================================================
   const fmSpanEl = document.getElementById(`kpi${num}FormulaSpan`);
-    if (fmSpanEl) {
-    if (breakdown && breakdown.formula) {
+  if (fmSpanEl) {
+    if (hasData && breakdown && breakdown.formula) {
       fmSpanEl.innerHTML = wrapFormulaNumbers_(breakdown.formula);   // ✅
       fmSpanEl.style.display = '';
     } else {
@@ -605,7 +628,7 @@ function updateKpiHeader(kpiKey, std, workingDays, actualDays , actualValue, bre
     }
   }
 
-    // Today's date — DD-MM-YYYY
+  // Today's date — DD-MM-YYYY
   const todayEl = document.getElementById(`kpi${num}Today`);
   if (todayEl) {
     const d = new Date();
@@ -1718,21 +1741,24 @@ async function renderLbTargetVsActual() {
 }
 
 function renderLtaTable_(report) {
-  const rows = report.dateRows.map((r) => {
-    const dowClass = getDayOfWeekClass_(r.date);
+  // 🆕 Dynamic Headers (Sheet එකෙන් එන නම්)
+  const r = report.rangeLabels || { r1: "1.2 - 1.4", r2: "1.5 - 1.8", r3: "1.9 - 2.2", r4: "2.3 & Above" };
+
+  const rows = report.dateRows.map((row) => {
+    const dowClass = getDayOfWeekClass_(row.date);
     return `<tr class="${dowClass}">
-      <td class="row-label">${formatDateDMY_(r.date)}</td>
-      <td>${r.hasData ? formatNum_(r.totalTargetBirds, 0) : ""}</td>
-      <td>${r.hasData ? formatNum_(r.totalActualBirds, 0) : ""}</td>
-      <td>${r.target14 ? formatNum_(r.target14, 0) : ""}</td>
-      <td>${r.actual14 ? formatNum_(r.actual14, 0) : ""}</td>
-      <td>${r.target18 ? formatNum_(r.target18, 0) : ""}</td>
-      <td>${r.actual18 ? formatNum_(r.actual18, 0) : ""}</td>
-      <td>${r.target22 ? formatNum_(r.target22, 0) : ""}</td>
-      <td>${r.actual22 ? formatNum_(r.actual22, 0) : ""}</td>
-      <td>${r.target23 ? formatNum_(r.target23, 0) : ""}</td>
-      <td>${r.actual23 ? formatNum_(r.actual23, 0) : ""}</td>
-      <td>${r.hasData ? formatPct_(r.achievementPct) : "0.00%"}</td>
+      <td class="row-label">${formatDateDMY_(row.date)}</td>
+      <td>${row.hasData ? formatNum_(row.totalTargetBirds, 0) : ""}</td>
+      <td>${row.hasData ? formatNum_(row.totalActualBirds, 0) : ""}</td>
+      <td>${row.target14 ? formatNum_(row.target14, 0) : ""}</td>
+      <td>${row.actual14 ? formatNum_(row.actual14, 0) : ""}</td>
+      <td>${row.target18 ? formatNum_(row.target18, 0) : ""}</td>
+      <td>${row.actual18 ? formatNum_(row.actual18, 0) : ""}</td>
+      <td>${row.target22 ? formatNum_(row.target22, 0) : ""}</td>
+      <td>${row.actual22 ? formatNum_(row.actual22, 0) : ""}</td>
+      <td>${row.target23 ? formatNum_(row.target23, 0) : ""}</td>
+      <td>${row.actual23 ? formatNum_(row.actual23, 0) : ""}</td>
+      <td>${row.hasData ? formatPct_(row.achievementPct) : "0.00%"}</td>
     </tr>`;
   }).join("");
 
@@ -1752,10 +1778,11 @@ function renderLtaTable_(report) {
           <th class="row-label" rowspan="2">Date</th>
           <th rowspan="2">Total Target Birds</th>
           <th rowspan="2">Total Actual Birds</th>
-          <th colspan="2">1.2 - 1.4</th>
-          <th colspan="2">1.5 - 1.8</th>
-          <th colspan="2">1.9 - 2.2</th>
-          <th colspan="2">2.3 & Above</th>
+          <!-- 🆕 Dynamic Headers -->
+          <th colspan="2">${r.r1}</th>
+          <th colspan="2">${r.r2}</th>
+          <th colspan="2">${r.r3}</th>
+          <th colspan="2">${r.r4}</th>
           <th rowspan="2">Achievement %</th>
         </tr>
         <tr>
@@ -10568,7 +10595,7 @@ let dashNewState = {
   viewMode: "quarterly",
   chartType: "line",
   selectedKpis: new Set(["kpi-01","kpi-02","kpi-03","kpi-04","kpi-05","kpi-06"]),
-  selectedStatuses: new Set(["good", "not-achieved"]),
+  selectedStatuses: new Set(["good", "not-achieved", "no-data"]),
   data: {},
   chartInstances: {}
 };
@@ -10815,13 +10842,18 @@ function computeKpiOverallValue_(report, kpiKey) {
   return null;
 }
 
-function renderKpiCardsNew(data) {
+function renderKpiCardsNew(data, statusRows) {
   const container = document.getElementById("dashNewCards");
   if (!container) return;
 
-  // 🆕 Filter KPI keys by user selection
   const keys = DASH_KPI_ORDER_.filter(k => dashNewState.selectedKpis.has(k));
   let html = "";
+
+  // Status Row එකේ අගය ගන්න helper function එකක්
+  const getKpiStatusRow = (kpiKey) => {
+    const kpiNo = kpiKey.replace("kpi-", "");
+    return (statusRows || []).find(r => String(r["KPI No"]).padStart(2, "0") === kpiNo);
+  };
 
   keys.forEach(key => {
     const config = KPI_CONFIG_NEW[key];
@@ -10859,26 +10891,16 @@ function renderKpiCardsNew(data) {
       }
     }
 
-    // ===================================================================
-    // 🆕 STATUS FILTER — skip card if status not selected
-    // ===================================================================
     const statusKey =
       status.status === "good"     ? "good" :
       status.status === "no-data"  ? "no-data" :
                                      "not-achieved";
 
-    console.log(`[Card Filter] ${key} → status="${status.status}" → key="${statusKey}" → selected=${dashNewState.selectedStatuses.has(statusKey)}`);
-
     if (!dashNewState.selectedStatuses.has(statusKey)) {
-      return;   // skip this KPI card
+      return;   
     }
-    // ===================================================================
 
     const barWidth = avgValue !== null ? Math.min(100, (avgValue / config.standard) * 100) : 0;
-    const trendDisplay = trend.direction === "up" ? `▲ ${trend.value.toFixed(1)}%` :
-                        trend.direction === "down" ? `▼ ${trend.value.toFixed(1)}%` : "—";
-    const trendClass = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "";
-
     const stdDisplay = formatStdDisplay_(key, config);
 
     const accentColor =
@@ -10891,25 +10913,41 @@ function renderKpiCardsNew(data) {
       status.status === "no-data"  ? "rgba(158, 158, 158, 0.20)" :
                                      "rgba(198, 40, 40, 0.30)";
 
+    // KPI Active/Inactive Status එක ගන්නවා
+    const kpiStatusRow = getKpiStatusRow(key);
+    const currentStatus = kpiStatusRow ? String(kpiStatusRow.Status || "Active") : "Active";
+    const isActive = currentStatus.toLowerCase() !== "inactive";
+
+    // 🔴 මෙතන inactive-kpi class එක අයින් කළා (පාට වෙනස් නොවෙන්න)
     html += `
       <div class="dash-kpi-card"
            data-kpi="${key}"
            role="button"
            tabindex="0"
-           title="Open ${config.label} KPI"
            data-status="${status.status}"
-           style="--card-accent: ${accentColor}; --card-accent-light: ${accentLight};">
+           style="--card-accent: ${accentColor}; --card-accent-light: ${accentLight}; position: relative;">
+        
+        <!-- 🆕 Toggle Switch -->
+        <div class="kpi-toggle-wrap" data-kpi="${key}" data-row-index="${kpiStatusRow ? kpiStatusRow._rowIndex : ''}">
+          <label class="kpi-toggle-switch" title="${isActive ? 'Active' : 'Inactive'}">
+            <input type="checkbox" class="kpi-status-checkbox" ${isActive ? 'checked' : ''}>
+            <span class="kpi-slider"></span>
+          </label>
+        </div>
+
         <div class="card-icon">${config.icon}</div>
         <div class="card-label">${config.shortLabel}</div>
         <div class="card-value">
-          ${displayValue}<span class="unit">${config.unit}</span>
+          ${displayValue}${extracted.hasData ? `<span class="unit">${config.unit}</span>` : ''}
         </div>
         <div class="card-standard">
           <span class="std-label">Standard:</span>
           <span class="std-value">${stdDisplay}</span>
         </div>
         <div>
-          <span class="card-status ${status.status}">${status.label}</span>
+          <span class="card-status ${status.status}">
+            ${status.status === "good" ? "✅" : status.status === "no-data" ? "⚪" : "❌"} ${status.label}
+          </span>
         </div>
         <div class="card-bar">
           <div class="card-bar-fill" style="width: ${barWidth}%; background: ${config.color}"></div>
@@ -10923,10 +10961,47 @@ function renderKpiCardsNew(data) {
 
   container.innerHTML = html;
 
+  // =========================================================
+  // 🆕 Bind Events for Checkbox Toggle & Card Click
+  // =========================================================
+  
+  // 1. Toggle Switch Change (Save to Sheet)
+  const checkboxes = container.querySelectorAll(".kpi-status-checkbox");
+  checkboxes.forEach(cb => {
+    // Toggle එක click කරාම card එකට යන එක නවත්තන්න
+    cb.closest('.kpi-toggle-wrap').addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    cb.addEventListener("change", async (e) => {
+      const toggleWrap = e.target.closest(".kpi-toggle-wrap");
+      const kpiKey = toggleWrap.dataset.kpi;
+      const rowIndex = Number(toggleWrap.dataset.rowIndex);
+      const newStatus = e.target.checked ? "Active" : "Inactive";
+      
+      if (!rowIndex || rowIndex < 2) {
+        alert("❌ Sheet එකේ Row Index එක හම්බුනේ නෑ. Page එක refresh කරන්න.");
+        e.target.checked = !e.target.checked; // ආපහු පරණ තත්වෙට හරවන්න
+        return;
+      }
+
+      try {
+        // Sheet එකට update කරනවා
+        await Api.update("KPI_Status", rowIndex, { Status: newStatus });
+        // (Card එකේ පාට වෙනස් වෙන්නේ නෑ - ඉල්ලීමට අනුව)
+      } catch (err) {
+        alert(`❌ Status update කරන්න බැරි වුනා: ${err.message}`);
+        e.target.checked = !e.target.checked; // Error එකක් ආවොත් ආපහු හරවන්න
+      }
+    });
+  });
+
+  // 2. Card Click (Open KPI View)
   container.querySelectorAll(".dash-kpi-card").forEach((card) => {
     const kpiKey = card.dataset.kpi;
     if (!kpiKey) return;
-    card.addEventListener("click", () => {
+    
+    card.addEventListener("click", (e) => {
       if (typeof showView === "function") showView(kpiKey);
     });
     card.addEventListener("keydown", (e) => {
@@ -11299,13 +11374,18 @@ async function renderDashboardNew() {
     const month = dashNewState.month;
     const viewMode = dashNewState.viewMode;
 
-    const data = await fetchAllKpiDataNew(year, month);
+    // 🆕 KPI Status ටිකත් එකතු කරගන්නවා
+    const [data, statusRows] = await Promise.all([
+      fetchAllKpiDataNew(year, month),
+      Api.list("KPI_Status", { force: true }).catch(() => [])
+    ]);
     dashNewState.data = data;
+    dashNewState.statusRows = statusRows; // State එකේ තියාගන්නවා
 
     const yearData = await fetchAllKpiYearDataNew(year);
     dashNewState.yearData = yearData;
 
-    renderKpiCardsNew(data);
+    renderKpiCardsNew(data, statusRows); // statusRows යවනවා
     renderAllCharts(yearData, viewMode);
     renderSummaryTable(data);
   } catch (err) {

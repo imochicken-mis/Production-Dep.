@@ -810,44 +810,102 @@ async function buildSalesForecastVsProduction(year, month) {
 
 // ===================================================================
 // LB TARGET vs ACTUAL — date rows, month/year filtered.
-// Target: DataProductionBirdReq (4 weight-range columns)
+// Target: DataProductionBirdReq (Dynamic weight-range columns)
 // Actual: DataLBSummary, bucketed by each row's Average_weight
 // ===================================================================
 
 async function buildLbTargetVsActual(year, month) {
-  const [reqRows, lbRows] = await Promise.all([
+  const [reqRows, lbRows, rangeRows] = await Promise.all([
     Api.list("DataProductionBirdReq"),
     Api.list("DataLBSummary"),
+    Api.list("Master_Weight_Ranges").catch(() => []), // 🆕 Config Sheet
   ]);
 
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
   const reqMonth = reqRows.filter((r) => String(r.Date).startsWith(monthPrefix));
   const lbMonth = lbRows.filter((r) => String(r.Date).startsWith(monthPrefix));
 
-  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+  // 1. Default Ranges
+  let rangeStrings = {
+    r1: "1.2 - 1.4", r2: "1.5 - 1.8", r3: "1.9 - 2.2", r4: "2.3 & Above"
+  };
 
+  // 2. අදාළ මාසයට අදාළ Ranges ටික හොයාගන්නවා
+  const configRow = rangeRows.find(r => 
+    String(r.Year) === String(year) && 
+    String(r.Month).padStart(2, "0") === String(month).padStart(2, "0")
+  );
+
+  if (configRow) {
+    rangeStrings.r1 = String(configRow["Range 1"] || rangeStrings.r1).trim();
+    rangeStrings.r2 = String(configRow["Range 2"] || rangeStrings.r2).trim();
+    rangeStrings.r3 = String(configRow["Range 3"] || rangeStrings.r3).trim();
+    rangeStrings.r4 = String(configRow["Range 4"] || rangeStrings.r4).trim();
+  }
+
+  // 3. "1.2 - 1.4" වගේ ටෙක්ස් එකකින් අවම සහ උපරිම අගය හොයාගන්නා ක්‍රමය
+  const parseRangeStr = (str) => {
+    if (!str) return { min: 0, max: 999 };
+    const s = String(str).toLowerCase();
+    if (s.includes('above')) {
+      const numStr = s.split('&')[0] || s.split('above')[0];
+      const min = parseFloat(numStr.replace(/[^\d.]/g, ''));
+      return { min: isNaN(min) ? 0 : min, max: 999 };
+    }
+    const parts = s.split('-');
+    if (parts.length >= 2) {
+      const min = parseFloat(parts[0].replace(/[^\d.]/g, ''));
+      const max = parseFloat(parts[1].replace(/[^\d.]/g, ''));
+      return { min: isNaN(min) ? 0 : min, max: isNaN(max) ? 999 : max };
+    }
+    return { min: 0, max: 999 };
+  };
+
+  const r1 = parseRangeStr(rangeStrings.r1);
+  const r2 = parseRangeStr(rangeStrings.r2);
+  const r3 = parseRangeStr(rangeStrings.r3);
+  const r4 = parseRangeStr(rangeStrings.r4);
+
+  // 4. DataProductionBirdReq Sheet එකේ අදාළ Column එක හොයාගන්නවා
+  const reqKeys = Object.keys(reqRows[0] || {});
+  const findReqCol = (rangeStr) => {
+    if (!rangeStr) return "";
+    const cleanTarget = rangeStr.replace(/[^\d.]/g, '');
+    const found = reqKeys.find(k => k.replace(/[^\d.]/g, '') === cleanTarget);
+    return found || rangeStr;
+  };
+
+  const col1 = findReqCol(rangeStrings.r1);
+  const col2 = findReqCol(rangeStrings.r2);
+  const col3 = findReqCol(rangeStrings.r3);
+  const col4 = findReqCol(rangeStrings.r4);
+
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
   const dateRows = [];
+
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${monthPrefix}${String(d).padStart(2, "0")}`;
 
     const reqDay = reqMonth.filter((r) => String(r.Date) === dateStr);
-    const target14 = reqDay.reduce((s, r) => s + (Number(r["1.2 - 1.4 kg"]) || 0), 0);
-    const target18 = reqDay.reduce((s, r) => s + (Number(r["1.5 - 1.8 kg"]) || 0), 0);
-    const target22 = reqDay.reduce((s, r) => s + (Number(r["1.9 - 2.2 kg"]) || 0), 0);
-    const target23 = reqDay.reduce((s, r) => s + (Number(r["2.3 kg Above"]) || 0), 0);
+    const target14 = reqDay.reduce((s, r) => s + (Number(r[col1]) || 0), 0);
+    const target18 = reqDay.reduce((s, r) => s + (Number(r[col2]) || 0), 0);
+    const target22 = reqDay.reduce((s, r) => s + (Number(r[col3]) || 0), 0);
+    const target23 = reqDay.reduce((s, r) => s + (Number(r[col4]) || 0), 0);
     const totalTargetBirds = target14 + target18 + target22 + target23;
 
     const lbDay = lbMonth.filter((r) => String(r.Date) === dateStr);
     let actual14 = 0, actual18 = 0, actual22 = 0, actual23 = 0;
+    
+    // 🆕 Actual අගයන් අලුත් පරාසයට අනුව වෙන් කරනවා
     lbDay.forEach((r) => {
       const avg = Number(r.Average_weight) || 0;
       const birds = Number(r.No_of_birds) || 0;
-      if (avg >= 1.2 && avg <= 1.4) actual14 += birds;
-      else if (avg > 1.4 && avg <= 1.8) actual18 += birds;
-      else if (avg > 1.8 && avg <= 2.2) actual22 += birds;
-      else if (avg > 2.2) actual23 += birds;
-      // avg < 1.2 -> not bucketed into any range column
+      if (avg >= r1.min && avg <= r1.max) actual14 += birds;
+      else if (avg >= r2.min && avg <= r2.max) actual18 += birds;
+      else if (avg >= r3.min && avg <= r3.max) actual22 += birds;
+      else if (avg >= r4.min) actual23 += birds;
     });
+    
     const totalActualBirds = lbDay.reduce((s, r) => s + (Number(r.No_of_birds) || 0), 0);
 
     const hasData = reqDay.length > 0 || lbDay.length > 0;
@@ -869,9 +927,13 @@ async function buildLbTargetVsActual(year, month) {
     acc.totalActualBirds += r.totalActualBirds;
     return acc;
   }, { target14: 0, actual14: 0, target18: 0, actual18: 0, target22: 0, actual22: 0, target23: 0, actual23: 0, totalTargetBirds: 0, totalActualBirds: 0 });
+  
   totals.achievementPct = totals.totalTargetBirds > 0 ? (totals.totalActualBirds / totals.totalTargetBirds) * 100 : 0;
 
-  return { year, month, dateRows, totals };
+  return { 
+    year, month, dateRows, totals,
+    rangeLabels: rangeStrings // 🆕 UI එකට යවන්න
+  };
 }
 
 // ===================================================================
